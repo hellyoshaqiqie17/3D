@@ -19,6 +19,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const selectZone = useConfiguratorStore((s) => s.selectZone);
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const customColors = useConfiguratorStore((s) => s.customColors);
+  const hoveredMeshName = useConfiguratorStore((s) => s.hoveredMeshName);
 
   // Available categories based on the current project's zones
   const availableCategories = useMemo(() => {
@@ -97,10 +98,8 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
               )}
             </div>
 
-            {/* Color Swatch & Picker for Walls or color-compatible zones */}
-            {(currentZone.category === 'wall' || activeCategory === 'wall') && (
-              <ColorPickerSection currentZone={currentZone} />
-            )}
+            {/* Color Swatch & Custom Hex Color Picker for current active zone */}
+            <ColorPickerSection currentZone={currentZone} />
 
             {/* Material Grid Header */}
             <div className="px-4 pt-3 flex items-center justify-between">
@@ -159,7 +158,9 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
       <div className="p-3 bg-surface-50 border-t border-border flex items-center justify-between text-[11px] text-secondary">
         <div className="flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 text-secondary" />
-          <span>Click any 3D surface to select</span>
+          <span className="truncate max-w-[220px]">
+            {hoveredMeshName ? `Target: ${hoveredMeshName}` : 'Click any 3D surface to select'}
+          </span>
         </div>
         <span className="font-mono text-[10px]">PBR 60FPS</span>
       </div>

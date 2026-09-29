@@ -99,16 +99,26 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     });
   }, [sceneClone, isWireframeMode]);
 
+  // Helper to find matching zone including parent node hierarchy
+  const findZoneForObject = (obj: THREE.Object3D): MaterialZone | undefined => {
+    let curr: THREE.Object3D | null = obj;
+    while (curr && curr !== sceneClone) {
+      if (curr.name && meshToZoneMap.has(curr.name)) {
+        return meshToZoneMap.get(curr.name);
+      }
+      curr = curr.parent;
+    }
+    return undefined;
+  };
+
   // Handle pointer interactions
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     const mesh = e.object;
     if (mesh instanceof THREE.Mesh) {
-      const zone = meshToZoneMap.get(mesh.name);
-      if (zone) {
-        document.body.style.cursor = 'pointer';
-        setHoveredMesh(mesh.name);
-      }
+      const zone = findZoneForObject(mesh) || meshToZoneMap.get(mesh.name);
+      document.body.style.cursor = 'pointer';
+      setHoveredMesh(zone ? zone.name : mesh.name);
     }
   };
 
@@ -122,7 +132,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     e.stopPropagation();
     const mesh = e.object;
     if (mesh instanceof THREE.Mesh) {
-      const zone = meshToZoneMap.get(mesh.name);
+      const zone = findZoneForObject(mesh) || meshToZoneMap.get(mesh.name);
       setSelectedMesh(mesh.name);
 
       if (zone) {

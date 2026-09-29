@@ -124,13 +124,42 @@ export default function NewProjectPage() {
           }
         });
 
-        // Categorize meshes
-        const wallMeshes = discoveredMeshes.filter((m) => /wall|facade|exterior|pillar|column/i.test(m));
-        const floorMeshes = discoveredMeshes.filter((m) => /floor|ground|parquet|wood/i.test(m));
-        const bathMeshes = discoveredMeshes.filter((m) => /bath|tile|ceramic|shower|toilet/i.test(m));
-        const roofMeshes = discoveredMeshes.filter((m) => /roof|ceiling|canopy/i.test(m));
-        const doorMeshes = discoveredMeshes.filter((m) => /door|entry|pivot|frame/i.test(m));
+        // Categorize meshes with comprehensive architectural & CAD patterns
+        const assignedSet = new Set<string>();
 
+        const roofMeshes = discoveredMeshes.filter((m) => /roof|ceiling|canopy|cover|slab|shingle|top/i.test(m));
+        roofMeshes.forEach((m) => assignedSet.add(m));
+
+        const wallMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /wall|facade|exterior|building|siding|panel|body|ib10/i.test(m));
+        wallMeshes.forEach((m) => assignedSet.add(m));
+
+        const doorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /door|entry|pivot|frame|gate|hinge|handle|lock/i.test(m));
+        doorMeshes.forEach((m) => assignedSet.add(m));
+
+        const trimMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /corner|trim|beam|column|pillar|post|railing|fence/i.test(m));
+        trimMeshes.forEach((m) => assignedSet.add(m));
+
+        const ventMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /vent|grid|fan|chimney|cupola|weather|arrow|light|lamp/i.test(m));
+        ventMeshes.forEach((m) => assignedSet.add(m));
+
+        const floorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /floor|ground|parquet|wood|deck|patio/i.test(m));
+        floorMeshes.forEach((m) => assignedSet.add(m));
+
+        const bathMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /bath|tile|ceramic|shower|toilet/i.test(m));
+        bathMeshes.forEach((m) => assignedSet.add(m));
+
+        // Remaining unassigned meshes
+        const remainingMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m));
+
+        if (roofMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_roof',
+            name: 'Roofing & Canopy',
+            category: 'roof',
+            meshNames: roofMeshes,
+            defaultMaterialId: 'roof-zinc-charcoal',
+          });
+        }
         if (wallMeshes.length > 0) {
           candidateZones.push({
             id: 'zone_wall',
@@ -140,10 +169,37 @@ export default function NewProjectPage() {
             defaultMaterialId: 'wall-pure-white',
           });
         }
+        if (doorMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_door',
+            name: 'Doors, Gates & Hardware',
+            category: 'door',
+            meshNames: doorMeshes,
+            defaultMaterialId: 'door-teak-wood',
+          });
+        }
+        if (trimMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_trim',
+            name: 'Corners, Trim & Columns',
+            category: 'exterior',
+            meshNames: trimMeshes,
+            defaultMaterialId: 'wall-warm-cream',
+          });
+        }
+        if (ventMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_vents',
+            name: 'Vents, Fixtures & Accents',
+            category: 'roof',
+            meshNames: ventMeshes,
+            defaultMaterialId: 'roof-slate-black',
+          });
+        }
         if (floorMeshes.length > 0) {
           candidateZones.push({
             id: 'zone_floor',
-            name: 'Main Flooring',
+            name: 'Main Flooring & Decks',
             category: 'floor',
             meshNames: floorMeshes,
             defaultMaterialId: 'floor-oak-natural',
@@ -158,22 +214,13 @@ export default function NewProjectPage() {
             defaultMaterialId: 'tile-white-subway',
           });
         }
-        if (roofMeshes.length > 0) {
+        if (remainingMeshes.length > 0) {
           candidateZones.push({
-            id: 'zone_roof',
-            name: 'Roof Canopy',
-            category: 'roof',
-            meshNames: roofMeshes,
-            defaultMaterialId: 'roof-zinc-charcoal',
-          });
-        }
-        if (doorMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_door',
-            name: 'Doors & Frames',
-            category: 'door',
-            meshNames: doorMeshes,
-            defaultMaterialId: 'door-teak-wood',
+            id: 'zone_other',
+            name: 'Architectural Details',
+            category: 'exterior',
+            meshNames: remainingMeshes,
+            defaultMaterialId: 'wall-pure-white',
           });
         }
 
