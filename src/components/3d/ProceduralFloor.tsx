@@ -89,13 +89,50 @@ export function ProceduralFloor() {
     }
   }, [customTexture, floorPresetId, floorTileRepeat]);
 
+  const detectedFootprint = useConfiguratorStore((s) => s.detectedFootprint);
+  const floorFitMode = useConfiguratorStore((s) => s.floorFitMode);
+  const floorCustomWidth = useConfiguratorStore((s) => s.floorCustomWidth);
+  const floorCustomDepth = useConfiguratorStore((s) => s.floorCustomDepth);
+  const floorOffsetX = useConfiguratorStore((s) => s.floorOffsetX);
+  const floorOffsetZ = useConfiguratorStore((s) => s.floorOffsetZ);
+
   // If disabled by user or viewing purely original CAD geometry without additions
   if (!floorEnabled || isOriginalMode) {
     return null;
   }
 
-  const planeWidth = 36 * floorSizeScale;
-  const planeLength = 36 * floorSizeScale;
+  // Calculate floor dimensions based on detected building footprint
+  let baseWidth = 13.0;
+  let baseDepth = 25.8;
+  let centerX = 0;
+  let centerZ = 0;
+
+  if (detectedFootprint) {
+    if (floorFitMode === 'interior') {
+      // Fit strictly within interior walls (inset 2.5% so floor stays inside without outer edge bleeding)
+      baseWidth = detectedFootprint.mainWidth * 0.975;
+      baseDepth = detectedFootprint.mainDepth * 0.975;
+      centerX = detectedFootprint.mainCenterX;
+      centerZ = detectedFootprint.mainCenterZ;
+    } else if (floorFitMode === 'full') {
+      // Covers full building footprint including porches / canopies
+      baseWidth = detectedFootprint.totalWidth;
+      baseDepth = detectedFootprint.totalDepth;
+      centerX = detectedFootprint.totalCenterX;
+      centerZ = detectedFootprint.totalCenterZ;
+    } else {
+      // Custom manual sizing
+      baseWidth = floorCustomWidth || detectedFootprint.mainWidth;
+      baseDepth = floorCustomDepth || detectedFootprint.mainDepth;
+      centerX = detectedFootprint.mainCenterX;
+      centerZ = detectedFootprint.mainCenterZ;
+    }
+  }
+
+  const finalWidth = Math.max(1, baseWidth * floorSizeScale);
+  const finalDepth = Math.max(1, baseDepth * floorSizeScale);
+  const posX = centerX + floorOffsetX;
+  const posZ = centerZ + floorOffsetZ;
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
@@ -118,13 +155,13 @@ export function ProceduralFloor() {
   return (
     <mesh
       rotation={[-Math.PI / 2, 0, 0]}
-      position={[0, floorElevation, 0]}
+      position={[posX, floorElevation, posZ]}
       receiveShadow
       onClick={handleClick}
       onPointerOver={handlePointerOver}
       onPointerOut={handlePointerOut}
     >
-      <planeGeometry args={[planeWidth, planeLength, 32, 32]} />
+      <planeGeometry args={[finalWidth, finalDepth, 32, 32]} />
       <meshStandardMaterial
         map={activeTexture || undefined}
         color={floorColor || '#FFFFFF'}

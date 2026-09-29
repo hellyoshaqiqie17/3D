@@ -28,6 +28,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const setActiveCategory = useConfiguratorStore((s) => s.setActiveCategory);
   const setHoveredMesh = useConfiguratorStore((s) => s.setHoveredMesh);
   const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
+  const setDetectedFootprint = useConfiguratorStore((s) => s.setDetectedFootprint);
 
   // Deep clone scene so modifications are isolated to this session
   const sceneClone = useMemo(() => {
@@ -61,6 +62,60 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
     return clone;
   }, [gltf.scene]);
+
+  // Automatically calculate building footprint bounds and interior wall dimensions
+  useEffect(() => {
+    if (!sceneClone) return;
+
+    // Ensure world transform is fully updated
+    sceneClone.updateMatrixWorld(true);
+
+    // 1. Overall model bounding box
+    const totalBox = new THREE.Box3().setFromObject(sceneClone);
+    const totalSize = new THREE.Vector3();
+    totalBox.getSize(totalSize);
+    const totalCenter = new THREE.Vector3();
+    totalBox.getCenter(totalCenter);
+
+    // 2. Primary wall mesh bounding box
+    const wallBox = new THREE.Box3();
+    let hasWall = false;
+
+    sceneClone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const nameLower = child.name.toLowerCase();
+        // Specifically detect main wall / building body mesh
+        if (
+          nameLower === 'ibuilding10' ||
+          nameLower.includes('building') ||
+          nameLower.includes('wall') ||
+          nameLower.includes('facade') ||
+          nameLower.includes('body') ||
+          nameLower.includes('house')
+        ) {
+          wallBox.expandByObject(child);
+          hasWall = true;
+        }
+      }
+    });
+
+    const mainBox = hasWall ? wallBox : totalBox;
+    const mainSize = new THREE.Vector3();
+    mainBox.getSize(mainSize);
+    const mainCenter = new THREE.Vector3();
+    mainBox.getCenter(mainCenter);
+
+    setDetectedFootprint({
+      mainWidth: parseFloat(mainSize.x.toFixed(2)),
+      mainDepth: parseFloat(mainSize.z.toFixed(2)),
+      mainCenterX: parseFloat(mainCenter.x.toFixed(2)),
+      mainCenterZ: parseFloat(mainCenter.z.toFixed(2)),
+      totalWidth: parseFloat(totalSize.x.toFixed(2)),
+      totalDepth: parseFloat(totalSize.z.toFixed(2)),
+      totalCenterX: parseFloat(totalCenter.x.toFixed(2)),
+      totalCenterZ: parseFloat(totalCenter.z.toFixed(2)),
+    });
+  }, [sceneClone, setDetectedFootprint]);
 
   // Mesh to zone lookup map
   const meshToZoneMap = useMemo(() => {

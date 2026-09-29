@@ -1,6 +1,17 @@
 import { create } from 'zustand';
 import { MaterialCategory, MaterialZone } from '@/types';
 
+export interface DetectedFootprint {
+  mainWidth: number;
+  mainDepth: number;
+  mainCenterX: number;
+  mainCenterZ: number;
+  totalWidth: number;
+  totalDepth: number;
+  totalCenterX: number;
+  totalCenterZ: number;
+}
+
 interface ConfiguratorState {
   // Navigation & selection
   selectedZoneId: string | null;
@@ -28,6 +39,14 @@ interface ConfiguratorState {
   floorColor: string;
   floorSizeScale: number;
   floorElevation: number;
+
+  // Building footprint & indoor fit detection
+  detectedFootprint: DetectedFootprint | null;
+  floorFitMode: 'interior' | 'full' | 'custom';
+  floorCustomWidth: number;
+  floorCustomDepth: number;
+  floorOffsetX: number;
+  floorOffsetZ: number;
 
   // UI modals
   isSaveModalOpen: boolean;
@@ -58,6 +77,12 @@ interface ConfiguratorState {
   setFloorColor: (color: string) => void;
   setFloorSizeScale: (scale: number) => void;
   setFloorElevation: (elevation: number) => void;
+  setDetectedFootprint: (fp: DetectedFootprint) => void;
+  setFloorFitMode: (mode: 'interior' | 'full' | 'custom') => void;
+  setFloorCustomWidth: (w: number) => void;
+  setFloorCustomDepth: (d: number) => void;
+  setFloorOffsetX: (x: number) => void;
+  setFloorOffsetZ: (z: number) => void;
 
   resetConfiguration: (zones: MaterialZone[]) => void;
   loadConfiguration: (materials: Record<string, string>, customColors?: Record<string, string>, floorConfig?: any) => void;
@@ -84,8 +109,16 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   floorTileRepeat: 8,
   floorRoughness: 0.15,
   floorColor: '#ffffff',
-  floorSizeScale: 1.15,
+  floorSizeScale: 1.0,
   floorElevation: 0.02,
+
+  // Building footprint & indoor fit detection
+  detectedFootprint: null,
+  floorFitMode: 'interior',
+  floorCustomWidth: 13.0,
+  floorCustomDepth: 25.0,
+  floorOffsetX: 0,
+  floorOffsetZ: 0,
 
   isSaveModalOpen: false,
   isShareModalOpen: false,
@@ -102,6 +135,17 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setFloorColor: (color) => set({ floorColor: color, isOriginalMode: false }),
   setFloorSizeScale: (scale) => set({ floorSizeScale: scale }),
   setFloorElevation: (elevation) => set({ floorElevation: elevation }),
+  setDetectedFootprint: (fp) =>
+    set((state) => ({
+      detectedFootprint: fp,
+      floorCustomWidth: fp.mainWidth,
+      floorCustomDepth: fp.mainDepth,
+    })),
+  setFloorFitMode: (mode) => set({ floorFitMode: mode }),
+  setFloorCustomWidth: (w) => set({ floorCustomWidth: w }),
+  setFloorCustomDepth: (d) => set({ floorCustomDepth: d }),
+  setFloorOffsetX: (x) => set({ floorOffsetX: x }),
+  setFloorOffsetZ: (z) => set({ floorOffsetZ: z }),
 
   applyMaterial: (zoneId, materialId) =>
     set((state) => ({

@@ -13,6 +13,9 @@ import {
   Info,
   Maximize2,
   Grid,
+  Home,
+  Building2,
+  RotateCcw,
 } from 'lucide-react';
 
 interface PresetTile {
@@ -108,6 +111,13 @@ export function FloorTileCustomizer() {
   const floorSizeScale = useConfiguratorStore((s) => s.floorSizeScale);
   const floorElevation = useConfiguratorStore((s) => s.floorElevation);
 
+  const detectedFootprint = useConfiguratorStore((s) => s.detectedFootprint);
+  const floorFitMode = useConfiguratorStore((s) => s.floorFitMode);
+  const floorCustomWidth = useConfiguratorStore((s) => s.floorCustomWidth);
+  const floorCustomDepth = useConfiguratorStore((s) => s.floorCustomDepth);
+  const floorOffsetX = useConfiguratorStore((s) => s.floorOffsetX);
+  const floorOffsetZ = useConfiguratorStore((s) => s.floorOffsetZ);
+
   const setFloorEnabled = useConfiguratorStore((s) => s.setFloorEnabled);
   const setFloorTextureUrl = useConfiguratorStore((s) => s.setFloorTextureUrl);
   const setFloorPresetId = useConfiguratorStore((s) => s.setFloorPresetId);
@@ -116,6 +126,12 @@ export function FloorTileCustomizer() {
   const setFloorColor = useConfiguratorStore((s) => s.setFloorColor);
   const setFloorSizeScale = useConfiguratorStore((s) => s.setFloorSizeScale);
   const setFloorElevation = useConfiguratorStore((s) => s.setFloorElevation);
+
+  const setFloorFitMode = useConfiguratorStore((s) => s.setFloorFitMode);
+  const setFloorCustomWidth = useConfiguratorStore((s) => s.setFloorCustomWidth);
+  const setFloorCustomDepth = useConfiguratorStore((s) => s.setFloorCustomDepth);
+  const setFloorOffsetX = useConfiguratorStore((s) => s.setFloorOffsetX);
+  const setFloorOffsetZ = useConfiguratorStore((s) => s.setFloorOffsetZ);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -194,7 +210,152 @@ export function FloorTileCustomizer() {
         </p>
       </div>
 
-      {/* 2. Import Custom Tile Texture */}
+      {/* 2. Floor Coverage & House Footprint Auto-Detection */}
+      <div className="p-3.5 bg-surface-50 rounded-2xl border border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Home className="w-4 h-4 text-primary" />
+            <h4 className="text-xs font-semibold text-primary">Cakupan Area Lantai</h4>
+          </div>
+          {detectedFootprint && (
+            <span className="text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <CheckCircle2 className="w-3 h-3" />
+              <span>Dimensi Terdeteksi</span>
+            </span>
+          )}
+        </div>
+
+        {/* Segmented Mode Selector */}
+        <div className="grid grid-cols-3 gap-1.5 p-1 bg-surface-200/70 rounded-xl text-[11px] font-medium">
+          <button
+            onClick={() => setFloorFitMode('interior')}
+            className={`py-1.5 px-2 rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${
+              floorFitMode === 'interior'
+                ? 'bg-white text-primary shadow-subtle font-semibold'
+                : 'text-secondary hover:text-primary'
+            }`}
+          >
+            <span>Hanya Dalam</span>
+            <span className="text-[9px] opacity-75">Interior</span>
+          </button>
+          <button
+            onClick={() => setFloorFitMode('full')}
+            className={`py-1.5 px-2 rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${
+              floorFitMode === 'full'
+                ? 'bg-white text-primary shadow-subtle font-semibold'
+                : 'text-secondary hover:text-primary'
+            }`}
+          >
+            <span>+ Kanopi Teras</span>
+            <span className="text-[9px] opacity-75">Full Exterior</span>
+          </button>
+          <button
+            onClick={() => setFloorFitMode('custom')}
+            className={`py-1.5 px-2 rounded-lg transition-all flex flex-col items-center justify-center gap-0.5 ${
+              floorFitMode === 'custom'
+                ? 'bg-white text-primary shadow-subtle font-semibold'
+                : 'text-secondary hover:text-primary'
+            }`}
+          >
+            <span>Kustom</span>
+            <span className="text-[9px] opacity-75">Manual</span>
+          </button>
+        </div>
+
+        {/* Dynamic Context Feedback */}
+        {floorFitMode === 'interior' && (
+          <div className="p-2.5 bg-white rounded-xl border border-border text-[11px] text-secondary space-y-1">
+            <div className="flex items-center justify-between text-primary font-medium">
+              <span>Dimensi Lantai Dalam Rumah:</span>
+              <span className="font-mono text-xs font-semibold">
+                {detectedFootprint ? (detectedFootprint.mainWidth * 0.975).toFixed(1) : '12.8'} m ×{' '}
+                {detectedFootprint ? (detectedFootprint.mainDepth * 0.975).toFixed(1) : '25.2'} m
+              </span>
+            </div>
+            <p className="text-[10px] leading-relaxed">
+              Lantai dipotong presisi tepat di perimeter dinding dalam rumah saja, tidak tumpah ke halaman luar.
+            </p>
+          </div>
+        )}
+
+        {floorFitMode === 'full' && (
+          <div className="p-2.5 bg-white rounded-xl border border-border text-[11px] text-secondary space-y-1">
+            <div className="flex items-center justify-between text-primary font-medium">
+              <span>Dimensi Bangunan + Teras:</span>
+              <span className="font-mono text-xs font-semibold">
+                {detectedFootprint ? detectedFootprint.totalWidth.toFixed(1) : '17.3'} m ×{' '}
+                {detectedFootprint ? detectedFootprint.totalDepth.toFixed(1) : '25.9'} m
+              </span>
+            </div>
+            <p className="text-[10px] leading-relaxed">
+              Lantai menutupi ruang dalam sekaligus selasar samping dan kanopi teras depan.
+            </p>
+          </div>
+        )}
+
+        {floorFitMode === 'custom' && (
+          <div className="p-2.5 bg-white rounded-xl border border-border space-y-3">
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-secondary font-medium">Lebar Lantai (X):</span>
+                <span className="font-mono font-semibold text-primary">{floorCustomWidth.toFixed(1)} m</span>
+              </div>
+              <input
+                type="range"
+                min={3}
+                max={40}
+                step={0.5}
+                value={floorCustomWidth}
+                onChange={(e) => setFloorCustomWidth(Number(e.target.value))}
+                className="w-full accent-primary cursor-pointer h-1.5 bg-surface-200 rounded-lg"
+              />
+            </div>
+            <div>
+              <div className="flex justify-between text-xs mb-1">
+                <span className="text-secondary font-medium">Panjang Lantai (Z):</span>
+                <span className="font-mono font-semibold text-primary">{floorCustomDepth.toFixed(1)} m</span>
+              </div>
+              <input
+                type="range"
+                min={3}
+                max={50}
+                step={0.5}
+                value={floorCustomDepth}
+                onChange={(e) => setFloorCustomDepth(Number(e.target.value))}
+                className="w-full accent-primary cursor-pointer h-1.5 bg-surface-200 rounded-lg"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border/60">
+              <div>
+                <span className="text-[10px] text-secondary block mb-1">Geser Kiri/Kanan:</span>
+                <input
+                  type="range"
+                  min={-10}
+                  max={10}
+                  step={0.2}
+                  value={floorOffsetX}
+                  onChange={(e) => setFloorOffsetX(Number(e.target.value))}
+                  className="w-full accent-primary cursor-pointer h-1.5 bg-surface-200 rounded-lg"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-secondary block mb-1">Geser Depan/Belakang:</span>
+                <input
+                  type="range"
+                  min={-10}
+                  max={10}
+                  step={0.2}
+                  value={floorOffsetZ}
+                  onChange={(e) => setFloorOffsetZ(Number(e.target.value))}
+                  className="w-full accent-primary cursor-pointer h-1.5 bg-surface-200 rounded-lg"
+                />
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Import Custom Tile Texture */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <h4 className="text-xs font-bold uppercase tracking-wider text-secondary flex items-center gap-1.5">
@@ -387,23 +548,24 @@ export function FloorTileCustomizer() {
         {/* Floor Size Scale */}
         <div>
           <div className="flex items-center justify-between text-xs mb-1.5">
-            <span className="font-medium text-secondary">Luas Bidang Lantai</span>
+            <span className="font-medium text-secondary">Skala Luas Lantai</span>
             <span className="font-semibold text-primary text-[11px] font-mono">
               {Math.round(floorSizeScale * 100)}%
             </span>
           </div>
           <input
             type="range"
-            min={0.6}
-            max={2.5}
-            step={0.05}
+            min={0.7}
+            max={1.3}
+            step={0.02}
             value={floorSizeScale}
             onChange={(e) => setFloorSizeScale(Number(e.target.value))}
             className="w-full accent-primary cursor-pointer h-1.5 bg-surface-200 rounded-lg"
           />
           <div className="flex justify-between text-[10px] text-secondary mt-1 font-mono">
-            <span>Pas Rumah</span>
-            <span>Halaman Luar</span>
+            <span>Ketat Dalam Dinding (95%)</span>
+            <span>Pas (100%)</span>
+            <span>Melebar (110%)</span>
           </div>
         </div>
 
