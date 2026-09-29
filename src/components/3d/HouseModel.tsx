@@ -32,6 +32,16 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const sceneClone = useMemo(() => {
     const clone = gltf.scene.clone(true);
 
+    // Calculate bounding box to automatically center model at ground level
+    const box = new THREE.Box3().setFromObject(clone);
+    const center = new THREE.Vector3();
+    box.getCenter(center);
+
+    // Center model at origin and ground level
+    clone.position.x = -center.x;
+    clone.position.y = -box.min.y;
+    clone.position.z = -center.z;
+
     // Ensure all materials are cloned so meshes don't share instances across zones
     clone.traverse((child) => {
       if (child instanceof THREE.Mesh) {

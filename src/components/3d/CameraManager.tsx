@@ -53,8 +53,8 @@ export function CameraManager() {
       enableDamping
       dampingFactor={0.06}
       maxPolarAngle={Math.PI / 2 + 0.02} // Allow slightly below horizon for interior looking up
-      minDistance={1.5}
-      maxDistance={40}
+      minDistance={1.0}
+      maxDistance={250}
       onStart={() => {
         // User started dragging, stop automated glide
         isTransitioning.current = false;
