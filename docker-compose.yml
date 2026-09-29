@@ -1,0 +1,15 @@
+services:
+  cad-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: homecraft-3d-cad
+    restart: unless-stopped
+    ports:
+      - "80:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+    volumes:
+      - ./data:/app/data
+      - ./public/uploads:/app/public/uploads
