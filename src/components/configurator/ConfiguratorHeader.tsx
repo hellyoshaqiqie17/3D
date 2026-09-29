@@ -12,6 +12,8 @@ import {
   Box,
   ChevronLeft,
   SlidersHorizontal,
+  Eye,
+  History,
 } from 'lucide-react';
 
 interface ConfiguratorHeaderProps {
@@ -23,6 +25,8 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
   const togglePresentationMode = useConfiguratorStore((s) => s.togglePresentationMode);
   const isWireframeMode = useConfiguratorStore((s) => s.isWireframeMode);
   const toggleWireframe = useConfiguratorStore((s) => s.toggleWireframe);
+  const isOriginalMode = useConfiguratorStore((s) => s.isOriginalMode);
+  const toggleOriginalMode = useConfiguratorStore((s) => s.toggleOriginalMode);
   const setSaveModalOpen = useConfiguratorStore((s) => s.setSaveModalOpen);
   const setShareModalOpen = useConfiguratorStore((s) => s.setShareModalOpen);
   const resetConfiguration = useConfiguratorStore((s) => s.resetConfiguration);
@@ -56,6 +60,20 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
+        {/* Original CAD Version Toggle */}
+        <button
+          onClick={toggleOriginalMode}
+          title={isOriginalMode ? "Kembali ke Desain Kustom" : "Lihat Versi Desain Asli (Original Model)"}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg transition-all border ${
+            isOriginalMode
+              ? 'bg-amber-600 text-white border-amber-600 shadow-sm'
+              : 'text-secondary hover:text-primary hover:bg-surface-100 border-border'
+          }`}
+        >
+          <Eye className="w-3.5 h-3.5" />
+          <span>{isOriginalMode ? 'Versi Asli (Original)' : 'Lihat Desain Asli'}</span>
+        </button>
+
         {/* Reset */}
         <button
           onClick={() => resetConfiguration(project.zones)}

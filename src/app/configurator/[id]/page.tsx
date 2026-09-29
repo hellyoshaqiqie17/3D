@@ -107,6 +107,7 @@ export default function ConfiguratorPage({ params }: PageProps) {
           <ConfiguratorCanvas
             modelUrl={project.modelUrl}
             zones={project.zones}
+            modelName={project.name}
           />
 
           {/* Floating Camera Presets Bar (when not in presentation mode) */}

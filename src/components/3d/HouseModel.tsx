@@ -6,7 +6,7 @@ import { ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import { MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
-import { applyMaterialToZone } from '@/lib/material-applier';
+import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials } from '@/lib/material-applier';
 import { getMaterialById } from '@/lib/materials';
 
 interface HouseModelProps {
@@ -23,6 +23,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const customColors = useConfiguratorStore((s) => s.customColors);
   const isWireframeMode = useConfiguratorStore((s) => s.isWireframeMode);
+  const isOriginalMode = useConfiguratorStore((s) => s.isOriginalMode);
   const selectZone = useConfiguratorStore((s) => s.selectZone);
   const setActiveCategory = useConfiguratorStore((s) => s.setActiveCategory);
   const setHoveredMesh = useConfiguratorStore((s) => s.setHoveredMesh);
@@ -55,6 +56,9 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       }
     });
 
+    // Backup original materials before any custom materials are assigned
+    backupOriginalMaterials(clone);
+
     return clone;
   }, [gltf.scene]);
 
@@ -69,9 +73,14 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     return map;
   }, [zones]);
 
-  // Apply default materials initially and whenever selections change
+  // Apply default/custom materials or restore original model based on mode
   useEffect(() => {
     if (!sceneClone) return;
+
+    if (isOriginalMode) {
+      restoreOriginalMaterials(sceneClone);
+      return;
+    }
 
     zones.forEach((zone) => {
       const selectedMatId = selectedMaterials[zone.id] || zone.defaultMaterialId;
@@ -82,7 +91,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         applyMaterialToZone(sceneClone, zone, material, customColor);
       }
     });
-  }, [sceneClone, zones, selectedMaterials, customColors]);
+  }, [sceneClone, zones, selectedMaterials, customColors, isOriginalMode]);
 
   // Wireframe toggle effect for architectural drafting view
   useEffect(() => {

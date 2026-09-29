@@ -6,18 +6,20 @@ import { HouseModel } from './HouseModel';
 import { LightingEnvironment } from './LightingEnvironment';
 import { CameraManager } from './CameraManager';
 import { MaterialZone } from '@/types';
-import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw, Eye, ArrowRight } from 'lucide-react';
+import { CanvasProgressLoader } from './CanvasProgressLoader';
+import { useConfiguratorStore } from '@/lib/configurator-store';
 
 interface ConfiguratorCanvasProps {
   modelUrl: string;
   zones: MaterialZone[];
   onMeshClick?: (meshName: string, zone?: MaterialZone) => void;
   className?: string;
+  modelName?: string;
 }
 
 interface ErrorBoundaryProps {
   children: ReactNode;
-  fallback?: ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -66,33 +68,36 @@ class CanvasErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 }
 
-function CanvasFallback() {
-  return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center bg-[#F7F7F5] z-10 pointer-events-none">
-      <div className="flex flex-col items-center max-w-xs text-center p-8 bg-white/80 backdrop-blur-sm rounded-2xl border border-border shadow-float">
-        <div className="w-12 h-12 rounded-xl bg-surface-100 flex items-center justify-center mb-4">
-          <Loader2 className="w-6 h-6 text-primary animate-spin" />
-        </div>
-        <h3 className="text-base font-medium text-primary mb-1">Loading 3D Architecture</h3>
-        <p className="text-xs text-secondary mb-4">
-          Compiling geometry & initializing realistic PBR material zones...
-        </p>
-        <div className="w-full bg-surface-200 h-1.5 rounded-full overflow-hidden">
-          <div className="bg-primary h-full rounded-full animate-pulse w-3/4" />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export function ConfiguratorCanvas({
   modelUrl,
   zones,
   onMeshClick,
   className = 'w-full h-full',
+  modelName,
 }: ConfiguratorCanvasProps) {
+  const isOriginalMode = useConfiguratorStore((s) => s.isOriginalMode);
+  const toggleOriginalMode = useConfiguratorStore((s) => s.toggleOriginalMode);
+
   return (
     <div className={`relative ${className} overflow-hidden select-none bg-[#F7F7F5]`}>
+      {/* Dynamic 3D Progress Loader with real-time percentage */}
+      <CanvasProgressLoader modelName={modelName} />
+
+      {/* Floating Banner when viewing Original Design */}
+      {isOriginalMode && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-3 px-4 py-2 bg-amber-600 text-white rounded-full shadow-lg border border-amber-500 animate-in fade-in slide-in-from-top-3 duration-300">
+          <Eye className="w-4 h-4 shrink-0" />
+          <span className="text-xs font-medium">Mode: Melihat Desain Asli CAD</span>
+          <button
+            onClick={toggleOriginalMode}
+            className="ml-1 px-3 py-1 bg-white text-amber-900 rounded-full text-xs font-semibold hover:bg-amber-50 transition-colors shadow-subtle flex items-center gap-1"
+          >
+            <span>Kembali ke Desain Kustom</span>
+            <ArrowRight className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
       <CanvasErrorBoundary>
         <Canvas
           id="configurator-3d-canvas"
@@ -113,11 +118,6 @@ export function ConfiguratorCanvas({
           </Suspense>
         </Canvas>
       </CanvasErrorBoundary>
-
-      {/* Fallback displayed during initial loading */}
-      <Suspense fallback={<CanvasFallback />}>
-        <div />
-      </Suspense>
     </div>
   );
 }

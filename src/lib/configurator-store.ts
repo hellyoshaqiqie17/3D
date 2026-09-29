@@ -17,6 +17,7 @@ interface ConfiguratorState {
   activeCameraPreset: string;
   isPresentationMode: boolean;
   isWireframeMode: boolean;
+  isOriginalMode: boolean;
 
   // UI modals
   isSaveModalOpen: boolean;
@@ -33,6 +34,8 @@ interface ConfiguratorState {
   togglePresentationMode: () => void;
   setPresentationMode: (val: boolean) => void;
   toggleWireframe: () => void;
+  toggleOriginalMode: () => void;
+  setOriginalMode: (val: boolean) => void;
   setSaveModalOpen: (val: boolean) => void;
   setShareModalOpen: (val: boolean) => void;
   resetConfiguration: (zones: MaterialZone[]) => void;
@@ -51,6 +54,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   activeCameraPreset: 'exterior',
   isPresentationMode: false,
   isWireframeMode: false,
+  isOriginalMode: false,
 
   isSaveModalOpen: false,
   isShareModalOpen: false,
@@ -60,6 +64,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   applyMaterial: (zoneId, materialId) =>
     set((state) => ({
+      isOriginalMode: false, // Automatically switch back from original mode when applying a material
       selectedMaterials: {
         ...state.selectedMaterials,
         [zoneId]: materialId,
@@ -73,6 +78,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   setCustomColor: (zoneId, color) =>
     set((state) => ({
+      isOriginalMode: false, // Automatically switch back from original mode when changing color
       customColors: {
         ...state.customColors,
         [zoneId]: color,
@@ -88,6 +94,9 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setPresentationMode: (val) => set({ isPresentationMode: val }),
 
   toggleWireframe: () => set((state) => ({ isWireframeMode: !state.isWireframeMode })),
+
+  toggleOriginalMode: () => set((state) => ({ isOriginalMode: !state.isOriginalMode })),
+  setOriginalMode: (val) => set({ isOriginalMode: val }),
 
   setSaveModalOpen: (val) => set({ isSaveModalOpen: val }),
   setShareModalOpen: (val) => set({ isShareModalOpen: val }),

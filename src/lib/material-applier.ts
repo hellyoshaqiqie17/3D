@@ -3,7 +3,44 @@ import { MaterialOption, MaterialZone } from '@/types';
 import { getProceduralTexture } from './texture-generator';
 
 // Map of mesh uuid -> original material backup (so we can restore if needed)
-const originalMaterialMap = new WeakMap<THREE.Mesh, THREE.Material | THREE.Material[]>();
+export const originalMaterialMap = new WeakMap<THREE.Mesh, THREE.Material | THREE.Material[]>();
+
+/**
+ * Backs up initial materials of all meshes in the scene before any modifications.
+ */
+export function backupOriginalMaterials(scene: THREE.Object3D): void {
+  scene.traverse((child) => {
+    if (child instanceof THREE.Mesh && !originalMaterialMap.has(child) && child.material) {
+      originalMaterialMap.set(
+        child,
+        Array.isArray(child.material)
+          ? child.material.map((m) => m.clone())
+          : child.material.clone()
+      );
+    }
+  });
+}
+
+/**
+ * Restores all meshes in the scene to their original imported CAD materials.
+ */
+export function restoreOriginalMaterials(scene: THREE.Object3D): void {
+  scene.traverse((child) => {
+    if (child instanceof THREE.Mesh && originalMaterialMap.has(child)) {
+      const orig = originalMaterialMap.get(child);
+      if (orig) {
+        child.material = Array.isArray(orig)
+          ? orig.map((m) => m.clone())
+          : orig.clone();
+        if (Array.isArray(child.material)) {
+          child.material.forEach((m) => (m.needsUpdate = true));
+        } else {
+          child.material.needsUpdate = true;
+        }
+      }
+    }
+  });
+}
 
 /**
  * Applies a material option (or custom hex color) to all meshes belonging to a specific zone.
