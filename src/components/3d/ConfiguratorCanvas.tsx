@@ -8,6 +8,7 @@ import { CameraManager } from './CameraManager';
 import { MaterialZone } from '@/types';
 import { Loader2, AlertCircle, RefreshCw, Eye, ArrowRight } from 'lucide-react';
 import { CanvasProgressLoader } from './CanvasProgressLoader';
+import { ProceduralFloor } from './ProceduralFloor';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 
 interface ConfiguratorCanvasProps {
@@ -115,6 +116,7 @@ export function ConfiguratorCanvas({
             <LightingEnvironment />
             <CameraManager />
             <HouseModel modelUrl={modelUrl} zones={zones} onMeshClick={onMeshClick} />
+            <ProceduralFloor />
           </Suspense>
         </Canvas>
       </CanvasErrorBoundary>

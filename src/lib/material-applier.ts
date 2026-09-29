@@ -74,7 +74,23 @@ export function applyMaterialToZone(
     // Always create a new or cloned material for this specific mesh
     let newMat: THREE.MeshStandardMaterial;
 
-    if (material.type === 'texture' && material.textureType) {
+    if (material.type === 'texture' && material.textureUrl) {
+      // Custom uploaded texture URL
+      const texture = new THREE.TextureLoader().load(material.textureUrl);
+      const repeat = material.repeat || [4, 4];
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(repeat[0], repeat[1]);
+      texture.colorSpace = THREE.SRGBColorSpace;
+
+      newMat = new THREE.MeshStandardMaterial({
+        map: texture,
+        roughness: material.roughness ?? 0.3,
+        metalness: material.metalness ?? 0.05,
+        name: `${child.name}_${material.id}_mat`,
+      });
+      newMat.map!.anisotropy = 8;
+    } else if (material.type === 'texture' && material.textureType) {
       // Procedural PBR texture
       const repeat = material.repeat || [3, 3];
       const texture = getProceduralTexture(material.textureType, repeat);

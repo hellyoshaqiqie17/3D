@@ -7,6 +7,7 @@ import { getMaterialsByCategory, getMaterialById } from '@/lib/materials';
 import { CategorySelector } from './CategorySelector';
 import { MaterialGrid } from './MaterialGrid';
 import { ColorPickerSection } from './ColorPickerSection';
+import { FloorTileCustomizer } from './FloorTileCustomizer';
 import { Info, Sparkles, CheckCircle2 } from 'lucide-react';
 
 interface ConfiguratorSidebarProps {
@@ -21,9 +22,10 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const customColors = useConfiguratorStore((s) => s.customColors);
   const hoveredMeshName = useConfiguratorStore((s) => s.hoveredMeshName);
 
-  // Available categories based on the current project's zones
+  // Available categories based on the current project's zones, plus 'floor' so user can always customize/import tiles!
   const availableCategories = useMemo(() => {
     const set = new Set(zones.map((z) => z.category));
+    set.add('floor');
     return Array.from(set);
   }, [zones]);
 
@@ -55,7 +57,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
       <CategorySelector availableCategories={availableCategories} />
 
       {/* Zone Switcher (if multiple zones exist in this category) */}
-      {categoryZones.length > 1 && (
+      {activeCategory !== 'floor' && categoryZones.length > 1 && (
         <div className="px-4 py-2.5 bg-surface-50 border-b border-border flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           <span className="text-[10px] uppercase font-bold text-secondary tracking-wider mr-1">
             Zone:
@@ -81,7 +83,9 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
 
       {/* Main Material Selection Scroll Area */}
       <div className="flex-1 overflow-y-auto">
-        {currentZone ? (
+        {activeCategory === 'floor' ? (
+          <FloorTileCustomizer />
+        ) : currentZone ? (
           <>
             {/* Zone Header Banner */}
             <div className="p-4 border-b border-border">

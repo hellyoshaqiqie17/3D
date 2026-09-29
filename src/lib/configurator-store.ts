@@ -19,6 +19,16 @@ interface ConfiguratorState {
   isWireframeMode: boolean;
   isOriginalMode: boolean;
 
+  // Floor & Ceramic Tile Customization
+  floorEnabled: boolean;
+  floorTextureUrl: string | null;
+  floorPresetId: string;
+  floorTileRepeat: number;
+  floorRoughness: number;
+  floorColor: string;
+  floorSizeScale: number;
+  floorElevation: number;
+
   // UI modals
   isSaveModalOpen: boolean;
   isShareModalOpen: boolean;
@@ -38,8 +48,19 @@ interface ConfiguratorState {
   setOriginalMode: (val: boolean) => void;
   setSaveModalOpen: (val: boolean) => void;
   setShareModalOpen: (val: boolean) => void;
+
+  // Floor Actions
+  setFloorEnabled: (val: boolean) => void;
+  setFloorTextureUrl: (url: string | null) => void;
+  setFloorPresetId: (id: string) => void;
+  setFloorTileRepeat: (repeat: number) => void;
+  setFloorRoughness: (roughness: number) => void;
+  setFloorColor: (color: string) => void;
+  setFloorSizeScale: (scale: number) => void;
+  setFloorElevation: (elevation: number) => void;
+
   resetConfiguration: (zones: MaterialZone[]) => void;
-  loadConfiguration: (materials: Record<string, string>, customColors?: Record<string, string>) => void;
+  loadConfiguration: (materials: Record<string, string>, customColors?: Record<string, string>, floorConfig?: any) => void;
 }
 
 export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
@@ -56,11 +77,31 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   isWireframeMode: false,
   isOriginalMode: false,
 
+  // Floor & Ceramic Tile Customization Defaults
+  floorEnabled: true,
+  floorTextureUrl: null,
+  floorPresetId: 'floor-carrara-marble',
+  floorTileRepeat: 8,
+  floorRoughness: 0.15,
+  floorColor: '#ffffff',
+  floorSizeScale: 1.15,
+  floorElevation: 0.02,
+
   isSaveModalOpen: false,
   isShareModalOpen: false,
 
   selectZone: (zoneId) => set({ selectedZoneId: zoneId }),
   setActiveCategory: (category) => set({ activeCategory: category }),
+
+  // Floor Actions
+  setFloorEnabled: (val) => set({ floorEnabled: val }),
+  setFloorTextureUrl: (url) => set({ floorTextureUrl: url, isOriginalMode: false }),
+  setFloorPresetId: (id) => set({ floorPresetId: id, floorTextureUrl: null, isOriginalMode: false }),
+  setFloorTileRepeat: (repeat) => set({ floorTileRepeat: repeat }),
+  setFloorRoughness: (roughness) => set({ floorRoughness: roughness }),
+  setFloorColor: (color) => set({ floorColor: color, isOriginalMode: false }),
+  setFloorSizeScale: (scale) => set({ floorSizeScale: scale }),
+  setFloorElevation: (elevation) => set({ floorElevation: elevation }),
 
   applyMaterial: (zoneId, materialId) =>
     set((state) => ({
@@ -109,12 +150,32 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
     set({
       selectedMaterials: defaults,
       customColors: {},
+      floorEnabled: true,
+      floorTextureUrl: null,
+      floorPresetId: 'floor-carrara-marble',
+      floorTileRepeat: 8,
+      floorRoughness: 0.15,
+      floorColor: '#ffffff',
+      floorSizeScale: 1.15,
+      floorElevation: 0.02,
     });
   },
 
-  loadConfiguration: (materials, customColors = {}) =>
-    set({
+  loadConfiguration: (materials, customColors = {}, floorConfig) =>
+    set((state) => ({
       selectedMaterials: materials,
       customColors: customColors,
-    }),
+      ...(floorConfig
+        ? {
+            floorEnabled: floorConfig.enabled ?? state.floorEnabled,
+            floorTextureUrl: floorConfig.textureUrl ?? state.floorTextureUrl,
+            floorPresetId: floorConfig.presetId ?? state.floorPresetId,
+            floorTileRepeat: floorConfig.tileRepeat ?? state.floorTileRepeat,
+            floorRoughness: floorConfig.roughness ?? state.floorRoughness,
+            floorColor: floorConfig.color ?? state.floorColor,
+            floorSizeScale: floorConfig.sizeScale ?? state.floorSizeScale,
+            floorElevation: floorConfig.elevation ?? state.floorElevation,
+          }
+        : {}),
+    })),
 }));
