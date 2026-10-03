@@ -62,7 +62,7 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
     const ok = window.confirm(
       'Kembalikan semua warna & material ke pengaturan awal?\nPerubahan yang belum disimpan akan hilang.'
     );
-    if (ok) resetConfiguration(project.zones);
+    if (ok) resetConfiguration(project.zones, project.id === 'house-001');
   };
 
   const ghostBtn =

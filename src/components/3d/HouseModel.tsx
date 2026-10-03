@@ -6,7 +6,7 @@ import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
-import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials } from '@/lib/material-applier';
+import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials, restoreZoneOriginalMaterial } from '@/lib/material-applier';
 import { getMaterialById } from '@/lib/materials';
 
 interface HouseModelProps {
@@ -301,11 +301,22 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       return;
     }
 
+    const isDemo = modelUrl.includes('modern-villa.glb') || modelUrl === '/models/modern-villa.glb';
+
     zones.forEach((zone) => {
-      const selectedMatId = selectedMaterials[zone.id] || zone.defaultMaterialId;
+      const selectedMatId = selectedMaterials[zone.id] || (isDemo ? zone.defaultMaterialId : 'original');
       const customColor = customColors[zone.id];
+
+      // If zone is in original state and no custom color tint, restore native CAD materials
+      if ((selectedMatId === 'original' || !selectedMatId) && !customColor) {
+        restoreZoneOriginalMaterial(sceneClone, zone);
+        return;
+      }
+
       const material =
-        uploadedMaterials.find((m) => m.id === selectedMatId) || getMaterialById(selectedMatId);
+        uploadedMaterials.find((m) => m.id === selectedMatId) ||
+        getMaterialById(selectedMatId) ||
+        (customColor ? getMaterialById('wall-pure-white') : undefined);
 
       if (material) {
         applyMaterialToZone(
@@ -466,7 +477,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           name: formatMeshDisplayName(mesh.name),
           category: autoCat,
           meshNames: [mesh.name],
-          defaultMaterialId: autoCat === 'floor' ? 'floor-carrara-marble' : 'wall-pure-white',
+          defaultMaterialId: 'original',
           description: `Bidang objek 3D terpilih: ${mesh.name}`,
         };
         addDynamicZone(newDynamicZone);

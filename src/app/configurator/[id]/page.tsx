@@ -64,23 +64,26 @@ export default function ConfiguratorPage({ params }: PageProps) {
   useEffect(() => {
     if (!project) return;
 
+    const isDemo = project.id === 'house-001';
+
     const configParam = searchParams.get('config');
     if (configParam) {
       try {
         const decoded = JSON.parse(atob(decodeURIComponent(configParam)));
-          loadConfiguration(
-            decoded.m || decoded.configuration,
-            decoded.c || decoded.customColors || {},
-            undefined,
-            decoded.t || decoded.textureSettings || {}
-          );
+        loadConfiguration(
+          decoded.m || decoded.configuration,
+          decoded.c || decoded.customColors || {},
+          undefined,
+          decoded.t || decoded.textureSettings || {}
+        );
+        return;
       } catch (err) {
         console.error('Failed to parse URL configuration:', err);
       }
     }
 
-    // Default initialization
-    resetConfiguration(project.zones);
+    // Default initialization (demo villa gets curated defaults; all user/custom models start 100% original)
+    resetConfiguration(project.zones, isDemo);
   }, [project, searchParams, loadConfiguration, resetConfiguration]);
 
   if (isLoadingProject) {

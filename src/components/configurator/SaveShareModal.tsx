@@ -152,9 +152,10 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
                 </span>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 text-xs">
                   {project.zones.map((zone) => {
-                    const matId = selectedMaterials[zone.id] || zone.defaultMaterialId;
+                    const matId = selectedMaterials[zone.id] || (project.id === 'house-001' ? zone.defaultMaterialId : 'original');
                     const mat = getMaterialById(matId);
                     const customCol = customColors[zone.id];
+                    const isOrig = !customCol && (!matId || matId === 'original');
 
                     return (
                       <div
@@ -163,7 +164,7 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
                       >
                         <span className="font-medium text-primary">{zone.name}</span>
                         <span className="text-secondary font-mono text-[11px]">
-                          {customCol ? `Custom (${customCol})` : (mat?.name || 'Default')}
+                          {isOrig ? 'Original 3D' : (customCol ? `Custom (${customCol})` : (mat?.name || 'Default'))}
                         </span>
                       </div>
                     );

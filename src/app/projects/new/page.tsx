@@ -207,7 +207,7 @@ export default function NewProjectPage() {
             name: 'Roofing & Canopy',
             category: 'roof',
             meshNames: roofMeshes,
-            defaultMaterialId: 'roof-zinc-charcoal',
+            defaultMaterialId: 'original',
           });
         }
         if (wallMeshes.length > 0) {
@@ -216,7 +216,7 @@ export default function NewProjectPage() {
             name: 'Exterior & Interior Walls',
             category: 'wall',
             meshNames: wallMeshes,
-            defaultMaterialId: 'wall-pure-white',
+            defaultMaterialId: 'original',
           });
         }
         if (doorMeshes.length > 0) {
@@ -225,7 +225,7 @@ export default function NewProjectPage() {
             name: 'Doors, Gates & Hardware',
             category: 'door',
             meshNames: doorMeshes,
-            defaultMaterialId: 'door-teak-wood',
+            defaultMaterialId: 'original',
           });
         }
         if (trimMeshes.length > 0) {
@@ -234,7 +234,7 @@ export default function NewProjectPage() {
             name: 'Corners, Trim & Columns',
             category: 'exterior',
             meshNames: trimMeshes,
-            defaultMaterialId: 'wall-warm-cream',
+            defaultMaterialId: 'original',
           });
         }
         if (ventMeshes.length > 0) {
@@ -243,7 +243,7 @@ export default function NewProjectPage() {
             name: 'Vents, Fixtures & Accents',
             category: 'roof',
             meshNames: ventMeshes,
-            defaultMaterialId: 'roof-slate-black',
+            defaultMaterialId: 'original',
           });
         }
         if (floorMeshes.length > 0) {
@@ -252,7 +252,7 @@ export default function NewProjectPage() {
             name: 'Main Flooring & Decks',
             category: 'floor',
             meshNames: floorMeshes,
-            defaultMaterialId: 'floor-oak-natural',
+            defaultMaterialId: 'original',
           });
         }
         if (bathMeshes.length > 0) {
@@ -261,7 +261,7 @@ export default function NewProjectPage() {
             name: 'Bathroom & Wet Surfaces',
             category: 'bathroom',
             meshNames: bathMeshes,
-            defaultMaterialId: 'tile-white-subway',
+            defaultMaterialId: 'original',
           });
         }
         if (remainingMeshes.length > 0) {
@@ -270,7 +270,7 @@ export default function NewProjectPage() {
             name: 'Architectural Details',
             category: 'exterior',
             meshNames: remainingMeshes,
-            defaultMaterialId: 'wall-pure-white',
+            defaultMaterialId: 'original',
           });
         }
 
@@ -281,7 +281,7 @@ export default function NewProjectPage() {
             name: 'Primary Structure',
             category: 'wall',
             meshNames: discoveredMeshes,
-            defaultMaterialId: 'wall-pure-white',
+            defaultMaterialId: 'original',
           });
         }
       } else if (selectedFile.name.toLowerCase().endsWith('.skp')) {

@@ -1,5 +1,18 @@
 import { MaterialOption, MaterialCategory } from '@/types';
 
+export const ORIGINAL_MATERIAL: MaterialOption = {
+  id: 'original',
+  name: 'Original 3D Model',
+  category: 'wall',
+  type: 'color',
+  color: '#FFFFFF',
+  roughness: 0.5,
+  metalness: 0.0,
+  finish: 'matte',
+  description: 'Warna dan tekstur bawaan asli dari file 3D CAD / SketchUp.',
+  tag: 'Original',
+};
+
 export const MATERIAL_CATEGORIES: { id: MaterialCategory; label: string; icon: string }[] = [
   { id: 'wall', label: 'Walls', icon: 'Paintbrush' },
   { id: 'floor', label: 'Floors', icon: 'LayoutGrid' },
@@ -10,6 +23,7 @@ export const MATERIAL_CATEGORIES: { id: MaterialCategory; label: string; icon: s
 ];
 
 export const MATERIAL_LIBRARY: MaterialOption[] = [
+  ORIGINAL_MATERIAL,
   // --- WALL MATERIALS (COLORS) ---
   {
     id: 'wall-pure-white',
@@ -439,9 +453,10 @@ export const MATERIAL_LIBRARY: MaterialOption[] = [
 ];
 
 export function getMaterialsByCategory(category: MaterialCategory): MaterialOption[] {
-  return MATERIAL_LIBRARY.filter((mat) => mat.category === category);
+  return MATERIAL_LIBRARY.filter((mat) => mat.category === category && mat.id !== 'original');
 }
 
 export function getMaterialById(id: string): MaterialOption | undefined {
+  if (id === 'original') return ORIGINAL_MATERIAL;
   return MATERIAL_LIBRARY.find((mat) => mat.id === id);
 }

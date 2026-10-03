@@ -74,7 +74,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
 
   // Currently applied material info
   const appliedMaterialId = currentZone
-    ? selectedMaterials[currentZone.id] || currentZone.defaultMaterialId
+    ? selectedMaterials[currentZone.id] || currentZone.defaultMaterialId || 'original'
     : null;
 
   const appliedMaterial = appliedMaterialId
@@ -82,6 +82,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     : null;
 
   const hasCustomColor = currentZone && Boolean(customColors[currentZone.id]);
+  const isOriginal = !hasCustomColor && (!appliedMaterialId || appliedMaterialId === 'original');
 
   return (
     <aside className="w-full lg:w-96 bg-white border-l border-border flex flex-col h-[400px] lg:h-full z-10 shrink-0 shadow-subtle overflow-hidden">
@@ -172,10 +173,16 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
                   <Sparkles className="w-4 h-4 text-accent-warm mt-0.5 shrink-0" />
                   <div>
                     <h4 className="text-xs font-semibold text-primary">
-                      {hasCustomColor ? `Custom Tone (${customColors[currentZone.id]})` : appliedMaterial.name}
+                      {isOriginal
+                        ? 'Material Bawaan 3D (Original)'
+                        : hasCustomColor
+                        ? `Custom Tone (${customColors[currentZone.id]})`
+                        : appliedMaterial.name}
                     </h4>
                     <p className="text-[11px] text-secondary mt-0.5 leading-normal">
-                      {appliedMaterial.description || 'Architectural grade surface treatment.'}
+                      {isOriginal
+                        ? 'Tekstur dan material bawaan asli dari file 3D CAD / SketchUp.'
+                        : appliedMaterial.description || 'Architectural grade surface treatment.'}
                     </p>
                   </div>
                 </div>
@@ -183,15 +190,21 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
                 <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/60 text-[10px]">
                   <div>
                     <span className="text-secondary block">Finish</span>
-                    <span className="font-medium text-primary capitalize">{appliedMaterial.finish}</span>
+                    <span className="font-medium text-primary capitalize">
+                      {isOriginal ? 'Original' : appliedMaterial.finish}
+                    </span>
                   </div>
                   <div>
                     <span className="text-secondary block">Roughness</span>
-                    <span className="font-medium text-primary">{Math.round(appliedMaterial.roughness * 100)}%</span>
+                    <span className="font-medium text-primary">
+                      {isOriginal ? 'Native' : `${Math.round(appliedMaterial.roughness * 100)}%`}
+                    </span>
                   </div>
                   <div>
                     <span className="text-secondary block">Reflectance</span>
-                    <span className="font-medium text-primary">{appliedMaterial.metalness > 0.3 ? 'Metallic' : 'Dielectric'}</span>
+                    <span className="font-medium text-primary">
+                      {isOriginal ? 'Native' : appliedMaterial.metalness > 0.3 ? 'Metallic' : 'Dielectric'}
+                    </span>
                   </div>
                 </div>
               </div>

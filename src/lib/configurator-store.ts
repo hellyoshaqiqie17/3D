@@ -127,7 +127,8 @@ interface ConfiguratorState {
   setFloorOffsetX: (x: number) => void;
   setFloorOffsetZ: (z: number) => void;
 
-  resetConfiguration: (zones: MaterialZone[]) => void;
+  setZoneOriginal: (zoneId: string) => void;
+  resetConfiguration: (zones: MaterialZone[], isDemoProject?: boolean) => void;
   loadConfiguration: (
     materials: Record<string, string>,
     customColors?: Record<string, string>,
@@ -316,13 +317,44 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
     })),
 
   setCustomColor: (zoneId, color) =>
-    set((state) => ({
-      isOriginalMode: false, // Automatically switch back from original mode when changing color
-      customColors: {
-        ...state.customColors,
-        [zoneId]: color,
-      },
-    })),
+    set((state) => {
+      const nextCustomColors = { ...state.customColors };
+      if (!color || color.toLowerCase() === 'original') {
+        delete nextCustomColors[zoneId];
+      } else {
+        nextCustomColors[zoneId] = color;
+      }
+      return {
+        isOriginalMode: false,
+        customColors: nextCustomColors,
+        zoneTextureSettings: {
+          ...state.zoneTextureSettings,
+          [zoneId]: {
+            ...(state.zoneTextureSettings[zoneId] || {
+              repeat: [4, 4],
+              bumpScale: 0.14,
+              rotation: 0,
+              roughness: 0.35,
+            }),
+            colorTint: color || undefined,
+          },
+        },
+      };
+    }),
+
+  setZoneOriginal: (zoneId) =>
+    set((state) => {
+      const nextCustomColors = { ...state.customColors };
+      delete nextCustomColors[zoneId];
+      const nextSelectedMaterials = { ...state.selectedMaterials, [zoneId]: 'original' };
+      const nextZoneTextureSettings = { ...state.zoneTextureSettings };
+      delete nextZoneTextureSettings[zoneId];
+      return {
+        customColors: nextCustomColors,
+        selectedMaterials: nextSelectedMaterials,
+        zoneTextureSettings: nextZoneTextureSettings,
+      };
+    }),
 
   setHoveredMesh: (name) => set({ hoveredMeshName: name }),
   setSelectedMesh: (name) => set({ selectedMeshName: name }),
@@ -369,10 +401,12 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
     })),
   setLookAround360: (val) => set((state) => ({ isLookAround360: val, isAutoRotate: val ? false : state.isAutoRotate })),
 
-  resetConfiguration: (zones) => {
+  resetConfiguration: (zones, isDemoProject = false) => {
     const defaults: Record<string, string> = {};
     zones.forEach((z) => {
-      defaults[z.id] = z.defaultMaterialId;
+      defaults[z.id] = (isDemoProject && z.defaultMaterialId && z.defaultMaterialId !== 'original')
+        ? z.defaultMaterialId
+        : 'original';
     });
     set({
       selectedMaterials: defaults,

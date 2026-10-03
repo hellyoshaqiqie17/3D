@@ -176,6 +176,27 @@ export function backupOriginalMaterials(scene: THREE.Object3D): void {
 }
 
 /**
+ * Restores all meshes in a specific zone to their original imported CAD materials.
+ */
+export function restoreZoneOriginalMaterial(scene: THREE.Object3D, zone: MaterialZone): void {
+  collectZoneMeshes(scene, zone.meshNames).forEach((child) => {
+    if (child instanceof THREE.Mesh && originalMaterialMap.has(child)) {
+      const orig = originalMaterialMap.get(child);
+      if (orig) {
+        child.material = Array.isArray(orig)
+          ? orig.map((m) => m.clone())
+          : orig.clone();
+        if (Array.isArray(child.material)) {
+          child.material.forEach((m) => (m.needsUpdate = true));
+        } else {
+          child.material.needsUpdate = true;
+        }
+      }
+    }
+  });
+}
+
+/**
  * Restores all meshes in the scene to their original imported CAD materials.
  */
 export function restoreOriginalMaterials(scene: THREE.Object3D): void {
@@ -211,6 +232,12 @@ export function applyMaterialToZone(
   customColor?: string,
   settings?: ZoneTextureSettings
 ): void {
+  // If original material requested without custom paint/tint, restore original 3D material
+  if (material.id === 'original' && !customColor && (!settings || !settings.colorTint)) {
+    restoreZoneOriginalMaterial(scene, zone);
+    return;
+  }
+
   const isTextured = material.type === 'texture' && Boolean(material.textureUrl || material.textureType);
 
   collectZoneMeshes(scene, zone.meshNames).forEach((child) => {
