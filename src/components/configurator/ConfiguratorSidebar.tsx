@@ -1,14 +1,16 @@
 'use client';
 
-import React, { useMemo } from 'react';
-import { MaterialZone } from '@/types';
+import React, { useMemo, useState, useEffect } from 'react';
+import { MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { getMaterialsByCategory, getMaterialById } from '@/lib/materials';
 import { CategorySelector } from './CategorySelector';
 import { MaterialGrid } from './MaterialGrid';
 import { ColorPickerSection } from './ColorPickerSection';
 import { FloorTileCustomizer } from './FloorTileCustomizer';
-import { Info, Sparkles, CheckCircle2 } from 'lucide-react';
+import { CustomTextureUploader } from './CustomTextureUploader';
+import { TextureAdjusterPanel } from './TextureAdjusterPanel';
+import { Info, Sparkles, CheckCircle2, Layers, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface ConfiguratorSidebarProps {
   zones: MaterialZone[];
@@ -21,8 +23,13 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const customColors = useConfiguratorStore((s) => s.customColors);
   const hoveredMeshName = useConfiguratorStore((s) => s.hoveredMeshName);
+  const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
+  const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
+  const floorEnabled = useConfiguratorStore((s) => s.floorEnabled);
 
-  // Available categories based on the current project's zones, plus 'floor' so user can always customize/import tiles!
+  const [showGroundOverlay, setShowGroundOverlay] = useState(false);
+
+  // Available categories based on the current project's zones, plus 'floor'
   const availableCategories = useMemo(() => {
     const set = new Set(zones.map((z) => z.category));
     set.add('floor');
@@ -41,14 +48,39 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     return categoryZones[0] || zones[0];
   }, [categoryZones, selectedZoneId, zones]);
 
-  // Materials available for this category
-  const availableMaterials = useMemo(() => {
-    return getMaterialsByCategory(activeCategory);
-  }, [activeCategory]);
+  // Automatically keep selectedZoneId in sync with current active category
+  useEffect(() => {
+    if (currentZone && currentZone.id !== selectedZoneId) {
+      selectZone(currentZone.id);
+    }
+  }, [currentZone, selectedZoneId, selectZone]);
+
+  // Materials available for this category including user-uploaded client designs
+  const combinedMaterials = useMemo(() => {
+    const fromLibrary = getMaterialsByCategory(activeCategory);
+    const fromUploaded = uploadedMaterials.filter(
+      (m) => m.category === activeCategory || m.isCustomUpload
+    );
+    const seen = new Set<string>();
+    const result: MaterialOption[] = [];
+    for (const m of [...fromUploaded, ...fromLibrary]) {
+      if (!seen.has(m.id)) {
+        seen.add(m.id);
+        result.push(m);
+      }
+    }
+    return result;
+  }, [activeCategory, uploadedMaterials]);
 
   // Currently applied material info
-  const appliedMaterialId = currentZone ? (selectedMaterials[currentZone.id] || currentZone.defaultMaterialId) : null;
-  const appliedMaterial = appliedMaterialId ? getMaterialById(appliedMaterialId) : null;
+  const appliedMaterialId = currentZone
+    ? selectedMaterials[currentZone.id] || currentZone.defaultMaterialId
+    : null;
+
+  const appliedMaterial = appliedMaterialId
+    ? uploadedMaterials.find((m) => m.id === appliedMaterialId) || getMaterialById(appliedMaterialId)
+    : null;
+
   const hasCustomColor = currentZone && Boolean(customColors[currentZone.id]);
 
   return (
@@ -57,7 +89,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
       <CategorySelector availableCategories={availableCategories} />
 
       {/* Zone Switcher (if multiple zones exist in this category) */}
-      {activeCategory !== 'floor' && categoryZones.length > 1 && (
+      {categoryZones.length > 1 && (
         <div className="px-4 py-2.5 bg-surface-50 border-b border-border flex items-center gap-1.5 overflow-x-auto scrollbar-none">
           <span className="text-[10px] uppercase font-bold text-secondary tracking-wider mr-1">
             Zone:
@@ -67,7 +99,12 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
             return (
               <button
                 key={z.id}
-                onClick={() => selectZone(z.id)}
+                onClick={() => {
+                  selectZone(z.id);
+                  if (z.meshNames.length > 0) {
+                    setSelectedMesh(z.meshNames[0]);
+                  }
+                }}
                 className={`px-2.5 py-1 text-xs font-medium rounded-md whitespace-nowrap transition-all ${
                   isSelected
                     ? 'bg-white text-primary border border-border shadow-subtle'
@@ -83,9 +120,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
 
       {/* Main Material Selection Scroll Area */}
       <div className="flex-1 overflow-y-auto">
-        {activeCategory === 'floor' ? (
-          <FloorTileCustomizer />
-        ) : currentZone ? (
+        {currentZone ? (
           <>
             {/* Zone Header Banner */}
             <div className="p-4 border-b border-border">
@@ -102,20 +137,31 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
               )}
             </div>
 
-            {/* Color Swatch & Custom Hex Color Picker for current active zone */}
-            <ColorPickerSection currentZone={currentZone} />
+            {/* Custom Texture Uploader (PNG/JPG client designer patterns) */}
+            <CustomTextureUploader currentZone={currentZone} />
+
+            {/* 3D Texture & Surface Fine-Tuning (Color Tint, Bump Depth, Tile Repeat) */}
+            {appliedMaterial && appliedMaterial.type === 'texture' ? (
+              <TextureAdjusterPanel
+                currentZone={currentZone}
+                activeMaterial={appliedMaterial}
+              />
+            ) : (
+              /* Color Swatch & Custom Hex Color Picker for solid materials */
+              <ColorPickerSection currentZone={currentZone} />
+            )}
 
             {/* Material Grid Header */}
             <div className="px-4 pt-3 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-secondary">
-                Material Library ({availableMaterials.length})
+                Material Library ({combinedMaterials.length})
               </span>
-              <span className="text-[10px] text-secondary">PBR Textures</span>
+              <span className="text-[10px] text-secondary">PBR Textures & Samples</span>
             </div>
 
             {/* Material Grid */}
             <MaterialGrid
-              materials={availableMaterials}
+              materials={combinedMaterials}
               currentZone={currentZone}
             />
 
@@ -141,7 +187,7 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
                   </div>
                   <div>
                     <span className="text-secondary block">Roughness</span>
-                    <span className="font-medium text-primary">{appliedMaterial.roughness * 100}%</span>
+                    <span className="font-medium text-primary">{Math.round(appliedMaterial.roughness * 100)}%</span>
                   </div>
                   <div>
                     <span className="text-secondary block">Reflectance</span>
@@ -150,7 +196,38 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
                 </div>
               </div>
             )}
+
+            {/* Optional Procedural Floor Overlay Accordion (only in floor category) */}
+            {activeCategory === 'floor' && (
+              <div className="m-4 border border-border rounded-xl bg-surface-50 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowGroundOverlay(!showGroundOverlay)}
+                  className="w-full px-3.5 py-2.5 flex items-center justify-between text-xs font-medium text-secondary hover:text-primary transition-colors text-left"
+                >
+                  <span className="flex items-center gap-2">
+                    <Layers className="w-3.5 h-3.5 text-accent" />
+                    Lantai Tambahan Prosedural (Ground Overlay)
+                  </span>
+                  <span className="flex items-center gap-1.5 text-[11px] text-secondary">
+                    {floorEnabled ? (
+                      <span className="text-green-600 font-medium">Aktif</span>
+                    ) : (
+                      <span className="text-muted-foreground">Nonaktif</span>
+                    )}
+                    {showGroundOverlay ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                  </span>
+                </button>
+                {showGroundOverlay && (
+                  <div className="p-3 border-t border-border bg-white">
+                    <FloorTileCustomizer />
+                  </div>
+                )}
+              </div>
+            )}
           </>
+        ) : activeCategory === 'floor' ? (
+          <FloorTileCustomizer />
         ) : (
           <div className="p-8 text-center text-secondary text-xs">
             Select a material category or click on the 3D model surface to customize.
@@ -162,8 +239,8 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
       <div className="p-3 bg-surface-50 border-t border-border flex items-center justify-between text-[11px] text-secondary">
         <div className="flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 text-secondary" />
-          <span className="truncate max-w-[220px]">
-            {hoveredMeshName ? `Target: ${hoveredMeshName}` : 'Click any 3D surface to select'}
+          <span className="truncate max-w-[200px]">
+            {hoveredMeshName ? `Hover: ${hoveredMeshName}` : 'Click any 3D surface to select'}
           </span>
         </div>
         <span className="font-mono text-[10px]">PBR 60FPS</span>

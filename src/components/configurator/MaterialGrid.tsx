@@ -48,10 +48,10 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
           >
             {/* Visual Thumbnail Area */}
             <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-surface-100 border border-border/50">
-              {mat.type === 'texture' && thumbnailSrc ? (
+              {mat.type === 'texture' && (mat.previewThumbnail || mat.textureUrl || thumbnailSrc) ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={thumbnailSrc}
+                  src={mat.previewThumbnail || mat.textureUrl || thumbnailSrc}
                   alt={mat.name}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />

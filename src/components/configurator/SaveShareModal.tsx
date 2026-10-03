@@ -27,6 +27,7 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
 
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const customColors = useConfiguratorStore((s) => s.customColors);
+  const zoneTextureSettings = useConfiguratorStore((s) => s.zoneTextureSettings);
 
   const [copied, setCopied] = useState(false);
   const [configTitle, setConfigTitle] = useState('My Custom Architecture');
@@ -41,11 +42,12 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
     createdAt: new Date().toISOString(),
     configuration: selectedMaterials,
     customColors: customColors,
+    textureSettings: zoneTextureSettings,
   };
 
   // Encode configuration into a URL-safe parameter
   const encodedConfig = typeof window !== 'undefined'
-    ? btoa(JSON.stringify({ m: selectedMaterials, c: customColors }))
+    ? btoa(JSON.stringify({ m: selectedMaterials, c: customColors, t: zoneTextureSettings }))
     : '';
 
   const shareUrl = typeof window !== 'undefined'

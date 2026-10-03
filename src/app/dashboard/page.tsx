@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useProjectStore } from '@/lib/project-store';
 import { MATERIAL_LIBRARY } from '@/lib/materials';
+import { ModelThumbnailPreview } from '@/components/dashboard/ModelThumbnailPreview';
 import {
   Plus,
   Search,
@@ -202,18 +203,14 @@ export default function DashboardPage() {
                         </div>
                       </div>
 
-                      {/* 3D Visual Box */}
-                      <div className="relative aspect-[16/9] w-full rounded-xl bg-surface-100 border border-border/80 flex flex-col items-center justify-center mb-4 overflow-hidden group-hover:border-primary/40 transition-colors">
-                        <div className="w-12 h-12 rounded-xl bg-white shadow-subtle flex items-center justify-center text-primary mb-2">
-                          <Building2 className="w-6 h-6 stroke-[1.5]" />
-                        </div>
-                        <span className="text-[11px] font-mono text-secondary">
-                          {p.modelUrl.split('/').pop()}
-                        </span>
-                        <div className="absolute bottom-2 right-2 px-2 py-0.5 text-[9px] uppercase font-mono font-medium bg-black/60 backdrop-blur-sm text-white rounded">
-                          GLB 3D
-                        </div>
-                      </div>
+                      {/* 3D Visual Captured Snapshot Preview */}
+                      <Link
+                        href={`/configurator/${p.id}`}
+                        className="block mb-4 cursor-pointer"
+                        title="Klik untuk membuka 3D Configurator"
+                      >
+                        <ModelThumbnailPreview project={p} />
+                      </Link>
 
                       {/* Project Meta */}
                       <h3 className="text-sm font-semibold text-primary mb-1">{p.name}</h3>

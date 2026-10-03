@@ -3,6 +3,8 @@
 import React from 'react';
 import Link from 'next/link';
 import { InteractiveHeroViewer } from '@/components/landing/InteractiveHeroViewer';
+import { ModelThumbnailPreview } from '@/components/dashboard/ModelThumbnailPreview';
+import { DEMO_PROJECTS } from '@/lib/demo-project';
 import {
   ArrowRight,
   Sparkles,
@@ -224,11 +226,11 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="p-6 rounded-2xl border border-border bg-[#F7F7F5] flex flex-col justify-between">
+            <div className="p-6 rounded-2xl border border-border bg-[#F7F7F5] flex flex-col justify-between group">
               <div>
-                <div className="aspect-[16/10] bg-white rounded-xl border border-border/80 flex items-center justify-center mb-5">
-                  <Box className="w-10 h-10 text-secondary/70 stroke-[1.5]" />
-                </div>
+                <Link href="/configurator/house-001" className="block mb-4 cursor-pointer">
+                  <ModelThumbnailPreview project={DEMO_PROJECTS[0]} />
+                </Link>
                 <h3 className="text-base font-semibold text-primary mb-1">Modern Pavilion Villa</h3>
                 <p className="text-xs text-secondary mb-4">
                   Single-storey luxury pavilion featuring floor-to-ceiling glass, terrace patio, and 9 customizable material zones.
@@ -236,17 +238,17 @@ export default function LandingPage() {
               </div>
               <Link
                 href="/configurator/house-001"
-                className="w-full py-2.5 bg-primary text-white text-xs font-medium rounded-xl text-center hover:bg-primary-hover transition-colors"
+                className="w-full py-2.5 bg-primary text-white text-xs font-medium rounded-xl text-center hover:bg-primary-hover transition-colors shadow-subtle"
               >
                 Launch Configurator
               </Link>
             </div>
 
-            <div className="p-6 rounded-2xl border border-border bg-[#F7F7F5] flex flex-col justify-between">
+            <div className="p-6 rounded-2xl border border-border bg-[#F7F7F5] flex flex-col justify-between group">
               <div>
-                <div className="aspect-[16/10] bg-white rounded-xl border border-border/80 flex items-center justify-center mb-5">
-                  <Box className="w-10 h-10 text-secondary/70 stroke-[1.5]" />
-                </div>
+                <Link href="/configurator/studio-002" className="block mb-4 cursor-pointer">
+                  <ModelThumbnailPreview project={DEMO_PROJECTS[1]} />
+                </Link>
                 <h3 className="text-base font-semibold text-primary mb-1">Nordic Minimalist Studio</h3>
                 <p className="text-xs text-secondary mb-4">
                   Compact 85m² architectural guest pavilion with microcement surfaces, dark accent walls, and ensuite stone surfaces.
@@ -254,7 +256,7 @@ export default function LandingPage() {
               </div>
               <Link
                 href="/configurator/studio-002"
-                className="w-full py-2.5 bg-primary text-white text-xs font-medium rounded-xl text-center hover:bg-primary-hover transition-colors"
+                className="w-full py-2.5 bg-primary text-white text-xs font-medium rounded-xl text-center hover:bg-primary-hover transition-colors shadow-subtle"
               >
                 Launch Configurator
               </Link>

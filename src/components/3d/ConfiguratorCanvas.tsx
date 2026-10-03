@@ -1,7 +1,8 @@
 'use client';
 
-import React, { Suspense, Component, ErrorInfo, ReactNode } from 'react';
-import { Canvas } from '@react-three/fiber';
+import React, { Suspense, Component, ErrorInfo, ReactNode, useEffect } from 'react';
+import { Canvas, useThree } from '@react-three/fiber';
+import * as THREE from 'three';
 import { HouseModel } from './HouseModel';
 import { LightingEnvironment } from './LightingEnvironment';
 import { CameraManager } from './CameraManager';
@@ -10,6 +11,7 @@ import { Loader2, AlertCircle, RefreshCw, Eye, ArrowRight } from 'lucide-react';
 import { CanvasProgressLoader } from './CanvasProgressLoader';
 import { ProceduralFloor } from './ProceduralFloor';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+
 
 interface ConfiguratorCanvasProps {
   modelUrl: string;
@@ -104,12 +106,13 @@ export function ConfiguratorCanvas({
           id="configurator-3d-canvas"
           shadows
           dpr={[1, 2]}
-          camera={{ position: [12, 8, 14], fov: 40, near: 0.1, far: 2000 }}
+          camera={{ position: [12, 8, 14], fov: 50, near: 0.03, far: 2000 }}
           gl={{
             antialias: true,
             alpha: true,
             preserveDrawingBuffer: true,
             powerPreference: 'high-performance',
+            localClippingEnabled: true,
           }}
         >
           <Suspense fallback={null}>

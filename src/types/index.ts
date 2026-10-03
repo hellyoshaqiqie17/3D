@@ -28,6 +28,14 @@ export type TextureGeneratorType =
   | 'terracotta-roof'
   | 'deck-teak';
 
+export interface ZoneTextureSettings {
+  repeat: [number, number];
+  bumpScale: number;
+  rotation: number;
+  roughness: number;
+  colorTint?: string;
+}
+
 export interface MaterialOption {
   id: string;
   name: string;
@@ -36,6 +44,8 @@ export interface MaterialOption {
   color?: string; // Base HEX color
   textureType?: TextureGeneratorType; // Procedural texture generator ID
   textureUrl?: string; // Fallback or custom uploaded texture image URL
+  bumpScale?: number; // 3D relief tactile depth
+  rotation?: number;
   roughness: number;
   metalness: number;
   finish: FinishType;
@@ -43,6 +53,7 @@ export interface MaterialOption {
   description?: string;
   tag?: string;
   previewThumbnail?: string;
+  isCustomUpload?: boolean;
 }
 
 export interface MaterialZone {
@@ -75,6 +86,7 @@ export interface ProjectConfiguration {
   title?: string;
   materials: Record<string, string>; // zoneId -> materialId
   customColors: Record<string, string>; // zoneId -> custom hex color
+  textureSettings?: Record<string, ZoneTextureSettings>; // zoneId -> repeat, bumpScale, etc.
   createdAt: string;
   updatedAt: string;
 }

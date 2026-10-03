@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useRef } from 'react';
 import { useGLTF } from '@react-three/drei';
-import { ThreeEvent } from '@react-three/fiber';
+import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
@@ -27,21 +27,86 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const selectZone = useConfiguratorStore((s) => s.selectZone);
   const setActiveCategory = useConfiguratorStore((s) => s.setActiveCategory);
   const setHoveredMesh = useConfiguratorStore((s) => s.setHoveredMesh);
+  const selectedMeshName = useConfiguratorStore((s) => s.selectedMeshName);
   const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
   const setDetectedFootprint = useConfiguratorStore((s) => s.setDetectedFootprint);
+  const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
+  const zoneTextureSettings = useConfiguratorStore((s) => s.zoneTextureSettings);
+  const addDynamicZone = useConfiguratorStore((s) => s.addDynamicZone);
+  const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
+  const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
+  const setHouseBounds = useConfiguratorStore((s) => s.setHouseBounds);
+  const isCeilingCut = useConfiguratorStore((s) => s.isCeilingCut);
+  const ceilingCutHeight = useConfiguratorStore((s) => s.ceilingCutHeight);
 
   // Deep clone scene so modifications are isolated to this session
   const sceneClone = useMemo(() => {
     const clone = gltf.scene.clone(true);
 
-    // Calculate bounding box to automatically center model at ground level
-    const box = new THREE.Box3().setFromObject(clone);
-    const center = new THREE.Vector3();
-    box.getCenter(center);
+    // 1. Calculate overall model box and dedicated house box (excluding outer trees and giant site grounds)
+    const totalBox = new THREE.Box3().setFromObject(clone);
+    const houseBox = new THREE.Box3();
+    let hasHouseMeshes = false;
 
-    // Center model at origin and ground level
+    clone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name || '';
+        const lower = name.toLowerCase();
+
+        const isEnv =
+          lower.includes('tree') ||
+          lower.includes('palm') ||
+          lower.includes('bush') ||
+          lower.includes('plant') ||
+          lower.includes('hydrant') ||
+          lower.includes('ball') ||
+          lower.includes('basketball') ||
+          lower.includes('motorbike') ||
+          lower.includes('kangaroo') ||
+          lower.includes('pampas') ||
+          lower.includes('evergreen') ||
+          lower.includes('foliage') ||
+          name.startsWith('Group#63') ||
+          name.startsWith('Component#47') ||
+          name.startsWith('Group#55') ||
+          name.startsWith('Group#54') ||
+          name.startsWith('Group#53') ||
+          name.startsWith('Group#85') ||
+          name.startsWith('Component_337') ||
+          name.startsWith('Component_338') ||
+          name.startsWith('Component_342') ||
+          name.startsWith('Component_3434');
+
+        const isBigSite =
+          name === 'Group#95' ||
+          name === 'Group#363' ||
+          name === 'Component#47' ||
+          name.startsWith('Component_33') ||
+          name.startsWith('Component_34') ||
+          lower.includes('road') ||
+          lower.includes('jalan') ||
+          lower.includes('aspal') ||
+          lower.includes('asphalt') ||
+          lower.includes('neighbor') ||
+          lower.includes('neighbour') ||
+          lower.includes('terrain') ||
+          lower.includes('boundary') ||
+          lower.includes('site');
+
+        if (!isEnv && !isBigSite) {
+          houseBox.expandByObject(child);
+          hasHouseMeshes = true;
+        }
+      }
+    });
+
+    const activeBox = hasHouseMeshes && !houseBox.isEmpty() ? houseBox : totalBox;
+    const center = new THREE.Vector3();
+    activeBox.getCenter(center);
+
+    // Center model at origin and ground level based on the house itself
     clone.position.x = -center.x;
-    clone.position.y = -box.min.y;
+    clone.position.y = -activeBox.min.y;
     clone.position.z = -center.z;
 
     // Ensure all materials are cloned so meshes don't share instances across zones
@@ -115,7 +180,106 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       totalCenterX: parseFloat(totalCenter.x.toFixed(2)),
       totalCenterZ: parseFloat(totalCenter.z.toFixed(2)),
     });
-  }, [sceneClone, setDetectedFootprint]);
+
+    setHouseBounds(
+      [0, parseFloat((mainSize.y / 2).toFixed(2)), 0],
+      [
+        parseFloat(mainSize.x.toFixed(2)),
+        parseFloat(mainSize.y.toFixed(2)),
+        parseFloat(mainSize.z.toFixed(2)),
+      ]
+    );
+  }, [sceneClone, setDetectedFootprint, setHouseBounds]);
+
+  // Set of mesh names belonging to roof zones
+  const roofMeshSet = useMemo(() => {
+    const set = new Set<string>();
+    zones.forEach((z) => {
+      if (z.category === 'roof') {
+        z.meshNames.forEach((name) => set.add(name));
+      }
+    });
+    return set;
+  }, [zones]);
+
+  // Dynamic Roof & Environment Visibility Effect (Dollhouse view & Hide Trees)
+  useEffect(() => {
+    if (!sceneClone) return;
+
+    sceneClone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = child.name || '';
+        const lower = name.toLowerCase();
+
+        // Check if environment tree or exterior clutter prop
+        const isEnv =
+          lower.includes('tree') ||
+          lower.includes('palm') ||
+          lower.includes('bush') ||
+          lower.includes('plant') ||
+          lower.includes('hydrant') ||
+          lower.includes('ball') ||
+          lower.includes('basketball') ||
+          lower.includes('motorbike') ||
+          lower.includes('kangaroo') ||
+          lower.includes('pampas') ||
+          lower.includes('evergreen') ||
+          lower.includes('foliage') ||
+          name.startsWith('Group#63') ||
+          name.startsWith('Component#47') ||
+          name.startsWith('Group#55') ||
+          name.startsWith('Group#54') ||
+          name.startsWith('Group#53') ||
+          name.startsWith('Group#85') ||
+          name.startsWith('Component_337') ||
+          name.startsWith('Component_338') ||
+          name.startsWith('Component_342') ||
+          name.startsWith('Component_3434');
+
+        // Check world bounding box of this child
+        const box = new THREE.Box3().setFromObject(child);
+
+        // Roof & ceiling meshes (all components purely above walls, roofs, dak, and pergolas)
+        const isRoof =
+          !isEnv &&
+          (roofMeshSet.has(name) ||
+            lower.includes('roof') ||
+            lower.includes('atap') ||
+            lower.includes('genteng') ||
+            lower.includes('dak') ||
+            lower.includes('kanopi') ||
+            lower.includes('canopy') ||
+            lower.includes('plafon') ||
+            lower.includes('ceiling') ||
+            lower.includes('pergola') ||
+            name.includes('PointLight') ||
+            name.startsWith('Group#137') ||
+            name.startsWith('Group#138') ||
+            name.startsWith('Group#139') ||
+            name.startsWith('Group#140') ||
+            name.startsWith('Group#141') ||
+            name === 'Component_205840' ||
+            name === 'Component_205790' ||
+            name === 'Component_205546' ||
+            name === 'Component_205695' ||
+            name === 'Component_205519' ||
+            name === 'Component_201197' ||
+            name === 'Component_196963' ||
+            name === 'Component_192413' ||
+            name.startsWith('Component_196') ||
+            name.startsWith('Component_197') ||
+            box.min.y >= 2.80) &&
+          // Guard: Never hide floors (which are at y < 0.8)
+          box.min.y > 0.8;
+
+        if (isRoof) {
+          child.visible = !isRoofHidden;
+        } else if (isEnv) {
+          child.visible = !isEnvironmentHidden;
+        }
+      }
+    });
+  }, [sceneClone, isRoofHidden, isEnvironmentHidden, roofMeshSet]);
 
   // Mesh to zone lookup map
   const meshToZoneMap = useMemo(() => {
@@ -140,13 +304,28 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     zones.forEach((zone) => {
       const selectedMatId = selectedMaterials[zone.id] || zone.defaultMaterialId;
       const customColor = customColors[zone.id];
-      const material = getMaterialById(selectedMatId);
+      const material =
+        uploadedMaterials.find((m) => m.id === selectedMatId) || getMaterialById(selectedMatId);
 
       if (material) {
-        applyMaterialToZone(sceneClone, zone, material, customColor);
+        applyMaterialToZone(
+          sceneClone,
+          zone,
+          material,
+          customColor,
+          zoneTextureSettings[zone.id]
+        );
       }
     });
-  }, [sceneClone, zones, selectedMaterials, customColors, isOriginalMode]);
+  }, [
+    sceneClone,
+    zones,
+    selectedMaterials,
+    customColors,
+    uploadedMaterials,
+    zoneTextureSettings,
+    isOriginalMode,
+  ]);
 
   // Wireframe toggle effect for architectural drafting view
   useEffect(() => {
@@ -161,7 +340,83 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         }
       }
     });
-  }, [sceneClone, isWireframeMode]);
+  }, [sceneClone, isWireframeMode, selectedMaterials, customColors, zoneTextureSettings, uploadedMaterials, isOriginalMode, zones]);
+
+  // Helper to guess category and display name for dynamic meshes
+  const guessCategoryFromMeshName = (name: string): MaterialZone['category'] => {
+    const lower = name.toLowerCase();
+    if (
+      lower.includes('floor') ||
+      lower.includes('lantai') ||
+      lower.includes('carport') ||
+      lower.includes('teras') ||
+      lower.includes('paving') ||
+      lower.includes('ubin') ||
+      lower.includes('keramik') ||
+      lower.includes('step') ||
+      lower.includes('jalan') ||
+      lower.includes('road')
+    ) {
+      return 'floor';
+    }
+    if (
+      lower.includes('roof') ||
+      lower.includes('atap') ||
+      lower.includes('kanopi') ||
+      lower.includes('canopy') ||
+      lower.includes('dak') ||
+      lower.includes('genteng')
+    ) {
+      return 'roof';
+    }
+    if (
+      lower.includes('door') ||
+      lower.includes('pintu') ||
+      lower.includes('kusen') ||
+      lower.includes('frame')
+    ) {
+      return 'door';
+    }
+    if (
+      lower.includes('window') ||
+      lower.includes('jendela') ||
+      lower.includes('kaca') ||
+      lower.includes('glass')
+    ) {
+      return 'window';
+    }
+    if (lower.includes('bath') || lower.includes('toilet') || lower.includes('wc')) {
+      return 'bathroom';
+    }
+    if (
+      lower.includes('garden') ||
+      lower.includes('taman') ||
+      lower.includes('rumput') ||
+      lower.includes('grass')
+    ) {
+      return 'exterior';
+    }
+    return 'wall';
+  };
+
+  const formatMeshDisplayName = (name: string): string => {
+    if (name.includes('Group#1_2') || name === 'Group#1') {
+      return 'Lantai Carport & Garasi';
+    }
+    if (name.includes('Group#150')) {
+      return 'Lantai Teras Depan';
+    }
+    if (name.includes('Component_343384') || name === 'Group#95') {
+      return 'Area Jalan Aspal (Site)';
+    }
+    if (name.startsWith('Group#')) {
+      return `Bagian 3D (${name})`;
+    }
+    if (name.startsWith('Component_')) {
+      return `Komponen 3D (${name.replace('Component_', '#')})`;
+    }
+    return name.replace(/_/g, ' ');
+  };
 
   // Helper to find matching zone including parent node hierarchy
   const findZoneForObject = (obj: THREE.Object3D): MaterialZone | undefined => {
@@ -182,7 +437,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     if (mesh instanceof THREE.Mesh) {
       const zone = findZoneForObject(mesh) || meshToZoneMap.get(mesh.name);
       document.body.style.cursor = 'pointer';
-      setHoveredMesh(zone ? zone.name : mesh.name);
+      setHoveredMesh(zone ? zone.name : formatMeshDisplayName(mesh.name));
     }
   };
 
@@ -202,6 +457,21 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       if (zone) {
         selectZone(zone.id);
         setActiveCategory(zone.category);
+      } else {
+        // Automatically create a dynamic customizable zone for this clicked mesh!
+        const autoCat = guessCategoryFromMeshName(mesh.name);
+        const dynamicId = `zone_mesh_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        const newDynamicZone: MaterialZone = {
+          id: dynamicId,
+          name: formatMeshDisplayName(mesh.name),
+          category: autoCat,
+          meshNames: [mesh.name],
+          defaultMaterialId: autoCat === 'floor' ? 'floor-carrara-marble' : 'wall-pure-white',
+          description: `Bidang objek 3D terpilih: ${mesh.name}`,
+        };
+        addDynamicZone(newDynamicZone);
+        selectZone(newDynamicZone.id);
+        setActiveCategory(newDynamicZone.category);
       }
 
       if (onMeshClick) {
@@ -209,6 +479,25 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       }
     }
   };
+
+  // Locate the currently selected 3D object for visual highlight
+  const selectedObject = useMemo(() => {
+    if (!sceneClone) return null;
+    if (selectedMeshName) {
+      const obj = sceneClone.getObjectByName(selectedMeshName);
+      if (obj) return obj;
+    }
+    if (selectedZoneId) {
+      const zone = zones.find((z) => z.id === selectedZoneId);
+      if (zone && zone.meshNames.length > 0) {
+        for (const name of zone.meshNames) {
+          const obj = sceneClone.getObjectByName(name);
+          if (obj) return obj;
+        }
+      }
+    }
+    return null;
+  }, [sceneClone, selectedMeshName, selectedZoneId, zones]);
 
   return (
     <group ref={modelRef}>
@@ -218,6 +507,32 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         onPointerOut={handlePointerOut}
         onClick={handleClick}
       />
+      <MeshSelectionBox target={selectedObject} />
     </group>
   );
+}
+
+/**
+ * Visual 3D wireframe bounding box indicating the currently selected zone/mesh
+ */
+function MeshSelectionBox({ target }: { target: THREE.Object3D | null }) {
+  const helper = useMemo(() => {
+    if (!target) return null;
+    const h = new THREE.BoxHelper(target, 0x2563eb); // Blueprint blue
+    const mat = h.material as THREE.LineBasicMaterial;
+    mat.depthTest = false;
+    mat.transparent = true;
+    mat.opacity = 0.88;
+    return h;
+  }, [target]);
+
+  useFrame(() => {
+    if (helper && target) {
+      helper.update();
+    }
+  });
+
+  if (!helper) return null;
+
+  return <primitive object={helper} />;
 }

@@ -11,20 +11,31 @@ interface ProjectStoreState {
   updateProjectZones: (projectId: string, zones: MaterialZone[]) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   getProject: (id: string) => Project | undefined;
+  updateProjectThumbnail: (projectId: string, thumbnailUrl: string) => void;
 }
 
-const STORAGE_KEY = 'homecraft_projects_v1';
+const STORAGE_KEY = 'homecraft_projects_v2';
+
+function sanitizeProject(p: Project): Project {
+  if (p.thumbnailUrl === '/models/villa-thumb.jpg') {
+    return { ...p, thumbnailUrl: '/models/villa-thumb.png' };
+  }
+  if (p.thumbnailUrl === '/models/studio-thumb.jpg') {
+    return { ...p, thumbnailUrl: '/models/studio-thumb.png' };
+  }
+  return p;
+}
 
 function getInitialProjects(): Project[] {
   if (typeof window === 'undefined') {
     return DEMO_PROJECTS;
   }
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('homecraft_projects_v1');
     if (saved) {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed;
+        return parsed.map(sanitizeProject);
       }
     }
   } catch (err) {
@@ -129,5 +140,17 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
 
   getProject: (id) => {
     return get().projects.find((p) => p.id === id) || DEMO_PROJECTS.find((p) => p.id === id);
+  },
+
+  updateProjectThumbnail: (projectId, thumbnailUrl) => {
+    set((state) => {
+      const updated = state.projects.map((p) =>
+        p.id === projectId
+          ? { ...p, thumbnailUrl, updatedAt: new Date().toISOString() }
+          : p
+      );
+      saveLocalCache(updated);
+      return { projects: updated };
+    });
   },
 }));

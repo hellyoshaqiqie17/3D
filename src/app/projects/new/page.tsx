@@ -7,6 +7,7 @@ import { useProjectStore } from '@/lib/project-store';
 import { Project, MaterialZone } from '@/types';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
+import { generateModelThumbnail } from '@/lib/thumbnail-generator';
 import {
   UploadCloud,
   ChevronLeft,
@@ -15,6 +16,7 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 
 type UploadStage =
@@ -37,6 +39,7 @@ export default function NewProjectPage() {
   const [stage, setStage] = useState<UploadStage>('idle');
   const [detectedZonesCount, setDetectedZonesCount] = useState(0);
   const [createdProjectId, setCreatedProjectId] = useState<string | null>(null);
+  const [capturedThumbnailUrl, setCapturedThumbnailUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -44,7 +47,8 @@ export default function NewProjectPage() {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
-      if (file.name.endsWith('.glb') || file.name.endsWith('.gltf')) {
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.glb') || lower.endsWith('.gltf') || lower.endsWith('.skp')) {
         setSelectedFile(file);
         if (!projectName) {
           setProjectName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
@@ -56,9 +60,12 @@ export default function NewProjectPage() {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setSelectedFile(file);
-      if (!projectName) {
-        setProjectName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+      const lower = file.name.toLowerCase();
+      if (lower.endsWith('.glb') || lower.endsWith('.gltf') || lower.endsWith('.skp')) {
+        setSelectedFile(file);
+        if (!projectName) {
+          setProjectName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+        }
       }
     }
   };
@@ -68,6 +75,24 @@ export default function NewProjectPage() {
     setProjectName('Highland Hillside Villa');
     setClientName('Serenity Estates');
     setDescription('Modern 2-bedroom residential villa featuring floor-to-ceiling panoramic glass, natural timber deck, and minimalist architectural concrete envelope.');
+
+    const loader = new GLTFLoader();
+    loader.load('/models/modern-villa.glb', (gltf) => {
+      try {
+        const thumb = generateModelThumbnail(gltf.scene, 640, 360);
+        if (thumb) setCapturedThumbnailUrl(thumb);
+      } catch (e) {
+        console.warn('Could not generate sample thumbnail:', e);
+      }
+    });
+  };
+
+  const handleUseSkpTemplate = () => {
+    setSelectedFile(new File([''], 'sample-sketchup-house.skp', { type: 'application/octet-stream' }));
+    setProjectName('SketchUp Modern House Concept');
+    setClientName('Krona Architectural Studio');
+    setDescription('Clean single-storey pavilion designed in Trimble SketchUp (.skp), converted to real-time Web 3D with customizable facade, timber floor, and slate canopy.');
+    setCapturedThumbnailUrl('/models/sample-sketchup-thumb.png');
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,11 +112,12 @@ export default function NewProjectPage() {
 
     // Parse model to extract meshes and generate initial candidate material zones
     let modelUrl = '/models/modern-villa.glb';
+    let generatedThumbnail = '';
     const candidateZones: MaterialZone[] = [];
 
     try {
       if (selectedFile.size > 0) {
-        // Upload CAD file directly to backend storage
+        // Upload CAD or SketchUp file directly to backend storage (backend auto-converts .skp to .glb)
         try {
           const formData = new FormData();
           formData.append('file', selectedFile);
@@ -104,17 +130,41 @@ export default function NewProjectPage() {
             if (uploadData.url) {
               modelUrl = uploadData.url;
             }
+            if (uploadData.thumbnailUrl) {
+              generatedThumbnail = uploadData.thumbnailUrl;
+            }
+          } else {
+            const errData = await uploadRes.json();
+            throw new Error(errData.error || 'Gagal memproses file 3D');
           }
-        } catch (uploadErr) {
+        } catch (uploadErr: any) {
           console.warn('Backend file upload fallback:', uploadErr);
+          if (selectedFile.name.toLowerCase().endsWith('.skp')) {
+            alert(uploadErr.message || 'Gagal mengonversi file SketchUp (.skp)');
+            setStage('idle');
+            return;
+          }
           modelUrl = URL.createObjectURL(selectedFile);
         }
 
-        const arrayBuf = await selectedFile.arrayBuffer();
+        // Fetch converted GLB from modelUrl to parse geometry and detect zones
+        const glbRes = await fetch(modelUrl);
+        const arrayBuf = await glbRes.arrayBuffer();
         const loader = new GLTFLoader();
         const gltf = await new Promise<any>((resolve, reject) => {
           loader.parse(arrayBuf, '', resolve, reject);
         });
+
+        // Automatically capture a realistic 3D PNG snapshot of the uploaded house!
+        try {
+          const thumb = generateModelThumbnail(gltf.scene, 640, 360);
+          if (thumb) {
+            generatedThumbnail = thumb;
+            setCapturedThumbnailUrl(thumb);
+          }
+        } catch (thumbErr) {
+          console.warn('Could not generate 3D thumbnail during GLB parsing:', thumbErr);
+        }
 
         // Traverse scene and intelligently detect material zones from mesh names
         const discoveredMeshes: string[] = [];
@@ -234,6 +284,41 @@ export default function NewProjectPage() {
             defaultMaterialId: 'wall-pure-white',
           });
         }
+      } else if (selectedFile.name.toLowerCase().endsWith('.skp')) {
+        // Built-in SketchUp template
+        modelUrl = '/models/sample-sketchup-house.glb';
+        generatedThumbnail = '/models/sample-sketchup-thumb.png';
+        setCapturedThumbnailUrl('/models/sample-sketchup-thumb.png');
+        candidateZones.push(
+          {
+            id: 'zone_wall',
+            name: 'Exterior & Interior Facade',
+            category: 'wall',
+            meshNames: ['mesh_0_2', 'mesh_0_4', 'Wall_Exterior'],
+            defaultMaterialId: 'wall-pure-white',
+          },
+          {
+            id: 'zone_roof',
+            name: 'Overhanging Roof Canopy',
+            category: 'roof',
+            meshNames: ['mesh_0_3', 'Roof_Main'],
+            defaultMaterialId: 'roof-zinc-charcoal',
+          },
+          {
+            id: 'zone_floor',
+            name: 'Timber Ground Floor',
+            category: 'floor',
+            meshNames: ['mesh_0', 'mesh_0_1', 'Floor_Living'],
+            defaultMaterialId: 'floor-oak-natural',
+          },
+          {
+            id: 'zone_door',
+            name: 'Entry Door Pivot',
+            category: 'door',
+            meshNames: ['mesh_0_5', 'Door_Entrance'],
+            defaultMaterialId: 'door-teak-wood',
+          }
+        );
       } else {
         // Template demo zones
         candidateZones.push(
@@ -286,7 +371,7 @@ export default function NewProjectPage() {
       clientName: clientName.trim() || 'Private Client',
       description: description.trim() || 'Interactive architectural visualization.',
       modelUrl,
-      thumbnailUrl: '/models/villa-thumb.jpg',
+      thumbnailUrl: generatedThumbnail || capturedThumbnailUrl || '/models/villa-thumb.png',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       status: 'published',
@@ -335,9 +420,25 @@ export default function NewProjectPage() {
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <h3 className="text-lg font-semibold text-primary mb-1">Model Ready for Presentation</h3>
-            <p className="text-xs text-secondary max-w-sm mx-auto mb-6">
+            <p className="text-xs text-secondary max-w-sm mx-auto mb-4">
               Extracted geometry and created {detectedZonesCount} configurable material zones.
             </p>
+
+            {/* Display the newly captured 3D PNG thumbnail */}
+            {capturedThumbnailUrl && (
+              <div className="w-full max-w-md mx-auto aspect-[16/9] rounded-2xl overflow-hidden border border-border shadow-float mb-6 relative group bg-[#F7F7F5]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={capturedThumbnailUrl}
+                  alt="Captured 3D Preview"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute bottom-2.5 right-2.5 px-2.5 py-1 text-[10px] font-mono font-medium bg-black/70 backdrop-blur-md text-white rounded-lg flex items-center gap-1.5 shadow-subtle">
+                  <Camera className="w-3 h-3 text-emerald-400" />
+                  <span>Captured 3D PNG Preview</span>
+                </div>
+              </div>
+            )}
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -404,18 +505,34 @@ export default function NewProjectPage() {
 
             {/* Drag & Drop Upload Area */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-primary block">
-                  3D House Model (.glb or .gltf) *
-                </label>
-                <button
-                  type="button"
-                  onClick={handleUseDemoTemplate}
-                  className="flex items-center gap-1 text-[11px] font-medium text-accent hover:underline"
-                >
-                  <Sparkles className="w-3 h-3" />
-                  <span>Use Sample Architecture GLB</span>
-                </button>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-medium text-primary block">
+                    3D House Model (.glb, .gltf, atau .skp SketchUp) *
+                  </label>
+                  <span className="px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded">
+                    SKP Ready
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    type="button"
+                    onClick={handleUseDemoTemplate}
+                    className="flex items-center gap-1 text-[11px] font-medium text-secondary hover:text-primary hover:underline"
+                  >
+                    <Sparkles className="w-3 h-3 text-accent" />
+                    <span>Demo GLB</span>
+                  </button>
+                  <span className="text-border">|</span>
+                  <button
+                    type="button"
+                    onClick={handleUseSkpTemplate}
+                    className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+                  >
+                    <Sparkles className="w-3 h-3 text-emerald-600" />
+                    <span>Demo SketchUp (.skp)</span>
+                  </button>
+                </div>
               </div>
 
               <div
@@ -431,7 +548,7 @@ export default function NewProjectPage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".glb,.gltf"
+                  accept=".glb,.gltf,.skp"
                   onChange={handleFileSelect}
                   className="hidden"
                 />
@@ -442,6 +559,11 @@ export default function NewProjectPage() {
                       <FileCheck className="w-6 h-6" />
                     </div>
                     <span className="text-xs font-semibold text-primary">{selectedFile.name}</span>
+                    {selectedFile.name.toLowerCase().endsWith('.skp') && (
+                      <span className="mt-1 px-2.5 py-0.5 text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
+                        SketchUp (.skp) Auto-Converter Active
+                      </span>
+                    )}
                     <span className="text-[11px] text-secondary mt-1">
                       {selectedFile.size > 0
                         ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
@@ -455,13 +577,13 @@ export default function NewProjectPage() {
                       <UploadCloud className="w-6 h-6" />
                     </div>
                     <p className="text-xs font-semibold text-primary mb-1">
-                      Drag & drop your GLB / GLTF here
+                      Drag & drop file GLB, GLTF, atau SketchUp (.skp) di sini
                     </p>
                     <p className="text-[11px] text-secondary mb-4">
-                      or click to browse local files from your CAD software
+                      File .skp akan otomatis dikonversi ke Web 3D & diekstrak zona materialnya
                     </p>
-                    <span className="px-3 py-1.5 text-xs font-medium text-primary bg-white border border-border rounded-lg shadow-subtle hover:bg-surface-50">
-                      Browse Files
+                    <span className="px-3.5 py-1.5 text-xs font-medium text-primary bg-white border border-border rounded-lg shadow-subtle hover:bg-surface-50">
+                      Pilih File Dari Komputer
                     </span>
                   </div>
                 )}
@@ -474,11 +596,11 @@ export default function NewProjectPage() {
                 <div className="flex items-center justify-between text-xs mb-2">
                   <div className="flex items-center gap-2">
                     <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                    <span className="font-medium text-primary capitalize">
-                      {stage === 'uploading' && 'Uploading 3D Model...'}
-                      {stage === 'processing' && 'Processing scene hierarchy...'}
-                      {stage === 'geometry' && 'Loading geometry & UV buffers...'}
-                      {stage === 'detecting' && 'Detecting configurable material zones...'}
+                    <span className="font-medium text-primary">
+                      {stage === 'uploading' && (selectedFile?.name.toLowerCase().endsWith('.skp') ? 'Mengunggah file SketchUp...' : 'Uploading 3D Model...')}
+                      {stage === 'processing' && (selectedFile?.name.toLowerCase().endsWith('.skp') ? 'Mengonversi SketchUp (.skp) ke Web 3D GLB...' : 'Processing scene hierarchy...')}
+                      {stage === 'geometry' && 'Memuat geometri 3D & UV buffers...'}
+                      {stage === 'detecting' && 'Mendeteksi zona material & mengambil snapshot PNG...'}
                     </span>
                   </div>
                   <span className="font-mono text-secondary">{uploadProgress}%</span>

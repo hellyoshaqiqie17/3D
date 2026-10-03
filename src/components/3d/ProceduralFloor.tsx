@@ -81,6 +81,26 @@ export function ProceduralFloor() {
     if (customTexture) {
       return customTexture;
     }
+    if (floorPresetId === 'floor-designer-mosaic') {
+      const loader = new THREE.TextureLoader();
+      const tex = loader.load('/textures/designer-tile-mosaic.jpg');
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(floorTileRepeat, floorTileRepeat);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
+    if (floorPresetId === 'floor-designer-slate') {
+      const loader = new THREE.TextureLoader();
+      const tex = loader.load('/textures/designer-tile-slate.jpg');
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(floorTileRepeat, floorTileRepeat);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = 8;
+      return tex;
+    }
     const texType = PRESET_TO_TEXTURE_TYPE[floorPresetId] || 'marble-carrara';
     try {
       return getProceduralTexture(texType, [floorTileRepeat, floorTileRepeat]);
@@ -164,6 +184,8 @@ export function ProceduralFloor() {
       <planeGeometry args={[finalWidth, finalDepth, 32, 32]} />
       <meshStandardMaterial
         map={activeTexture || undefined}
+        bumpMap={activeTexture || undefined}
+        bumpScale={0.16}
         color={floorColor || '#FFFFFF'}
         roughness={floorRoughness}
         metalness={0.04}

@@ -28,6 +28,20 @@ interface PresetTile {
 
 const PRESET_TILES: PresetTile[] = [
   {
+    id: 'floor-designer-mosaic',
+    name: 'Ubin Desainer Checker Mozaik',
+    category: 'Client Designer Sample 1',
+    colorPreview: '/textures/designer-tile-mosaic.jpg',
+    description: 'Ubin mozaik keramik bergradasi gloss dan nat relief 3D karya desainer.',
+  },
+  {
+    id: 'floor-designer-slate',
+    name: 'Batu Relief Slate Tekstur Grid',
+    category: 'Client Designer Sample 2',
+    colorPreview: '/textures/designer-tile-slate.jpg',
+    description: 'Batu relief warna gelap dengan gurat tekstur 3D timbul.',
+  },
+  {
     id: 'floor-carrara-marble',
     name: 'Marmer Putih Carrara',
     category: 'Marble Luxury',
@@ -449,10 +463,21 @@ export function FloorTileCustomizer() {
                     : 'border-border hover:border-border-hover bg-white hover:bg-surface-50'
                 }`}
               >
-                <div
-                  className="w-8 h-8 rounded-lg shrink-0 border border-border shadow-inner"
-                  style={{ backgroundColor: tile.colorPreview }}
-                />
+                <div className="w-8 h-8 rounded-lg shrink-0 border border-border shadow-inner overflow-hidden relative">
+                  {tile.colorPreview.startsWith('/') ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={tile.colorPreview}
+                      alt={tile.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full"
+                      style={{ backgroundColor: tile.colorPreview }}
+                    />
+                  )}
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-semibold text-primary truncate">

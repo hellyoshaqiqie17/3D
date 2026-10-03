@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, use } from 'react';
+import React, { useEffect, useState, useMemo, use } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { MaterialZone } from '@/types';
 import { useProjectStore } from '@/lib/project-store';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { ConfiguratorCanvas } from '@/components/3d/ConfiguratorCanvas';
@@ -26,24 +27,38 @@ export default function ConfiguratorPage({ params }: PageProps) {
   const [serverProject, setServerProject] = useState<any>(null);
   const [isLoadingProject, setIsLoadingProject] = useState(false);
   
-  const project = getProject(projectId) || serverProject;
+  // Prefer serverProject (which reads fresh data/projects.json) with fallback to local project store
+  const project = serverProject || getProject(projectId);
 
   const isPresentationMode = useConfiguratorStore((s) => s.isPresentationMode);
   const loadConfiguration = useConfiguratorStore((s) => s.loadConfiguration);
   const resetConfiguration = useConfiguratorStore((s) => s.resetConfiguration);
+  const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
+
+  const allZones = useMemo(() => {
+    const map = new Map<string, MaterialZone>();
+    (project?.zones || []).forEach((z: MaterialZone) => map.set(z.id, z));
+    dynamicZones.forEach((z: MaterialZone) => {
+      if (!map.has(z.id)) map.set(z.id, z);
+    });
+    return Array.from(map.values());
+  }, [project?.zones, dynamicZones]);
 
   useEffect(() => {
-    if (!getProject(projectId)) {
+    // Always fetch latest project from server database
+    if (!project) {
       setIsLoadingProject(true);
-      fetch(`/api/projects/${projectId}`)
-        .then((res) => (res.ok ? res.json() : null))
-        .then((data) => {
-          if (data && data.id) setServerProject(data);
-          setIsLoadingProject(false);
-        })
-        .catch(() => setIsLoadingProject(false));
     }
-  }, [projectId, getProject]);
+    fetch(`/api/projects/${projectId}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.id) {
+          setServerProject(data);
+        }
+        setIsLoadingProject(false);
+      })
+      .catch(() => setIsLoadingProject(false));
+  }, [projectId]);
 
   // Restore configuration from URL query parameter ?config=... if provided
   useEffect(() => {
@@ -53,10 +68,12 @@ export default function ConfiguratorPage({ params }: PageProps) {
     if (configParam) {
       try {
         const decoded = JSON.parse(atob(decodeURIComponent(configParam)));
-        if (decoded && (decoded.m || decoded.configuration)) {
-          loadConfiguration(decoded.m || decoded.configuration, decoded.c || decoded.customColors || {});
-          return;
-        }
+          loadConfiguration(
+            decoded.m || decoded.configuration,
+            decoded.c || decoded.customColors || {},
+            undefined,
+            decoded.t || decoded.textureSettings || {}
+          );
       } catch (err) {
         console.error('Failed to parse URL configuration:', err);
       }
@@ -106,7 +123,7 @@ export default function ConfiguratorPage({ params }: PageProps) {
         <main className="flex-1 relative w-full h-full">
           <ConfiguratorCanvas
             modelUrl={project.modelUrl}
-            zones={project.zones}
+            zones={allZones}
             modelName={project.name}
           />
 
@@ -118,7 +135,7 @@ export default function ConfiguratorPage({ params }: PageProps) {
         </main>
 
         {/* Customization Sidebar (hidden in presentation mode) */}
-        {!isPresentationMode && <ConfiguratorSidebar zones={project.zones} />}
+        {!isPresentationMode && <ConfiguratorSidebar zones={allZones} />}
       </div>
 
       {/* Save & Share Dialog Modals */}
