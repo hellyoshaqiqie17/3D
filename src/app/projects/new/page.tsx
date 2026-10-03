@@ -264,7 +264,7 @@ export default function NewProjectPage() {
             defaultMaterialId: 'original',
           });
         }
-        if (remainingMeshes.length > 0) {
+        if (remainingMeshes.length > 0 && remainingMeshes.length <= 15) {
           candidateZones.push({
             id: 'zone_other',
             name: 'Architectural Details',

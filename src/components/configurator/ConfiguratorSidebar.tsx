@@ -41,19 +41,22 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     return zones.filter((z) => z.category === activeCategory);
   }, [zones, activeCategory]);
 
-  // Current active zone (fallback to first zone in category if none or invalid)
+  // Current active zone (prioritize user-selected box/zone, fallback to first zone in category)
   const currentZone = useMemo(() => {
-    const found = categoryZones.find((z) => z.id === selectedZoneId);
-    if (found) return found;
+    const foundExplicit = zones.find((z) => z.id === selectedZoneId);
+    if (foundExplicit) return foundExplicit;
     return categoryZones[0] || zones[0];
   }, [categoryZones, selectedZoneId, zones]);
 
-  // Automatically keep selectedZoneId in sync with current active category
+  // Keep 3D selection box in sync with current zone
   useEffect(() => {
-    if (currentZone && currentZone.id !== selectedZoneId) {
+    if (!selectedZoneId && currentZone) {
       selectZone(currentZone.id);
     }
-  }, [currentZone, selectedZoneId, selectZone]);
+    if (currentZone && currentZone.meshNames && currentZone.meshNames.length > 0) {
+      setSelectedMesh(currentZone.meshNames[0]);
+    }
+  }, [currentZone, selectedZoneId, selectZone, setSelectedMesh]);
 
   // Materials available for this category including user-uploaded client designs
   const combinedMaterials = useMemo(() => {

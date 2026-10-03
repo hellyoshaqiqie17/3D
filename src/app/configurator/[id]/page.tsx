@@ -37,9 +37,15 @@ export default function ConfiguratorPage({ params }: PageProps) {
 
   const allZones = useMemo(() => {
     const map = new Map<string, MaterialZone>();
-    (project?.zones || []).forEach((z: MaterialZone) => map.set(z.id, z));
+    (project?.zones || []).forEach((z: MaterialZone) => {
+      // Exclude giant catch-all dump zones that ruin individual box customization
+      if (z.id === 'zone_other' || (z.meshNames && z.meshNames.length > 25)) {
+        return;
+      }
+      map.set(z.id, z);
+    });
     dynamicZones.forEach((z: MaterialZone) => {
-      if (!map.has(z.id)) map.set(z.id, z);
+      map.set(z.id, z);
     });
     return Array.from(map.values());
   }, [project?.zones, dynamicZones]);

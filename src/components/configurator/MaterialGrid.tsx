@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { MaterialOption, MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { getMaterialThumbnail } from '@/lib/texture-generator';
-import { Check, Sparkles } from 'lucide-react';
+import { Check, Sparkles, RotateCcw } from 'lucide-react';
 
 interface MaterialGridProps {
   materials: MaterialOption[];
@@ -14,8 +14,11 @@ interface MaterialGridProps {
 export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const applyMaterial = useConfiguratorStore((s) => s.applyMaterial);
+  const setZoneOriginal = useConfiguratorStore((s) => s.setZoneOriginal);
+  const customColors = useConfiguratorStore((s) => s.customColors);
 
   const currentMaterialId = selectedMaterials[currentZone.id] || currentZone.defaultMaterialId;
+  const isOriginal = (!currentMaterialId || currentMaterialId === 'original') && !customColors[currentZone.id];
 
   // Pre-generate thumbnails in state once mounted to prevent SSR hydration mismatch
   const [thumbnails, setThumbnails] = useState<Record<string, string>>({});
@@ -32,6 +35,51 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
 
   return (
     <div className="grid grid-cols-2 gap-3 p-4">
+      {/* 1. Desain Bawaan 3D / Original CAD card */}
+      <button
+        type="button"
+        onClick={() => {
+          setZoneOriginal(currentZone.id);
+        }}
+        className={`group relative text-left rounded-xl p-2.5 transition-all border flex flex-col justify-between ${
+          isOriginal
+            ? 'bg-surface-50 border-primary ring-1 ring-primary shadow-subtle'
+            : 'bg-white border-border hover:border-surface-400 hover:shadow-subtle'
+        }`}
+      >
+        {/* Visual Thumbnail Area */}
+        <div className="relative w-full aspect-[4/3] rounded-lg overflow-hidden mb-2 bg-gradient-to-br from-surface-100 via-surface-200 to-surface-300 border border-border/60 flex flex-col items-center justify-center p-2 text-center transition-transform duration-300 group-hover:scale-105">
+          <RotateCcw className="w-5 h-5 text-secondary mb-1" />
+          <span className="text-[11px] font-bold text-primary">Original 3D</span>
+          <span className="text-[9px] text-secondary">Bawaan Asli Model</span>
+
+          {/* Selection Checkmark */}
+          {isOriginal && (
+            <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-primary text-white flex items-center justify-center shadow-subtle">
+              <Check className="w-3 h-3 stroke-[3]" />
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div>
+          <div className="flex items-center justify-between gap-1 mb-0.5">
+            <span className="text-xs font-semibold text-primary truncate">
+              Desain Semula (Original)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-600">
+              Bawaan 3D
+            </span>
+            <span className="text-secondary/40 text-[10px]">•</span>
+            <span className="text-[10px] text-secondary">
+              Asli CAD
+            </span>
+          </div>
+        </div>
+      </button>
       {materials.map((mat) => {
         const isSelected = currentMaterialId === mat.id;
         const thumbnailSrc = thumbnails[mat.id];

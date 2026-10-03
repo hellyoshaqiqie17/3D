@@ -33,6 +33,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
   const zoneTextureSettings = useConfiguratorStore((s) => s.zoneTextureSettings);
   const addDynamicZone = useConfiguratorStore((s) => s.addDynamicZone);
+  const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
   const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
@@ -492,64 +493,9 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     });
   }, [sceneClone, isWireframeMode, selectedMaterials, customColors, zoneTextureSettings, uploadedMaterials, isOriginalMode, zones]);
 
-  // Helper to guess category and display name for dynamic meshes
-  const guessCategoryFromMeshName = (name: string): MaterialZone['category'] => {
-    const lower = name.toLowerCase();
-    if (
-      lower.includes('floor') ||
-      lower.includes('lantai') ||
-      lower.includes('carport') ||
-      lower.includes('teras') ||
-      lower.includes('paving') ||
-      lower.includes('ubin') ||
-      lower.includes('keramik') ||
-      lower.includes('step') ||
-      lower.includes('jalan') ||
-      lower.includes('road')
-    ) {
-      return 'floor';
-    }
-    if (
-      lower.includes('roof') ||
-      lower.includes('atap') ||
-      lower.includes('kanopi') ||
-      lower.includes('canopy') ||
-      lower.includes('dak') ||
-      lower.includes('genteng')
-    ) {
-      return 'roof';
-    }
-    if (
-      lower.includes('door') ||
-      lower.includes('pintu') ||
-      lower.includes('kusen') ||
-      lower.includes('frame')
-    ) {
-      return 'door';
-    }
-    if (
-      lower.includes('window') ||
-      lower.includes('jendela') ||
-      lower.includes('kaca') ||
-      lower.includes('glass')
-    ) {
-      return 'window';
-    }
-    if (lower.includes('bath') || lower.includes('toilet') || lower.includes('wc')) {
-      return 'bathroom';
-    }
-    if (
-      lower.includes('garden') ||
-      lower.includes('taman') ||
-      lower.includes('rumput') ||
-      lower.includes('grass')
-    ) {
-      return 'exterior';
-    }
-    return 'wall';
-  };
-
+  // Helper to format friendly display name for any 3D mesh
   const formatMeshDisplayName = (name: string): string => {
+    const lower = name.toLowerCase();
     if (name.includes('Group#1_2') || name === 'Group#1') {
       return 'Lantai Carport & Garasi';
     }
@@ -559,25 +505,127 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     if (name.includes('Component_343384') || name === 'Group#95') {
       return 'Area Jalan Aspal (Site)';
     }
+    if (lower.includes('floor') || lower.includes('lantai')) {
+      return `Lantai (${name.replace(/_/g, ' ')})`;
+    }
+    if (lower.includes('wall') || lower.includes('dinding')) {
+      return `Dinding (${name.replace(/_/g, ' ')})`;
+    }
+    if (lower.includes('roof') || lower.includes('atap') || lower.includes('dak')) {
+      return `Atap / Dak (${name.replace(/_/g, ' ')})`;
+    }
+    if (lower.includes('door') || lower.includes('pintu')) {
+      return `Pintu (${name.replace(/_/g, ' ')})`;
+    }
+    if (lower.includes('window') || lower.includes('jendela')) {
+      return `Jendela (${name.replace(/_/g, ' ')})`;
+    }
     if (name.startsWith('Group#')) {
-      return `Bagian 3D (${name})`;
+      return `Bidang Ruangan (${name})`;
     }
-    if (name.startsWith('Component_')) {
-      return `Komponen 3D (${name.replace('Component_', '#')})`;
+    if (name.startsWith('Component_') || name.startsWith('Component#')) {
+      return `Bidang Bangunan (${name.replace(/^Component[_#]/, '#')})`;
     }
-    return name.replace(/_/g, ' ');
+    return `Bidang 3D (${name.replace(/_/g, ' ')})`;
   };
 
-  // Helper to find matching zone including parent node hierarchy
-  const findZoneForObject = (obj: THREE.Object3D): MaterialZone | undefined => {
-    let curr: THREE.Object3D | null = obj;
-    while (curr && curr !== sceneClone) {
-      if (curr.name && meshToZoneMap.has(curr.name)) {
-        return meshToZoneMap.get(curr.name);
-      }
-      curr = curr.parent;
+  // Intelligently detect category, friendly name, and description from mesh geometry & names
+  const detectMeshCategoryAndName = (mesh: THREE.Mesh): {
+    category: MaterialZone['category'];
+    name: string;
+    description: string;
+  } => {
+    mesh.updateWorldMatrix(true, false);
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const lower = (mesh.name || '').toLowerCase();
+
+    // 1. Keyword-based matching
+    if (
+      lower.includes('floor') ||
+      lower.includes('lantai') ||
+      lower.includes('keramik') ||
+      lower.includes('tile') ||
+      lower.includes('parquet')
+    ) {
+      return {
+        category: 'floor',
+        name: formatMeshDisplayName(mesh.name),
+        description: 'Bidang lantai terpilih untuk kustomisasi ubin keramik, granit, atau marmer.',
+      };
     }
-    return undefined;
+    if (
+      lower.includes('roof') ||
+      lower.includes('atap') ||
+      lower.includes('genteng') ||
+      lower.includes('kanopi') ||
+      lower.includes('canopy') ||
+      lower.includes('dak')
+    ) {
+      return {
+        category: 'roof',
+        name: formatMeshDisplayName(mesh.name),
+        description: 'Bidang penutup atap atau kanopi dak bangunan.',
+      };
+    }
+    if (
+      lower.includes('door') ||
+      lower.includes('pintu') ||
+      lower.includes('kusen') ||
+      lower.includes('gate')
+    ) {
+      return {
+        category: 'door',
+        name: formatMeshDisplayName(mesh.name),
+        description: 'Bidang pintu, kusen, atau akses masuk.',
+      };
+    }
+    if (
+      lower.includes('wall') ||
+      lower.includes('dinding') ||
+      lower.includes('tembok') ||
+      lower.includes('facade')
+    ) {
+      return {
+        category: 'wall',
+        name: formatMeshDisplayName(mesh.name),
+        description: 'Bidang dinding terpilih untuk kustomisasi warna cat atau aksen.',
+      };
+    }
+
+    // 2. Geometry-based matching (handles SketchUp Component_... & Group#... unclassified meshes)
+    // Flat horizontal surface (floors, decks, terraces)
+    const isFlatHorizontal = size.y <= 0.6 && (size.x >= 0.5 || size.z >= 0.5);
+    if (isFlatHorizontal) {
+      if (box.min.y >= roofElevationY - 0.25) {
+        return {
+          category: 'roof',
+          name: `Atap & Dak (${formatMeshDisplayName(mesh.name)})`,
+          description: 'Bidang dak atap / plafon atas.',
+        };
+      }
+      return {
+        category: 'floor',
+        name: `Lantai Ubin (${formatMeshDisplayName(mesh.name)})`,
+        description: 'Bidang lantai terpilih untuk kustomisasi ubin keramik, marmer, atau parket.',
+      };
+    }
+
+    // Tall vertical surface (walls, columns, partitions)
+    if (size.y > 0.7 && (size.y >= size.x * 0.7 || size.y >= size.z * 0.7)) {
+      return {
+        category: 'wall',
+        name: `Dinding / Kolom (${formatMeshDisplayName(mesh.name)})`,
+        description: 'Bidang dinding atau pilar terpilih untuk kustomisasi warna cat atau aksen.',
+      };
+    }
+
+    return {
+      category: 'exterior',
+      name: `Bidang 3D (${formatMeshDisplayName(mesh.name)})`,
+      description: 'Elemen objek 3D terpilih untuk kustomisasi material.',
+    };
   };
 
   // Handle pointer interactions
@@ -585,9 +633,16 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     e.stopPropagation();
     const mesh = e.object;
     if (mesh instanceof THREE.Mesh) {
-      const zone = findZoneForObject(mesh) || meshToZoneMap.get(mesh.name);
       document.body.style.cursor = 'pointer';
-      setHoveredMesh(zone ? zone.name : formatMeshDisplayName(mesh.name));
+      const existingZone =
+        dynamicZones.find((z) => z.meshNames.includes(mesh.name)) ||
+        zones.find((z) => z.meshNames.length === 1 && z.meshNames[0] === mesh.name);
+      if (existingZone) {
+        setHoveredMesh(existingZone.name);
+      } else {
+        const detected = detectMeshCategoryAndName(mesh);
+        setHoveredMesh(detected.name);
+      }
     }
   };
 
@@ -600,33 +655,42 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const mesh = e.object;
-    if (mesh instanceof THREE.Mesh) {
-      const zone = findZoneForObject(mesh) || meshToZoneMap.get(mesh.name);
-      setSelectedMesh(mesh.name);
+    if (!(mesh instanceof THREE.Mesh)) return;
 
-      if (zone) {
-        selectZone(zone.id);
-        setActiveCategory(zone.category);
-      } else {
-        // Automatically create a dynamic customizable zone for this clicked mesh!
-        const autoCat = guessCategoryFromMeshName(mesh.name);
-        const dynamicId = `zone_mesh_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-        const newDynamicZone: MaterialZone = {
-          id: dynamicId,
-          name: formatMeshDisplayName(mesh.name),
-          category: autoCat,
-          meshNames: [mesh.name],
-          defaultMaterialId: 'original',
-          description: `Bidang objek 3D terpilih: ${mesh.name}`,
-        };
-        addDynamicZone(newDynamicZone);
-        selectZone(newDynamicZone.id);
-        setActiveCategory(newDynamicZone.category);
-      }
+    // Immediately highlight this exact box with the blue wireframe BoxHelper
+    setSelectedMesh(mesh.name);
 
-      if (onMeshClick) {
-        onMeshClick(mesh.name, zone);
-      }
+    // Look for an existing single-mesh zone or dynamic zone for this exact box
+    const existingZone =
+      dynamicZones.find((z) => z.meshNames.includes(mesh.name)) ||
+      zones.find((z) => z.meshNames.length === 1 && z.meshNames[0] === mesh.name);
+
+    if (existingZone) {
+      selectZone(existingZone.id);
+      setActiveCategory(existingZone.category);
+      if (onMeshClick) onMeshClick(mesh.name, existingZone);
+      return;
+    }
+
+    // Create a new dedicated single-box zone for this exact mesh
+    const detected = detectMeshCategoryAndName(mesh);
+    const dynamicId = `box_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+
+    const newZone: MaterialZone = {
+      id: dynamicId,
+      name: detected.name,
+      category: detected.category,
+      meshNames: [mesh.name],
+      defaultMaterialId: 'original',
+      description: detected.description,
+    };
+
+    addDynamicZone(newZone);
+    selectZone(newZone.id);
+    setActiveCategory(newZone.category);
+
+    if (onMeshClick) {
+      onMeshClick(mesh.name, newZone);
     }
   };
 

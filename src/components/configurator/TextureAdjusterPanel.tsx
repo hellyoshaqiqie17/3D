@@ -6,6 +6,7 @@ import { useConfiguratorStore } from '@/lib/configurator-store';
 import {
   Pipette,
   RotateCw,
+  RotateCcw,
   Sparkles,
   Layers,
   Sliders,
@@ -32,6 +33,7 @@ export function TextureAdjusterPanel({ currentZone, activeMaterial }: TextureAdj
   const zoneTextureSettings = useConfiguratorStore((s) => s.zoneTextureSettings);
   const setZoneTextureSettings = useConfiguratorStore((s) => s.setZoneTextureSettings);
   const setZoneTint = useConfiguratorStore((s) => s.setZoneTint);
+  const setZoneOriginal = useConfiguratorStore((s) => s.setZoneOriginal);
   const customColors = useConfiguratorStore((s) => s.customColors);
 
   const currentSettings = zoneTextureSettings[currentZone.id] || {
@@ -261,6 +263,18 @@ export function TextureAdjusterPanel({ currentZone, activeMaterial }: TextureAdj
           </button>
         </div>
       </div>
+
+      {/* 5. Revert to original CAD design button */}
+      <button
+        type="button"
+        onClick={() => {
+          setZoneOriginal(currentZone.id);
+        }}
+        className="w-full py-2 px-3 rounded-lg border border-border bg-white hover:bg-surface-100 hover:border-surface-400 text-xs font-semibold text-secondary hover:text-primary flex items-center justify-center gap-1.5 transition-colors shadow-subtle"
+      >
+        <RotateCcw className="w-3.5 h-3.5 text-accent" />
+        <span>Kembalikan ke Desain Bawaan 3D (Original)</span>
+      </button>
     </div>
   );
 }
