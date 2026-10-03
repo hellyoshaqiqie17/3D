@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { MaterialCategory, MaterialZone, MaterialOption, ZoneTextureSettings } from '@/types';
+import { MaterialCategory, MaterialZone, MaterialOption, ZoneTextureSettings, BuildingFloorLevel } from '@/types';
 
 export interface DetectedFootprint {
   mainWidth: number;
@@ -99,6 +99,14 @@ interface ConfiguratorState {
   setRoofHidden: (val: boolean) => void;
   toggleEnvironmentHidden: () => void;
   setEnvironmentHidden: (val: boolean) => void;
+
+  // Intelligent Multi-level Floor Visibility
+  detectedFloors: BuildingFloorLevel[];
+  hiddenFloors: number[];
+  setDetectedFloors: (floors: BuildingFloorLevel[]) => void;
+  toggleFloorHidden: (levelNumber: number) => void;
+  setFloorHidden: (levelNumber: number, hidden: boolean) => void;
+
   setCameraFov: (fov: number) => void;
   setCameraMode: (mode: 'orbit' | 'interior') => void;
   setHouseBounds: (center: [number, number, number], size: [number, number, number]) => void;
@@ -203,6 +211,10 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   isAutoRotate: false,
   autoRotateSpeed: 1.5,
   isLookAround360: false,
+
+  // Multi-level Floor Visibility
+  detectedFloors: [],
+  hiddenFloors: [],
 
   // Floor & Ceramic Tile Customization Defaults (disabled by default so it doesn't cover existing model road/ground)
   floorEnabled: false,
@@ -381,6 +393,29 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setRoofHidden: (val) => set({ isRoofHidden: val, isCeilingCut: val }),
   toggleEnvironmentHidden: () => set((state) => ({ isEnvironmentHidden: !state.isEnvironmentHidden })),
   setEnvironmentHidden: (val) => set({ isEnvironmentHidden: val }),
+
+  setDetectedFloors: (floors) => set({ detectedFloors: floors }),
+  toggleFloorHidden: (levelNumber) =>
+    set((state) => {
+      const isCurrentlyHidden = state.hiddenFloors.includes(levelNumber);
+      return {
+        hiddenFloors: isCurrentlyHidden
+          ? state.hiddenFloors.filter((n) => n !== levelNumber)
+          : [...state.hiddenFloors, levelNumber],
+      };
+    }),
+  setFloorHidden: (levelNumber, hidden) =>
+    set((state) => {
+      const isCurrentlyHidden = state.hiddenFloors.includes(levelNumber);
+      if (hidden && !isCurrentlyHidden) {
+        return { hiddenFloors: [...state.hiddenFloors, levelNumber] };
+      }
+      if (!hidden && isCurrentlyHidden) {
+        return { hiddenFloors: state.hiddenFloors.filter((n) => n !== levelNumber) };
+      }
+      return state;
+    }),
+
   setCameraFov: (fov) => set({ cameraFov: fov }),
   setCameraMode: (mode) => set({ cameraMode: mode }),
   setHouseBounds: (center, size) => set({ houseCenter: center, houseSize: size }),
@@ -423,6 +458,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
       floorElevation: 0.02,
       isRoofHidden: false,
       isEnvironmentHidden: false,
+      hiddenFloors: [],
       cameraFov: 50,
       cameraMode: 'orbit',
       isCeilingCut: false,

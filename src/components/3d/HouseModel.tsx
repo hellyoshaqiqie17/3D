@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useGLTF } from '@react-three/drei';
 import { ThreeEvent, useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
-import { MaterialZone } from '@/types';
+import { MaterialZone, BuildingFloorLevel } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials, restoreZoneOriginalMaterial } from '@/lib/material-applier';
 import { getMaterialById } from '@/lib/materials';
@@ -35,6 +35,10 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const addDynamicZone = useConfiguratorStore((s) => s.addDynamicZone);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
+  const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
+  const setDetectedFloors = useConfiguratorStore((s) => s.setDetectedFloors);
+  const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
+  const [roofElevationY, setRoofElevationY] = useState<number>(2.80);
   const setHouseBounds = useConfiguratorStore((s) => s.setHouseBounds);
   const isCeilingCut = useConfiguratorStore((s) => s.isCeilingCut);
   const ceilingCutHeight = useConfiguratorStore((s) => s.ceilingCutHeight);
@@ -189,7 +193,111 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         parseFloat(mainSize.z.toFixed(2)),
       ]
     );
-  }, [sceneClone, setDetectedFootprint, setHouseBounds]);
+
+    // 3. Intelligent Multi-level Floor and Roof Base Elevation Detection
+    const envKeywords = [
+      'tree', 'palm', 'bush', 'plant', 'hydrant', 'ball', 'motorbike',
+      'kangaroo', 'pampas', 'evergreen', 'foliage', 'car', 'vehicle'
+    ];
+
+    const buildingMeshes: {
+      minY: number;
+      maxY: number;
+      centerY: number;
+      areaXZ: number;
+      sizeY: number;
+      sizeX: number;
+      sizeZ: number;
+    }[] = [];
+
+    sceneClone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = (child.name || '').toLowerCase();
+        const isEnv = envKeywords.some((k) => name.includes(k));
+        if (!isEnv) {
+          const b = new THREE.Box3().setFromObject(child);
+          const s = new THREE.Vector3();
+          b.getSize(s);
+          buildingMeshes.push({
+            minY: b.min.y,
+            maxY: b.max.y,
+            centerY: (b.min.y + b.max.y) / 2,
+            areaXZ: s.x * s.z,
+            sizeY: s.y,
+            sizeX: s.x,
+            sizeZ: s.z,
+          });
+        }
+      }
+    });
+
+    const buildingBox = new THREE.Box3();
+    buildingMeshes.forEach((m) => {
+      buildingBox.min.y = Math.min(buildingBox.min.y, m.minY);
+      buildingBox.max.y = Math.max(buildingBox.max.y, m.maxY);
+    });
+
+    // Detect horizontal slabs (slabs have thin height <= 0.8m and significant horizontal footprint)
+    const slabCandidates = buildingMeshes.filter(
+      (m) => m.sizeY <= 0.8 && m.areaXZ > 6 && m.sizeX > 1.2 && m.sizeZ > 1.2
+    );
+    slabCandidates.sort((a, b) => a.minY - b.minY);
+
+    const slabLevels: { y: number; area: number }[] = [];
+    slabCandidates.forEach((m) => {
+      const existing = slabLevels.find((lvl) => Math.abs(lvl.y - m.minY) < 0.8);
+      if (existing) {
+        existing.area += m.areaXZ;
+      } else {
+        slabLevels.push({ y: m.minY, area: m.areaXZ });
+      }
+    });
+
+    // Filter significant slabs (combined area > 12m2)
+    const significantSlabs = slabLevels.filter((lvl) => lvl.area > 12);
+    significantSlabs.sort((a, b) => a.y - b.y);
+
+    // Group distinct boundaries separated by standard floor height (>= 2.2m)
+    const boundaries: number[] = [];
+    significantSlabs.forEach((s) => {
+      if (boundaries.length === 0) {
+        boundaries.push(s.y);
+      } else {
+        const last = boundaries[boundaries.length - 1];
+        if (s.y - last >= 2.2) {
+          boundaries.push(s.y);
+        }
+      }
+    });
+
+    let detectedRoofY = 2.80;
+    const computedFloors: BuildingFloorLevel[] = [];
+
+    if (boundaries.length <= 1) {
+      // 1-story house
+      detectedRoofY = (boundaries[0] ?? buildingBox.min.y) + 2.80;
+      computedFloors.push({
+        levelNumber: 1,
+        name: 'Lantai 1',
+        elevationY: buildingBox.min.y,
+        ceilingY: detectedRoofY,
+      });
+    } else {
+      // Multi-story house (e.g. 2 stories or 3 stories)
+      detectedRoofY = boundaries[boundaries.length - 1];
+      for (let i = 0; i < boundaries.length - 1; i++) {
+        computedFloors.push({
+          levelNumber: i + 1,
+          name: `Lantai ${i + 1}`,
+          elevationY: boundaries[i],
+          ceilingY: boundaries[i + 1],
+        });
+      }
+    }
+
+    setDetectedFloors(computedFloors);
+    setRoofElevationY(detectedRoofY);
+  }, [sceneClone, setDetectedFootprint, setHouseBounds, setDetectedFloors]);
 
   // Set of mesh names belonging to roof zones
   const roofMeshSet = useMemo(() => {
@@ -239,47 +347,78 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         // Check world bounding box of this child
         const box = new THREE.Box3().setFromObject(child);
 
-        // Roof & ceiling meshes (all components purely above walls, roofs, dak, and pergolas)
+        const minY = box.min.y;
+        const centerY = (box.min.y + box.max.y) / 2;
+
+        // Check if explicit roof component
+        const isExplicitRoof =
+          roofMeshSet.has(name) ||
+          lower.includes('roof') ||
+          lower.includes('atap') ||
+          lower.includes('genteng') ||
+          lower.includes('dak') ||
+          lower.includes('kanopi') ||
+          lower.includes('canopy') ||
+          lower.includes('plafon') ||
+          lower.includes('ceiling') ||
+          lower.includes('pergola') ||
+          name.includes('PointLight') ||
+          name.startsWith('Group#137') ||
+          name.startsWith('Group#138') ||
+          name.startsWith('Group#139') ||
+          name.startsWith('Group#140') ||
+          name.startsWith('Group#141') ||
+          name === 'Component_205840' ||
+          name === 'Component_205790' ||
+          name === 'Component_205546' ||
+          name === 'Component_205695' ||
+          name === 'Component_205519' ||
+          name === 'Component_201197' ||
+          name === 'Component_196963' ||
+          name === 'Component_192413' ||
+          name.startsWith('Component_196') ||
+          name.startsWith('Component_197');
+
+        if (isEnv) {
+          child.visible = !isEnvironmentHidden;
+          return;
+        }
+
+        // Roof: explicit roof keywords OR meshes located at/above the detected roof elevation
         const isRoof =
-          !isEnv &&
-          (roofMeshSet.has(name) ||
-            lower.includes('roof') ||
-            lower.includes('atap') ||
-            lower.includes('genteng') ||
-            lower.includes('dak') ||
-            lower.includes('kanopi') ||
-            lower.includes('canopy') ||
-            lower.includes('plafon') ||
-            lower.includes('ceiling') ||
-            lower.includes('pergola') ||
-            name.includes('PointLight') ||
-            name.startsWith('Group#137') ||
-            name.startsWith('Group#138') ||
-            name.startsWith('Group#139') ||
-            name.startsWith('Group#140') ||
-            name.startsWith('Group#141') ||
-            name === 'Component_205840' ||
-            name === 'Component_205790' ||
-            name === 'Component_205546' ||
-            name === 'Component_205695' ||
-            name === 'Component_205519' ||
-            name === 'Component_201197' ||
-            name === 'Component_196963' ||
-            name === 'Component_192413' ||
-            name.startsWith('Component_196') ||
-            name.startsWith('Component_197') ||
-            box.min.y >= 2.80) &&
-          // Guard: Never hide floors (which are at y < 0.8)
-          box.min.y > 0.8;
+          (isExplicitRoof || minY >= roofElevationY - 0.1 || centerY >= roofElevationY) &&
+          minY > 0.8;
 
         if (isRoof) {
           child.visible = !isRoofHidden;
-        } else if (isEnv) {
-          child.visible = !isEnvironmentHidden;
+          return;
         }
+
+        // Check if belonging to a floor level that is toggled off (e.g. Lantai 2, Lantai 3)
+        let floorHidden = false;
+        if (detectedFloors.length > 1) {
+          for (const floor of detectedFloors) {
+            if (floor.levelNumber > 1 && hiddenFloors.includes(floor.levelNumber)) {
+              if (centerY >= floor.elevationY - 0.2 && minY < floor.ceilingY + 0.1) {
+                floorHidden = true;
+                break;
+              }
+            }
+          }
+        }
+
+        child.visible = !floorHidden;
       }
     });
-  }, [sceneClone, isRoofHidden, isEnvironmentHidden, roofMeshSet]);
+  }, [
+    sceneClone,
+    isRoofHidden,
+    isEnvironmentHidden,
+    hiddenFloors,
+    detectedFloors,
+    roofElevationY,
+    roofMeshSet,
+  ]);
 
   // Mesh to zone lookup map
   const meshToZoneMap = useMemo(() => {

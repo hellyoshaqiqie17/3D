@@ -79,6 +79,9 @@ export function CameraPresetBar() {
   const setCameraPreset = useConfiguratorStore((s) => s.setCameraPreset);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const toggleRoofHidden = useConfiguratorStore((s) => s.toggleRoofHidden);
+  const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
+  const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
+  const toggleFloorHidden = useConfiguratorStore((s) => s.toggleFloorHidden);
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
   const toggleEnvironmentHidden = useConfiguratorStore((s) => s.toggleEnvironmentHidden);
   const cameraFov = useConfiguratorStore((s) => s.cameraFov);
@@ -186,6 +189,26 @@ export function CameraPresetBar() {
                 checked={!isRoofHidden}
                 onChange={toggleRoofHidden}
               />
+              {detectedFloors
+                .filter((f) => f.levelNumber > 1)
+                .slice()
+                .reverse()
+                .map((floor) => {
+                  const isHidden = hiddenFloors.includes(floor.levelNumber);
+                  return (
+                    <SwitchRow
+                      key={floor.levelNumber}
+                      label={`Tingkat ${floor.name}`}
+                      description={
+                        isHidden
+                          ? `${floor.name} dibuka – lantai bawah terlihat`
+                          : `Matikan untuk membuka ${floor.name}`
+                      }
+                      checked={!isHidden}
+                      onChange={() => toggleFloorHidden(floor.levelNumber)}
+                    />
+                  );
+                })}
               <SwitchRow
                 label="Pohon & lingkungan"
                 description={isEnvironmentHidden ? 'Disembunyikan agar rumah bersih' : 'Matikan jika menghalangi'}

@@ -112,3 +112,11 @@ export interface DetectedMeshInfo {
     depth: number;
   };
 }
+
+export interface BuildingFloorLevel {
+  levelNumber: number; // 1, 2, 3...
+  name: string; // "Lantai 1", "Lantai 2", "Lantai 3"
+  elevationY: number; // elevation where the floor slab starts
+  ceilingY: number; // elevation where this floor's ceiling starts
+}
+
