@@ -35,7 +35,7 @@ interface ConfiguratorState {
   isRoofHidden: boolean;
   isEnvironmentHidden: boolean;
   cameraFov: number; // 50 for exterior, 75 for interior wide-angle
-  cameraMode: 'orbit' | 'interior';
+  cameraMode: 'orbit' | 'interior' | 'walk';
   houseCenter: [number, number, number];
   houseSize: [number, number, number];
   isCeilingCut: boolean; // Cuts ceiling/plafon at 2.45m so interior is completely open from above
@@ -43,6 +43,8 @@ interface ConfiguratorState {
   isAutoRotate: boolean; // 360 rotation in-place or turntable
   autoRotateSpeed: number; // rotation speed multiplier (default 1.5)
   isLookAround360: boolean; // Manual in-place 360 look around from stationary point
+  isWalkMode: boolean; // Blender-style Walk/Fly walkthrough navigation
+  walkSpeed: number;
 
   // Floor & Ceramic Tile Customization
   floorEnabled: boolean;
@@ -108,7 +110,7 @@ interface ConfiguratorState {
   setFloorHidden: (levelNumber: number, hidden: boolean) => void;
 
   setCameraFov: (fov: number) => void;
-  setCameraMode: (mode: 'orbit' | 'interior') => void;
+  setCameraMode: (mode: 'orbit' | 'interior' | 'walk') => void;
   setHouseBounds: (center: [number, number, number], size: [number, number, number]) => void;
   toggleCeilingCut: () => void;
   setCeilingCut: (val: boolean) => void;
@@ -118,6 +120,10 @@ interface ConfiguratorState {
   setAutoRotateSpeed: (speed: number) => void;
   toggleLookAround360: () => void;
   setLookAround360: (val: boolean) => void;
+  toggleWalkMode: () => void;
+  setWalkMode: (val: boolean) => void;
+  setWalkSpeed: (speed: number) => void;
+  enterRoom: () => void;
 
   // Floor Actions
   setFloorEnabled: (val: boolean) => void;
@@ -211,6 +217,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   isAutoRotate: false,
   autoRotateSpeed: 1.5,
   isLookAround360: false,
+  isWalkMode: false,
+  walkSpeed: 1.0,
 
   // Multi-level Floor Visibility
   detectedFloors: [],
@@ -433,8 +441,33 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
     set((state) => ({
       isLookAround360: !state.isLookAround360,
       isAutoRotate: !state.isLookAround360 ? false : state.isAutoRotate,
+      isWalkMode: false,
     })),
-  setLookAround360: (val) => set((state) => ({ isLookAround360: val, isAutoRotate: val ? false : state.isAutoRotate })),
+  setLookAround360: (val) => set((state) => ({ isLookAround360: val, isAutoRotate: val ? false : state.isAutoRotate, isWalkMode: false })),
+  toggleWalkMode: () =>
+    set((state) => ({
+      isWalkMode: !state.isWalkMode,
+      cameraMode: !state.isWalkMode ? 'walk' : 'orbit',
+      isLookAround360: false,
+      isAutoRotate: false,
+    })),
+  setWalkMode: (val) =>
+    set({
+      isWalkMode: val,
+      cameraMode: val ? 'walk' : 'orbit',
+      isLookAround360: false,
+      isAutoRotate: false,
+    }),
+  setWalkSpeed: (val) => set({ walkSpeed: val }),
+  enterRoom: () =>
+    set((state) => ({
+      activeCameraPreset: 'interior',
+      cameraPresetVersion: state.cameraPresetVersion + 1,
+      cameraFov: 70,
+      cameraMode: 'interior',
+      isWalkMode: false,
+      isRoofHidden: false,
+    })),
 
   resetConfiguration: (zones, isDemoProject = false) => {
     const defaults: Record<string, string> = {};

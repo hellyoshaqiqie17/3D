@@ -425,6 +425,26 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     roofMeshSet,
   ]);
 
+  // Dynamic Architectural Section Cut / Ceiling Slice Effect (Dollhouse view)
+  useEffect(() => {
+    if (!sceneClone) return;
+
+    const shouldCut = isRoofHidden || isCeilingCut;
+    const cutY = Math.min(roofElevationY > 0 ? roofElevationY - 0.15 : 2.70, ceilingCutHeight || 2.70);
+    const clipPlanes = shouldCut ? [new THREE.Plane(new THREE.Vector3(0, -1, 0), cutY)] : [];
+
+    sceneClone.traverse((child) => {
+      if (child instanceof THREE.Mesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((m) => {
+          m.clippingPlanes = clipPlanes;
+          m.clipShadows = true;
+          m.side = THREE.DoubleSide; // Render both interior and exterior faces
+        });
+      }
+    });
+  }, [sceneClone, isRoofHidden, isCeilingCut, ceilingCutHeight, roofElevationY]);
+
   // Mesh to zone lookup map
   const meshToZoneMap = useMemo(() => {
     const map = new Map<string, MaterialZone>();

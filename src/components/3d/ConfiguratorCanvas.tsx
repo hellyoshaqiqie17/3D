@@ -10,6 +10,7 @@ import { MaterialZone } from '@/types';
 import { Loader2, AlertCircle, RefreshCw, Eye, ArrowRight } from 'lucide-react';
 import { CanvasProgressLoader } from './CanvasProgressLoader';
 import { ProceduralFloor } from './ProceduralFloor';
+import { ViewCube } from './ViewCube';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 
 
@@ -100,6 +101,9 @@ export function ConfiguratorCanvas({
           </button>
         </div>
       )}
+
+      {/* AutoCAD Interactive 3D ViewCube Navigation Widget */}
+      <ViewCube />
 
       <CanvasErrorBoundary>
         <Canvas
