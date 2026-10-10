@@ -59,9 +59,12 @@ export async function POST(req: NextRequest) {
     // Move or copy SKP to permanent uploads/models for preservation
     const permanentSkpPath = `uploads/models/${cleanBase}_${cleanTime}.skp`;
     try {
-      await bunnyStorage.upload(permanentSkpPath, Buffer.from(arrayBuffer), 'application/octet-stream');
       if (storagePath !== permanentSkpPath) {
-        await bunnyStorage.delete(storagePath);
+        await bunnyStorage.upload(permanentSkpPath, Buffer.from(arrayBuffer), 'application/octet-stream');
+        // Only delete original file if it was a temporary upload
+        if (storagePath.startsWith('uploads/temp/')) {
+          await bunnyStorage.delete(storagePath);
+        }
       }
     } catch (moveErr) {
       console.warn('[Convert SKP] Warning moving temporary SKP:', moveErr);

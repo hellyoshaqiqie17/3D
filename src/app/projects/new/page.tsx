@@ -217,8 +217,7 @@ export default function NewProjectPage() {
           }
         }
 
-        setUploadProgress(85);
-        setStage('geometry');
+        setUploadProgress(70);
       } else if (selectedFile && selectedFile.size > 0) {
         // Direct Cloud Upload to Bunny Storage (bypasses Vercel 4.5MB request limit!)
         try {
@@ -307,14 +306,24 @@ export default function NewProjectPage() {
             modelUrl = publicUrl;
           }
 
-          setUploadProgress(85);
-          setStage('geometry');
+          setUploadProgress(70);
         } catch (uploadErr: any) {
           console.error('Direct cloud upload error:', uploadErr);
           alert(uploadErr.message || 'Gagal mengunggah file 3D');
           setStage('idle');
           return;
         }
+      } else if (selectedFile?.name.toLowerCase().endsWith('.skp')) {
+        modelUrl = '/models/sample-sketchup-house.glb';
+        generatedThumbnail = '/models/sample-sketchup-thumb.png';
+        setCapturedThumbnailUrl('/models/sample-sketchup-thumb.png');
+      } else {
+        modelUrl = '/models/modern-villa.glb';
+        generatedThumbnail = '/models/villa-thumb.png';
+      }
+
+      setUploadProgress(85);
+      setStage('geometry');
 
         // Fetch converted GLB from modelUrl to parse geometry and detect zones
         const glbRes = await fetch(modelUrl);
@@ -453,74 +462,40 @@ export default function NewProjectPage() {
             defaultMaterialId: 'original',
           });
         }
-      } else if (selectedFile?.name.toLowerCase().endsWith('.skp')) {
-        // Built-in SketchUp template
-        modelUrl = '/models/sample-sketchup-house.glb';
-        generatedThumbnail = '/models/sample-sketchup-thumb.png';
-        setCapturedThumbnailUrl('/models/sample-sketchup-thumb.png');
-        candidateZones.push(
-          {
-            id: 'zone_wall',
-            name: 'Exterior & Interior Facade',
-            category: 'wall',
-            meshNames: ['mesh_0_2', 'mesh_0_4', 'Wall_Exterior'],
-            defaultMaterialId: 'wall-pure-white',
-          },
-          {
-            id: 'zone_roof',
-            name: 'Overhanging Roof Canopy',
-            category: 'roof',
-            meshNames: ['mesh_0_3', 'Roof_Main'],
-            defaultMaterialId: 'roof-zinc-charcoal',
-          },
-          {
-            id: 'zone_floor',
-            name: 'Timber Ground Floor',
-            category: 'floor',
-            meshNames: ['mesh_0', 'mesh_0_1', 'Floor_Living'],
-            defaultMaterialId: 'floor-oak-natural',
-          },
-          {
-            id: 'zone_door',
-            name: 'Entry Door Pivot',
-            category: 'door',
-            meshNames: ['mesh_0_5', 'Door_Entrance'],
-            defaultMaterialId: 'door-teak-wood',
-          }
-        );
-      } else {
-        // Template demo zones
-        candidateZones.push(
-          {
-            id: 'wall_ext',
-            name: 'Exterior Walls',
-            category: 'wall',
-            meshNames: ['Wall_Exterior_Main', 'Wall_Exterior_Accent'],
-            defaultMaterialId: 'wall-pure-white',
-          },
-          {
-            id: 'floor_living',
-            name: 'Living Room Flooring',
-            category: 'floor',
-            meshNames: ['Floor_Living'],
-            defaultMaterialId: 'floor-oak-natural',
-          },
-          {
-            id: 'floor_bathroom',
-            name: 'Bathroom Surfaces',
-            category: 'bathroom',
-            meshNames: ['Floor_Bathroom', 'Wall_Bathroom'],
-            defaultMaterialId: 'tile-white-subway',
-          },
-          {
-            id: 'roof_main',
-            name: 'Roof Canopy',
-            category: 'roof',
-            meshNames: ['Roof_Main'],
-            defaultMaterialId: 'roof-zinc-charcoal',
-          }
-        );
-      }
+
+        // If candidateZones is empty (e.g. no mesh matched regex), assign default architectural zones
+        if (candidateZones.length === 0) {
+          candidateZones.push(
+            {
+              id: 'wall_ext',
+              name: 'Exterior Walls',
+              category: 'wall',
+              meshNames: ['Wall_Exterior_Main', 'Wall_Exterior_Accent'],
+              defaultMaterialId: 'wall-pure-white',
+            },
+            {
+              id: 'floor_living',
+              name: 'Living Room Flooring',
+              category: 'floor',
+              meshNames: ['Floor_Living'],
+              defaultMaterialId: 'floor-oak-natural',
+            },
+            {
+              id: 'floor_bathroom',
+              name: 'Bathroom Surfaces',
+              category: 'bathroom',
+              meshNames: ['Floor_Bathroom', 'Wall_Bathroom'],
+              defaultMaterialId: 'tile-white-subway',
+            },
+            {
+              id: 'roof_main',
+              name: 'Roof Canopy',
+              category: 'roof',
+              meshNames: ['Roof_Main'],
+              defaultMaterialId: 'roof-zinc-charcoal',
+            }
+          );
+        }
     } catch (err) {
       console.warn('Parsing custom model, falling back to default structure:', err);
     }
@@ -551,7 +526,7 @@ export default function NewProjectPage() {
       zones: candidateZones,
     };
 
-    addProject(newProject);
+    await addProject(newProject);
     setCreatedProjectId(newId);
   };
 
@@ -988,8 +963,12 @@ export default function NewProjectPage() {
               </Link>
               <button
                 type="submit"
-                disabled={!selectedFile || stage !== 'idle'}
-                className="px-6 py-2.5 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-colors disabled:opacity-50"
+                disabled={
+                  stage !== 'idle' ||
+                  !projectName.trim() ||
+                  (uploadMode === 'device' ? !selectedFile : !selectedLibraryFile)
+                }
+                className="px-6 py-2.5 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Process & Create Project
               </button>
