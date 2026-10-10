@@ -36,6 +36,8 @@ next-env.d.ts
 /data/*.json
 /public/uploads/models/*
 !/public/uploads/models/.gitkeep
+/public/uploads/textures/*
+!/public/uploads/textures/.gitkeep
 
 # test artifacts
 /public/test-screenshots/

@@ -3,6 +3,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+import { useMaterialsStore } from '@/lib/materials-store';
 import { getMaterialsByCategory, getMaterialById } from '@/lib/materials';
 import { CategorySelector } from './CategorySelector';
 import { MaterialGrid } from './MaterialGrid';
@@ -27,6 +28,13 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
   const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
   const floorEnabled = useConfiguratorStore((s) => s.floorEnabled);
+
+  const customMaterials = useMaterialsStore((s) => s.customMaterials);
+  const fetchCustomMaterials = useMaterialsStore((s) => s.fetchCustomMaterials);
+
+  useEffect(() => {
+    fetchCustomMaterials();
+  }, [fetchCustomMaterials]);
 
   const [showGroundOverlay, setShowGroundOverlay] = useState(false);
 
@@ -59,22 +67,24 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     }
   }, [currentZone, selectedZoneId, selectZone, setSelectedMesh]);
 
-  // Materials available for this category including user-uploaded client designs
+  // Materials available for this category including user-uploaded PBR materials
   const combinedMaterials = useMemo(() => {
-    const fromLibrary = getMaterialsByCategory(activeCategory);
-    const fromUploaded = uploadedMaterials.filter(
+    const allCustom = [...customMaterials, ...uploadedMaterials];
+    const categoryCustom = allCustom.filter(
       (m) => m.category === activeCategory || m.isCustomUpload
     );
+    const fromLibrary = getMaterialsByCategory(activeCategory);
     const seen = new Set<string>();
     const result: MaterialOption[] = [];
-    for (const m of [...fromUploaded, ...fromLibrary]) {
+    // Custom materials appear first at the top for instant 1-click access!
+    for (const m of [...categoryCustom, ...fromLibrary]) {
       if (!seen.has(m.id)) {
         seen.add(m.id);
         result.push(m);
       }
     }
     return result;
-  }, [activeCategory, uploadedMaterials]);
+  }, [activeCategory, customMaterials, uploadedMaterials]);
 
   // Currently applied material info
   const appliedMaterialId = currentZone
@@ -82,7 +92,9 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     : null;
 
   const appliedMaterial = appliedMaterialId
-    ? uploadedMaterials.find((m) => m.id === appliedMaterialId) || getMaterialById(appliedMaterialId)
+    ? customMaterials.find((m) => m.id === appliedMaterialId) ||
+      uploadedMaterials.find((m) => m.id === appliedMaterialId) ||
+      getMaterialById(appliedMaterialId)
     : null;
 
   const hasCustomColor = currentZone && Boolean(customColors[currentZone.id]);

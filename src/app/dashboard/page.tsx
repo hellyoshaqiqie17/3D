@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/project-store';
 import { useAuthStore } from '@/lib/auth-store';
 import { MATERIAL_LIBRARY } from '@/lib/materials';
+import { useMaterialsStore } from '@/lib/materials-store';
+import { UploadMaterialModal } from '@/components/dashboard/UploadMaterialModal';
+import { MaterialOption } from '@/types';
 import { ModelThumbnailPreview } from '@/components/dashboard/ModelThumbnailPreview';
 import { SkpLibraryView } from '@/components/dashboard/SkpLibraryView';
 import {
@@ -71,6 +74,70 @@ export default function DashboardPage() {
   const [projectToDelete, setProjectToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
+
+  const customMaterials = useMaterialsStore((s) => s.customMaterials);
+  const fetchCustomMaterials = useMaterialsStore((s) => s.fetchCustomMaterials);
+  const deleteCustomMaterial = useMaterialsStore((s) => s.deleteCustomMaterial);
+
+  const [isUploadMaterialOpen, setIsUploadMaterialOpen] = useState(false);
+  const [materialFilterCategory, setMaterialFilterCategory] = useState<string>('all');
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [materialToDelete, setMaterialToDelete] = useState<MaterialOption | null>(null);
+  const [isDeletingMaterial, setIsDeletingMaterial] = useState(false);
+  const [materialNotice, setMaterialNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchCustomMaterials();
+  }, [fetchCustomMaterials]);
+
+  const allDisplayMaterials = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: MaterialOption[] = [];
+    for (const m of [...customMaterials, ...MATERIAL_LIBRARY]) {
+      if (!seen.has(m.id)) {
+        seen.add(m.id);
+        list.push(m);
+      }
+    }
+    return list;
+  }, [customMaterials]);
+
+  const filteredMaterials = React.useMemo(() => {
+    return allDisplayMaterials.filter((mat) => {
+      if (materialFilterCategory === 'custom' && !mat.isCustomUpload) return false;
+      if (
+        materialFilterCategory !== 'all' &&
+        materialFilterCategory !== 'custom' &&
+        mat.category !== materialFilterCategory
+      ) {
+        return false;
+      }
+      if (materialSearch.trim()) {
+        const q = materialSearch.toLowerCase();
+        return (
+          mat.name.toLowerCase().includes(q) ||
+          mat.category.toLowerCase().includes(q) ||
+          (mat.description && mat.description.toLowerCase().includes(q))
+        );
+      }
+      return true;
+    });
+  }, [allDisplayMaterials, materialFilterCategory, materialSearch]);
+
+  const handleConfirmDeleteMaterial = async () => {
+    if (!materialToDelete) return;
+    setIsDeletingMaterial(true);
+    try {
+      await deleteCustomMaterial(materialToDelete.id);
+      setMaterialNotice(`Material "${materialToDelete.name}" berhasil dihapus.`);
+      setTimeout(() => setMaterialNotice(null), 3500);
+      setMaterialToDelete(null);
+    } catch (err) {
+      console.error('Failed to delete custom material:', err);
+    } finally {
+      setIsDeletingMaterial(false);
+    }
+  };
 
   useEffect(() => {
     if (user?.id) {
@@ -443,39 +510,195 @@ export default function DashboardPage() {
             <SkpLibraryView />
           ) : (
             /* Materials Library Tab */
-            <div>
-              <div className="mb-6">
-                <h2 className="text-lg font-bold text-primary">Architectural PBR Materials</h2>
-                <p className="text-xs text-secondary">
-                  Pre-calibrated physically based materials applied across walls, floors, and tiles.
-                </p>
+            <div className="space-y-6">
+              {/* Header & Upload Button */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-border">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h2 className="text-xl font-bold text-primary">Architectural PBR Materials</h2>
+                    <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-primary/10 text-primary rounded-full">
+                      {allDisplayMaterials.length} Materials
+                    </span>
+                    {customMaterials.length > 0 && (
+                      <span className="px-2 py-0.5 text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 rounded-full">
+                        {customMaterials.length} Custom Uploads
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-secondary leading-relaxed">
+                    Katalog material PBR berkalibrasi fisik untuk dinding, lantai, keramik, dan atap. File tekstur kustom yang di-upload otomatis tersedia di sidebar 3D Configurator.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsUploadMaterialOpen(true)}
+                  className="px-4 py-2.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-subtle hover:shadow transition-all flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+                >
+                  <Plus className="w-4 h-4 stroke-[2.5]" />
+                  <span>Upload Material PBR</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {MATERIAL_LIBRARY.map((mat) => (
-                  <div
-                    key={mat.id}
-                    className="p-3.5 bg-white rounded-xl border border-border shadow-subtle"
-                  >
-                    <div
-                      className="w-full h-20 rounded-lg mb-2.5 border border-border/80 flex items-center justify-center"
-                      style={{ backgroundColor: mat.color || '#E5E7EB' }}
-                    >
-                      {mat.tag && (
-                        <span className="text-[10px] font-mono uppercase px-2 py-0.5 bg-black/40 text-white rounded backdrop-blur-sm">
-                          {mat.tag}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-xs font-semibold text-primary block truncate">
-                      {mat.name}
-                    </span>
-                    <span className="text-[10px] text-secondary font-mono block uppercase">
-                      {mat.category}
-                    </span>
-                  </div>
-                ))}
+              {/* Notification Banner */}
+              {materialNotice && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-center gap-2 shadow-subtle animate-in fade-in duration-200">
+                  <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{materialNotice}</span>
+                </div>
+              )}
+
+              {/* Filter & Search Bar */}
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+                {/* Category Pills */}
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                  {[
+                    { id: 'all', label: 'Semua' },
+                    { id: 'custom', label: `Khusus Kustom (${customMaterials.length})` },
+                    { id: 'wall', label: 'Dinding & Fasad' },
+                    { id: 'floor', label: 'Lantai' },
+                    { id: 'bathroom', label: 'Keramik & Tiles' },
+                    { id: 'roof', label: 'Atap' },
+                    { id: 'exterior', label: 'Eksterior' },
+                    { id: 'door', label: 'Pintu' },
+                  ].map((cat) => {
+                    const isSelected = materialFilterCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setMaterialFilterCategory(cat.id)}
+                        className={`px-3 py-1.5 text-xs rounded-xl font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-primary text-white shadow-subtle'
+                            : 'bg-white border border-border text-secondary hover:text-primary hover:bg-surface-50'
+                        }`}
+                      >
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Search Input */}
+                <div className="relative min-w-[240px]">
+                  <Search className="w-3.5 h-3.5 text-secondary absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Cari nama material / tekstur..."
+                    value={materialSearch}
+                    onChange={(e) => setMaterialSearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 text-xs bg-white border border-border rounded-xl text-primary focus:outline-none focus:border-primary placeholder:text-secondary/60"
+                  />
+                </div>
               </div>
+
+              {/* Materials Grid */}
+              {filteredMaterials.length === 0 ? (
+                <div className="bg-white p-12 rounded-2xl border border-border shadow-subtle text-center">
+                  <div className="w-12 h-12 rounded-2xl bg-surface-100 text-secondary flex items-center justify-center mx-auto mb-3">
+                    <Palette className="w-6 h-6 opacity-60" />
+                  </div>
+                  <h3 className="text-sm font-semibold text-primary mb-1">
+                    Tidak ada material yang sesuai
+                  </h3>
+                  <p className="text-xs text-secondary max-w-sm mx-auto mb-4">
+                    {materialFilterCategory === 'custom'
+                      ? 'Belum ada material kustom yang diunggah. Klik tombol di bawah untuk mengunggah tekstur keramik atau dinding Anda.'
+                      : 'Coba ubah kata kunci pencarian atau kategori filter Anda.'}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setIsUploadMaterialOpen(true)}
+                    className="px-4 py-2 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-colors inline-flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Upload Material Baru</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {filteredMaterials.map((mat) => {
+                    const isTextured = mat.type === 'texture' && Boolean(mat.previewThumbnail || mat.textureUrl);
+                    const repeatX = mat.repeat?.[0] || 4;
+
+                    return (
+                      <div
+                        key={mat.id}
+                        className={`group p-3.5 bg-white rounded-2xl border transition-all relative flex flex-col justify-between ${
+                          mat.isCustomUpload
+                            ? 'border-emerald-200/80 hover:border-emerald-400 hover:shadow-subtle'
+                            : 'border-border hover:border-surface-400 hover:shadow-subtle'
+                        }`}
+                      >
+                        <div>
+                          {/* Visual Swatch / Texture Preview */}
+                          <div
+                            className="w-full h-24 rounded-xl mb-3 border border-border/80 overflow-hidden relative shadow-inner bg-surface-100 flex items-center justify-center"
+                            style={{
+                              backgroundColor: mat.color || '#E5E7EB',
+                            }}
+                          >
+                            {isTextured ? (
+                              <div
+                                className="w-full h-full transition-transform duration-300 group-hover:scale-105"
+                                style={{
+                                  backgroundImage: `url(${mat.previewThumbnail || mat.textureUrl})`,
+                                  backgroundSize: `${100 / Math.min(repeatX, 3)}% ${100 / Math.min(repeatX, 3)}%`,
+                                  backgroundRepeat: 'repeat',
+                                }}
+                              />
+                            ) : null}
+
+                            {/* Badge */}
+                            {mat.isCustomUpload ? (
+                              <span className="absolute top-2 left-2 text-[9px] font-mono uppercase px-1.5 py-0.5 bg-emerald-600 text-white font-bold rounded shadow-subtle flex items-center gap-1">
+                                <Sparkles className="w-2.5 h-2.5" />
+                                <span>Custom PBR</span>
+                              </span>
+                            ) : mat.tag ? (
+                              <span className="absolute top-2 left-2 text-[9px] font-mono uppercase px-1.5 py-0.5 bg-black/60 text-white font-semibold rounded backdrop-blur-sm">
+                                {mat.tag}
+                              </span>
+                            ) : null}
+
+                            {/* Delete Button for Custom Material */}
+                            {mat.isCustomUpload && (
+                              <button
+                                type="button"
+                                title="Hapus Material Kustom"
+                                onClick={() => setMaterialToDelete(mat)}
+                                className="absolute top-2 right-2 w-6 h-6 rounded-lg bg-white/90 hover:bg-red-50 text-secondary hover:text-red-600 flex items-center justify-center shadow-subtle opacity-80 group-hover:opacity-100 transition-all cursor-pointer"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+
+                            {/* Finish Label */}
+                            <span className="absolute bottom-2 right-2 text-[8px] font-mono uppercase px-1.5 py-0.2 bg-black/50 text-white/90 rounded backdrop-blur-sm">
+                              {mat.finish}
+                            </span>
+                          </div>
+
+                          {/* Info */}
+                          <h4 className="text-xs font-bold text-primary truncate block leading-tight mb-0.5" title={mat.name}>
+                            {mat.name}
+                          </h4>
+                          <span className="text-[10px] text-secondary font-mono block uppercase">
+                            {mat.category}
+                          </span>
+                        </div>
+
+                        {mat.description && (
+                          <p className="text-[10px] text-secondary/80 line-clamp-2 mt-2 leading-relaxed">
+                            {mat.description}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -513,6 +736,54 @@ export default function DashboardPage() {
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>{isDeleting ? 'Menghapus...' : 'Ya, Hapus Permanen'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upload Custom PBR Material Modal */}
+      <UploadMaterialModal
+        isOpen={isUploadMaterialOpen}
+        onClose={() => setIsUploadMaterialOpen(false)}
+        onSuccess={(mat) => {
+          setMaterialNotice(`Material "${mat.name}" berhasil diunggah dan disimpan ke library!`);
+          setTimeout(() => setMaterialNotice(null), 4000);
+        }}
+      />
+
+      {/* Confirmation Modal: Delete Custom Material */}
+      {materialToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-border animate-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center mb-4">
+              <Trash2 className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-bold text-primary mb-2">
+              Hapus Material PBR Kustom?
+            </h3>
+            <p className="text-xs text-secondary leading-relaxed mb-4">
+              Apakah Anda yakin ingin menghapus material <strong className="text-primary font-semibold">{materialToDelete.name}</strong>? File tekstur dan pengaturannya akan dihapus dari katalog PBR dan tidak akan muncul lagi di 3D Configurator.
+            </p>
+
+            <div className="flex items-center justify-end gap-3 pt-2 border-t border-border">
+              <button
+                type="button"
+                disabled={isDeletingMaterial}
+                onClick={() => setMaterialToDelete(null)}
+                className="px-4 py-2 text-xs font-medium text-secondary hover:text-primary hover:bg-surface-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingMaterial}
+                onClick={handleConfirmDeleteMaterial}
+                className="px-4 py-2 text-xs font-medium text-white bg-red-600 hover:bg-red-700 rounded-xl transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>{isDeletingMaterial ? 'Menghapus...' : 'Ya, Hapus Material'}</span>
               </button>
             </div>
           </div>

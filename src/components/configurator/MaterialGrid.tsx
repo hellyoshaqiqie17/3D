@@ -14,6 +14,7 @@ interface MaterialGridProps {
 export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const applyMaterial = useConfiguratorStore((s) => s.applyMaterial);
+  const setZoneTextureSettings = useConfiguratorStore((s) => s.setZoneTextureSettings);
   const setZoneOriginal = useConfiguratorStore((s) => s.setZoneOriginal);
   const customColors = useConfiguratorStore((s) => s.customColors);
 
@@ -87,10 +88,23 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
         return (
           <button
             key={mat.id}
-            onClick={() => applyMaterial(currentZone.id, mat.id)}
-            className={`group relative text-left rounded-xl p-2.5 transition-all border flex flex-col justify-between ${
+            onClick={() => {
+              applyMaterial(currentZone.id, mat.id);
+              if (mat.type === 'texture') {
+                setZoneTextureSettings(currentZone.id, {
+                  repeat: mat.repeat || [4, 4],
+                  bumpScale: mat.bumpScale ?? 0.16,
+                  roughness: mat.roughness ?? 0.35,
+                  rotation: mat.rotation ?? 0,
+                  colorTint: mat.color || '#FFFFFF',
+                });
+              }
+            }}
+            className={`group relative text-left rounded-xl p-2.5 transition-all border flex flex-col justify-between cursor-pointer ${
               isSelected
                 ? 'bg-surface-50 border-primary ring-1 ring-primary shadow-subtle'
+                : mat.isCustomUpload
+                ? 'bg-white border-emerald-300/80 hover:border-emerald-500 hover:shadow-subtle'
                 : 'bg-white border-border hover:border-surface-400 hover:shadow-subtle'
             }`}
           >
@@ -110,12 +124,17 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
                 />
               )}
 
-              {/* Tag pill */}
-              {mat.tag && (
+              {/* Tag pill / Custom badge */}
+              {mat.isCustomUpload ? (
+                <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[9px] font-bold tracking-wide uppercase bg-emerald-600 text-white rounded shadow-sm flex items-center gap-1">
+                  <Sparkles className="w-2.5 h-2.5" />
+                  <span>Custom PBR</span>
+                </span>
+              ) : mat.tag ? (
                 <span className="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[9px] font-medium tracking-wide uppercase bg-black/60 backdrop-blur-sm text-white rounded">
                   {mat.tag}
                 </span>
-              )}
+              ) : null}
 
               {/* Selection Checkmark */}
               {isSelected && (

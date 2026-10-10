@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Project, ProjectConfiguration, User } from '@/types';
+import { Project, ProjectConfiguration, User, MaterialOption } from '@/types';
 import { bunnyStorage } from './bunny-storage';
 
 const isVercel = Boolean(process.env.VERCEL);
@@ -10,6 +10,42 @@ const DATA_DIR =
 const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const CONFIGS_FILE = path.join(DATA_DIR, 'configurations.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
+const MATERIALS_FILE = path.join(DATA_DIR, 'materials.json');
+
+export const DEFAULT_CUSTOM_MATERIALS: MaterialOption[] = [
+  {
+    id: 'tile-designer-mosaic',
+    name: 'Designer Checker Wall Tile',
+    category: 'wall',
+    type: 'texture',
+    textureUrl: '/textures/designer-tile-mosaic.jpg',
+    previewThumbnail: '/textures/designer-tile-mosaic.jpg',
+    roughness: 0.2,
+    metalness: 0.05,
+    bumpScale: 0.16,
+    finish: 'gloss',
+    repeat: [4, 4],
+    description: 'Keramik motif kotak beveled dengan nat kontras 3D relief.',
+    tag: 'Client Design',
+    isCustomUpload: true,
+  },
+  {
+    id: 'tile-designer-slate',
+    name: 'Textured Relief Stone Wall',
+    category: 'wall',
+    type: 'texture',
+    textureUrl: '/textures/designer-tile-slate.jpg',
+    previewThumbnail: '/textures/designer-tile-slate.jpg',
+    roughness: 0.6,
+    metalness: 0.08,
+    bumpScale: 0.22,
+    finish: 'textured',
+    repeat: [4, 4],
+    description: 'Batu alam relief bertekstur kasar dengan efek tactile timbul.',
+    tag: 'Client Design',
+    isCustomUpload: true,
+  },
+];
 
 export const ADMIN_USER: User = {
   id: 'usr-admin-lead',
@@ -92,12 +128,26 @@ function ensureDataDir() {
       fs.writeFileSync(USERS_FILE, JSON.stringify([ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER], null, 2), 'utf-8');
     }
   }
+
+  if (!fs.existsSync(MATERIALS_FILE)) {
+    const bundledMaterials = path.join(process.cwd(), 'data', 'materials.json');
+    if (fs.existsSync(bundledMaterials)) {
+      try {
+        fs.copyFileSync(bundledMaterials, MATERIALS_FILE);
+      } catch {
+        fs.writeFileSync(MATERIALS_FILE, JSON.stringify(DEFAULT_CUSTOM_MATERIALS, null, 2), 'utf-8');
+      }
+    } else {
+      fs.writeFileSync(MATERIALS_FILE, JSON.stringify(DEFAULT_CUSTOM_MATERIALS, null, 2), 'utf-8');
+    }
+  }
 }
 
 // In-memory cache for fast lookups
 let cachedProjects: Project[] | null = null;
 let cachedConfigs: ProjectConfiguration[] | null = null;
 let cachedUsers: User[] | null = null;
+let cachedMaterials: MaterialOption[] | null = null;
 
 async function readProjects(): Promise<Project[]> {
   if (cachedProjects !== null) {
@@ -246,6 +296,51 @@ async function writeUsers(users: User[]): Promise<void> {
     await bunnyStorage.writeJson('data/users.json', users);
   } catch (err) {
     console.error('[DB] Failed persisting users to Bunny Storage:', err);
+  }
+}
+
+async function readMaterials(): Promise<MaterialOption[]> {
+  if (cachedMaterials !== null) return cachedMaterials;
+
+  try {
+    const cloudMaterials = await bunnyStorage.readJson<MaterialOption[]>('data/materials.json');
+    if (cloudMaterials !== null && Array.isArray(cloudMaterials) && cloudMaterials.length > 0) {
+      cachedMaterials = cloudMaterials;
+      return cloudMaterials;
+    }
+  } catch {}
+
+  ensureDataDir();
+  try {
+    if (fs.existsSync(MATERIALS_FILE)) {
+      const raw = fs.readFileSync(MATERIALS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cachedMaterials = parsed;
+        bunnyStorage.writeJson('data/materials.json', parsed).catch(() => {});
+        return parsed;
+      }
+    }
+  } catch (err) {}
+
+  cachedMaterials = DEFAULT_CUSTOM_MATERIALS;
+  bunnyStorage.writeJson('data/materials.json', DEFAULT_CUSTOM_MATERIALS).catch(() => {});
+  return DEFAULT_CUSTOM_MATERIALS;
+}
+
+async function writeMaterials(materials: MaterialOption[]): Promise<void> {
+  cachedMaterials = materials;
+  try {
+    ensureDataDir();
+    const tempFile = `${MATERIALS_FILE}.tmp`;
+    fs.writeFileSync(tempFile, JSON.stringify(materials, null, 2), 'utf-8');
+    fs.renameSync(tempFile, MATERIALS_FILE);
+  } catch {}
+
+  try {
+    await bunnyStorage.writeJson('data/materials.json', materials);
+  } catch (err) {
+    console.error('[DB] Failed persisting materials to Bunny Storage:', err);
   }
 }
 
@@ -423,5 +518,33 @@ export const db = {
 
     await writeUsers([newUser, ...users]);
     return newUser;
+  },
+
+  async getCustomMaterials(): Promise<MaterialOption[]> {
+    return await readMaterials();
+  },
+
+  async createCustomMaterial(material: MaterialOption): Promise<MaterialOption> {
+    const materials = await readMaterials();
+    const updated = [material, ...materials.filter((m) => m.id !== material.id)];
+    await writeMaterials(updated);
+    return material;
+  },
+
+  async deleteCustomMaterial(id: string): Promise<boolean> {
+    const materials = await readMaterials();
+    const target = materials.find((m) => m.id === id);
+    if (target && target.textureUrl) {
+      try {
+        const match = target.textureUrl.match(/\/api\/storage\/(.+)$/) || target.textureUrl.match(/^\/uploads\/(.+)$/);
+        if (match) {
+          const cleanPath = match[1].startsWith('uploads/') ? match[1] : `uploads/${match[1]}`;
+          await bunnyStorage.delete(cleanPath);
+        }
+      } catch {}
+    }
+    const filtered = materials.filter((m) => m.id !== id);
+    await writeMaterials(filtered);
+    return true;
   },
 };

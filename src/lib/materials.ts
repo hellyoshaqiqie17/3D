@@ -452,11 +452,45 @@ export const MATERIAL_LIBRARY: MaterialOption[] = [
   },
 ];
 
-export function getMaterialsByCategory(category: MaterialCategory): MaterialOption[] {
-  return MATERIAL_LIBRARY.filter((mat) => mat.category === category && mat.id !== 'original');
+export function getMaterialsByCategory(
+  category: MaterialCategory,
+  customMaterials?: MaterialOption[]
+): MaterialOption[] {
+  const custom = (customMaterials || []).filter(
+    (mat) => mat.category === category || mat.isCustomUpload
+  );
+  const standard = MATERIAL_LIBRARY.filter(
+    (mat) => mat.category === category && mat.id !== 'original'
+  );
+  const seen = new Set<string>();
+  const result: MaterialOption[] = [];
+  for (const m of [...custom, ...standard]) {
+    if (!seen.has(m.id)) {
+      seen.add(m.id);
+      result.push(m);
+    }
+  }
+  return result;
 }
 
-export function getMaterialById(id: string): MaterialOption | undefined {
+export function getMaterialById(
+  id: string,
+  customMaterials?: MaterialOption[]
+): MaterialOption | undefined {
   if (id === 'original') return ORIGINAL_MATERIAL;
+  if (customMaterials && customMaterials.length > 0) {
+    const foundCustom = customMaterials.find((mat) => mat.id === id);
+    if (foundCustom) return foundCustom;
+  }
+  if (typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('homecraft_custom_pbr_materials');
+      if (stored) {
+        const parsed: MaterialOption[] = JSON.parse(stored);
+        const match = parsed.find((m) => m.id === id);
+        if (match) return match;
+      }
+    } catch {}
+  }
   return MATERIAL_LIBRARY.find((mat) => mat.id === id);
 }
