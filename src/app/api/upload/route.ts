@@ -1,9 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import { bunnyStorage } from '@/lib/bunny-storage';
 
-// Destination folder for uploaded CAD models
+// Local cache folder for uploaded CAD models
 const UPLOAD_DIR = path.join(process.cwd(), 'public', 'uploads', 'models');
+
+function trySaveLocalFile(subPath: string, data: Buffer | Uint8Array) {
+  try {
+    const fullPath = path.join(UPLOAD_DIR, subPath);
+    const dir = path.dirname(fullPath);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(fullPath, Buffer.from(data));
+  } catch (err) {
+    // Non-fatal on serverless environments like Vercel with read-only filesystem
+    console.warn(`[Upload Local Cache] Could not write local file ${subPath}:`, err);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,24 +29,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Ensure upload directory exists
-    if (!fs.existsSync(UPLOAD_DIR)) {
-      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
-    }
-
     const originalName = file.name;
     const ext = path.extname(originalName).toLowerCase();
     const baseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const timestamp = Date.now();
     const safeFilename = `${baseName}_${timestamp}${ext}`;
-    const destinationPath = path.join(UPLOAD_DIR, safeFilename);
 
-    // Convert file arrayBuffer to Buffer and write
+    // Convert file arrayBuffer to Buffer
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
-    fs.writeFileSync(destinationPath, buffer);
 
-    const fileUrl = `/uploads/models/${safeFilename}`;
+    // Save to local disk cache if writable
+    trySaveLocalFile(safeFilename, buffer);
 
     // Handle SketchUp (.skp) files -> automatically convert to WebGL-ready GLB
     if (ext === '.skp') {
@@ -50,9 +59,16 @@ export async function POST(req: NextRequest) {
         }
 
         const glbFilename = `${baseName}_${timestamp}.glb`;
-        const glbPath = path.join(UPLOAD_DIR, glbFilename);
-        fs.writeFileSync(glbPath, Buffer.from(glbBytes));
-        console.log(`[Upload] SKP successfully converted to GLB: ${glbFilename} (${glbBytes.length} bytes)`);
+        trySaveLocalFile(glbFilename, glbBytes);
+
+        // Upload GLB to Bunny Storage
+        const glbStoragePath = `uploads/models/${glbFilename}`;
+        const glbUrl = await bunnyStorage.upload(glbStoragePath, glbBytes, 'model/gltf-binary');
+        console.log(`[Upload] SKP successfully converted and uploaded to Bunny: ${glbUrl}`);
+
+        // Upload original SKP to Bunny Storage
+        const skpStoragePath = `uploads/models/${safeFilename}`;
+        const skpUrl = await bunnyStorage.upload(skpStoragePath, buffer, 'application/octet-stream');
 
         // Check if SKP contains an embedded thumbnail
         let extractedThumbUrl: string | undefined;
@@ -60,9 +76,9 @@ export async function POST(req: NextRequest) {
           const thumb = extractThumbnail(arrayBuffer);
           if (thumb && thumb.data && thumb.data.length > 0) {
             const thumbFilename = `${baseName}_${timestamp}_thumb.png`;
-            const thumbPath = path.join(UPLOAD_DIR, thumbFilename);
-            fs.writeFileSync(thumbPath, Buffer.from(thumb.data));
-            extractedThumbUrl = `/uploads/models/${thumbFilename}`;
+            trySaveLocalFile(thumbFilename, thumb.data);
+            const thumbStoragePath = `uploads/models/${thumbFilename}`;
+            extractedThumbUrl = await bunnyStorage.upload(thumbStoragePath, thumb.data, 'image/png');
           }
         } catch (thumbErr) {
           console.warn('[Upload] Could not extract embedded SKP thumbnail:', thumbErr);
@@ -70,8 +86,8 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          url: `/uploads/models/${glbFilename}`,
-          skpOriginalUrl: fileUrl,
+          url: glbUrl,
+          skpOriginalUrl: skpUrl,
           filename: glbFilename,
           originalName,
           isConvertedFromSkp: true,
@@ -88,13 +104,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Direct CAD / GLB / GLTF file upload to Bunny Storage
+    const storagePath = `uploads/models/${safeFilename}`;
+    const contentType = ext === '.glb'
+      ? 'model/gltf-binary'
+      : ext === '.gltf'
+      ? 'model/gltf+json'
+      : file.type || 'application/octet-stream';
+
+    const fileUrl = await bunnyStorage.upload(storagePath, buffer, contentType);
+    console.log(`[Upload] Successfully uploaded model to Bunny Storage: ${fileUrl}`);
+
     return NextResponse.json({
       success: true,
       url: fileUrl,
       filename: safeFilename,
       originalName,
       sizeBytes: buffer.length,
-      mimeType: file.type,
+      mimeType: contentType,
     });
   } catch (error: any) {
     console.error('File upload error:', error);

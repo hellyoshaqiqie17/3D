@@ -37,29 +37,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Optional proxy to VPS Database when hosted on Vercel
-    if (process.env.VPS_API_URL) {
-      try {
-        const vpsBase = process.env.VPS_API_URL.replace(/\/$/, '');
-        const targetUrl = new URL(`${vpsBase}/api/projects`);
-        if (requestedUserId) {
-          targetUrl.searchParams.set('userId', requestedUserId);
-        }
-        const vpsRes = await fetch(targetUrl.toString(), {
-          headers: {
-            cookie: req.headers.get('cookie') || '',
-          },
-          cache: 'no-store',
-        });
-        if (vpsRes.ok) {
-          const vpsProjects = await vpsRes.json();
-          return NextResponse.json(vpsProjects);
-        }
-      } catch (proxyErr) {
-        console.warn('[Vercel->VPS] Failed proxying /api/projects to VPS, using local fallback:', proxyErr);
-      }
-    }
-
     const projects = await db.getProjectsByUser(requestedUserId || undefined);
     return NextResponse.json(projects);
   } catch (error: any) {
@@ -95,27 +72,6 @@ export async function POST(req: NextRequest) {
         if (parsed?.id) {
           ownerUserId = parsed.id;
         }
-      }
-    }
-
-    // Optional proxy to VPS Database when hosted on Vercel
-    if (process.env.VPS_API_URL) {
-      try {
-        const vpsBase = process.env.VPS_API_URL.replace(/\/$/, '');
-        const vpsRes = await fetch(`${vpsBase}/api/projects`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            cookie: req.headers.get('cookie') || '',
-          },
-          body: JSON.stringify({ ...body, userId: ownerUserId || 'usr-admin-lead' }),
-        });
-        if (vpsRes.ok) {
-          const vpsSaved = await vpsRes.json();
-          return NextResponse.json(vpsSaved, { status: 201 });
-        }
-      } catch (proxyErr) {
-        console.warn('[Vercel->VPS] Failed proxying POST /api/projects to VPS, saving locally:', proxyErr);
       }
     }
 

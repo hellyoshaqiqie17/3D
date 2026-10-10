@@ -9,22 +9,6 @@ export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
 
-    if (process.env.VPS_API_URL) {
-      try {
-        const vpsBase = process.env.VPS_API_URL.replace(/\/$/, '');
-        const vpsRes = await fetch(`${vpsBase}/api/projects/${id}`, {
-          headers: { cookie: req.headers.get('cookie') || '' },
-          cache: 'no-store',
-        });
-        if (vpsRes.ok) {
-          const vpsData = await vpsRes.json();
-          return NextResponse.json(vpsData);
-        }
-      } catch (err) {
-        console.warn(`[Vercel->VPS] Failed GET /api/projects/${id} proxy, using local DB:`, err);
-      }
-    }
-
     const project = await db.getProjectById(id);
 
     if (!project) {
@@ -43,26 +27,6 @@ export async function PUT(req: NextRequest, context: RouteContext) {
     const { id } = await context.params;
     const body = await req.json();
 
-    if (process.env.VPS_API_URL) {
-      try {
-        const vpsBase = process.env.VPS_API_URL.replace(/\/$/, '');
-        const vpsRes = await fetch(`${vpsBase}/api/projects/${id}`, {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            cookie: req.headers.get('cookie') || '',
-          },
-          body: JSON.stringify(body),
-        });
-        if (vpsRes.ok) {
-          const vpsData = await vpsRes.json();
-          return NextResponse.json(vpsData);
-        }
-      } catch (err) {
-        console.warn(`[Vercel->VPS] Failed PUT /api/projects/${id} proxy, using local DB:`, err);
-      }
-    }
-
     const updated = await db.updateProject(id, body);
     if (!updated) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
@@ -78,22 +42,6 @@ export async function PUT(req: NextRequest, context: RouteContext) {
 export async function DELETE(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
-
-    if (process.env.VPS_API_URL) {
-      try {
-        const vpsBase = process.env.VPS_API_URL.replace(/\/$/, '');
-        const vpsRes = await fetch(`${vpsBase}/api/projects/${id}`, {
-          method: 'DELETE',
-          headers: { cookie: req.headers.get('cookie') || '' },
-        });
-        if (vpsRes.ok) {
-          const vpsData = await vpsRes.json();
-          return NextResponse.json(vpsData);
-        }
-      } catch (err) {
-        console.warn(`[Vercel->VPS] Failed DELETE /api/projects/${id} proxy, deleting locally:`, err);
-      }
-    }
 
     const deleted = await db.deleteProject(id);
 

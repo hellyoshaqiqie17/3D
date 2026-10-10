@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { Project, ProjectConfiguration, User } from '@/types';
 import { DEMO_PROJECTS } from './demo-project';
+import { bunnyStorage } from './bunny-storage';
 
 const isVercel = Boolean(process.env.VERCEL);
 const DATA_DIR =
@@ -97,8 +98,29 @@ function ensureDataDir() {
 // In-memory cache for fast lookups
 let cachedProjects: Project[] | null = null;
 let cachedConfigs: ProjectConfiguration[] | null = null;
+let cachedUsers: User[] | null = null;
 
-function readProjects(): Project[] {
+async function readProjects(): Promise<Project[]> {
+  if (cachedProjects !== null) {
+    return cachedProjects;
+  }
+
+  // 1. Try fetching from Bunny Storage Cloud
+  try {
+    const cloudProjects = await bunnyStorage.readJson<Project[]>('data/projects.json');
+    if (cloudProjects !== null && Array.isArray(cloudProjects)) {
+      cachedProjects = cloudProjects;
+      try {
+        ensureDataDir();
+        fs.writeFileSync(PROJECTS_FILE, JSON.stringify(cloudProjects, null, 2), 'utf-8');
+      } catch {}
+      return cloudProjects;
+    }
+  } catch (err) {
+    console.warn('[DB] Failed reading projects from Bunny Storage:', err);
+  }
+
+  // 2. Fallback to local disk file
   ensureDataDir();
   try {
     if (fs.existsSync(PROJECTS_FILE)) {
@@ -106,90 +128,136 @@ function readProjects(): Project[] {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         cachedProjects = parsed;
+        bunnyStorage.writeJson('data/projects.json', parsed).catch(() => {});
         return parsed;
       }
     }
   } catch (err) {
     console.error('Failed to read projects database:', err);
   }
-  return cachedProjects ?? DEMO_PROJECTS;
+
+  // 3. Fallback to bundled DEMO_PROJECTS
+  cachedProjects = DEMO_PROJECTS;
+  bunnyStorage.writeJson('data/projects.json', DEMO_PROJECTS).catch(() => {});
+  return DEMO_PROJECTS;
 }
 
-function writeProjects(projects: Project[]) {
-  ensureDataDir();
+async function writeProjects(projects: Project[]): Promise<void> {
   cachedProjects = projects;
   try {
-    // Atomic write to prevent corruption
+    ensureDataDir();
     const tempFile = `${PROJECTS_FILE}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(projects, null, 2), 'utf-8');
     fs.renameSync(tempFile, PROJECTS_FILE);
+  } catch {}
+
+  try {
+    await bunnyStorage.writeJson('data/projects.json', projects);
   } catch (err) {
-    console.error('Failed to write projects database:', err);
-    throw err;
+    console.error('[DB] Failed persisting projects to Bunny Storage:', err);
   }
 }
 
-function readConfigs(): ProjectConfiguration[] {
+async function readConfigs(): Promise<ProjectConfiguration[]> {
+  if (cachedConfigs !== null) return cachedConfigs;
+
+  try {
+    const cloudConfigs = await bunnyStorage.readJson<ProjectConfiguration[]>('data/configurations.json');
+    if (cloudConfigs !== null && Array.isArray(cloudConfigs)) {
+      cachedConfigs = cloudConfigs;
+      try {
+        ensureDataDir();
+        fs.writeFileSync(CONFIGS_FILE, JSON.stringify(cloudConfigs, null, 2), 'utf-8');
+      } catch {}
+      return cloudConfigs;
+    }
+  } catch {}
+
   ensureDataDir();
   try {
-    const raw = fs.readFileSync(CONFIGS_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      cachedConfigs = parsed;
-      return parsed;
+    if (fs.existsSync(CONFIGS_FILE)) {
+      const raw = fs.readFileSync(CONFIGS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        cachedConfigs = parsed;
+        bunnyStorage.writeJson('data/configurations.json', parsed).catch(() => {});
+        return parsed;
+      }
     }
-  } catch (err) {
-    console.error('Failed to read configs database:', err);
-  }
+  } catch (err) {}
+
   return [];
 }
 
-function writeConfigs(configs: ProjectConfiguration[]) {
-  ensureDataDir();
+async function writeConfigs(configs: ProjectConfiguration[]): Promise<void> {
   cachedConfigs = configs;
   try {
+    ensureDataDir();
     const tempFile = `${CONFIGS_FILE}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(configs, null, 2), 'utf-8');
     fs.renameSync(tempFile, CONFIGS_FILE);
+  } catch {}
+
+  try {
+    await bunnyStorage.writeJson('data/configurations.json', configs);
   } catch (err) {
-    console.error('Failed to write configs database:', err);
-    throw err;
+    console.error('[DB] Failed persisting configs to Bunny Storage:', err);
   }
 }
 
-function readUsers(): User[] {
-  ensureDataDir();
+async function readUsers(): Promise<User[]> {
+  if (cachedUsers !== null) return cachedUsers;
+
   try {
-    const raw = fs.readFileSync(USERS_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
+    const cloudUsers = await bunnyStorage.readJson<User[]>('data/users.json');
+    if (cloudUsers !== null && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
+      cachedUsers = cloudUsers;
+      return cloudUsers;
     }
-  } catch (err) {
-    console.error('Failed to read users database:', err);
-  }
-  return [DEFAULT_DEMO_USER];
-}
+  } catch {}
 
-function writeUsers(users: User[]) {
   ensureDataDir();
   try {
+    if (fs.existsSync(USERS_FILE)) {
+      const raw = fs.readFileSync(USERS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        cachedUsers = parsed;
+        bunnyStorage.writeJson('data/users.json', parsed).catch(() => {});
+        return parsed;
+      }
+    }
+  } catch (err) {}
+
+  const defaults = [ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER];
+  cachedUsers = defaults;
+  bunnyStorage.writeJson('data/users.json', defaults).catch(() => {});
+  return defaults;
+}
+
+async function writeUsers(users: User[]): Promise<void> {
+  cachedUsers = users;
+  try {
+    ensureDataDir();
     const tempFile = `${USERS_FILE}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(users, null, 2), 'utf-8');
     fs.renameSync(tempFile, USERS_FILE);
+  } catch {}
+
+  try {
+    await bunnyStorage.writeJson('data/users.json', users);
   } catch (err) {
-    console.error('Failed to write users database:', err);
-    throw err;
+    console.error('[DB] Failed persisting users to Bunny Storage:', err);
   }
 }
 
 export const db = {
   async getAllProjects(): Promise<Project[]> {
-    return readProjects();
+    return await readProjects();
   },
 
   async getProjectsByUser(userId?: string): Promise<Project[]> {
-    const projects = readProjects();
+    const projects = await readProjects();
     if (!userId) {
       return projects.filter((p) => p.isPublic);
     }
@@ -204,20 +272,20 @@ export const db = {
   },
 
   async getProjectById(id: string): Promise<Project | null> {
-    const projects = readProjects();
+    const projects = await readProjects();
     const project = projects.find((p) => p.id === id);
     return project || null;
   },
 
   async createProject(project: Project): Promise<Project> {
-    const projects = readProjects();
+    const projects = await readProjects();
     const updated = [project, ...projects.filter((p) => p.id !== project.id)];
-    writeProjects(updated);
+    await writeProjects(updated);
     return project;
   },
 
   async updateProject(id: string, updates: Partial<Project>): Promise<Project | null> {
-    const projects = readProjects();
+    const projects = await readProjects();
     const index = projects.findIndex((p) => p.id === id);
     if (index === -1) return null;
 
@@ -228,50 +296,45 @@ export const db = {
     };
 
     projects[index] = updatedProject;
-    writeProjects(projects);
+    await writeProjects(projects);
     return updatedProject;
   },
 
   async deleteProject(id: string): Promise<boolean> {
-    const projects = readProjects();
+    const projects = await readProjects();
     const target = projects.find((p) => p.id === id);
 
-    // 1. Remove physical files from disk if located in /uploads/
+    // 1. Remove physical files from Bunny Storage or disk
     if (target) {
       try {
-        if (target.modelUrl && target.modelUrl.startsWith('/uploads/')) {
-          const glbPath = path.join(process.cwd(), 'public', target.modelUrl.replace(/^\//, ''));
-          if (fs.existsSync(glbPath)) {
-            fs.unlinkSync(glbPath);
-            console.log(`[DB] Permanently deleted GLB asset: ${glbPath}`);
-          }
-
-          // Also delete associated SketchUp file if uploaded
-          const skpPath = glbPath.replace(/\.glb$/i, '.skp');
-          if (fs.existsSync(skpPath)) {
-            fs.unlinkSync(skpPath);
-            console.log(`[DB] Permanently deleted SKP source asset: ${skpPath}`);
+        if (target.modelUrl) {
+          const match = target.modelUrl.match(/\/api\/storage\/(.+)$/) || target.modelUrl.match(/^\/uploads\/(.+)$/);
+          if (match) {
+            const cleanPath = match[1].startsWith('uploads/') ? match[1] : `uploads/${match[1]}`;
+            await bunnyStorage.delete(cleanPath);
+            console.log(`[DB] Deleted Bunny Storage model asset: ${cleanPath}`);
           }
         }
 
-        if (target.thumbnailUrl && target.thumbnailUrl.startsWith('/uploads/')) {
-          const thumbPath = path.join(process.cwd(), 'public', target.thumbnailUrl.replace(/^\//, ''));
-          if (fs.existsSync(thumbPath)) {
-            fs.unlinkSync(thumbPath);
-            console.log(`[DB] Permanently deleted thumbnail asset: ${thumbPath}`);
+        if (target.thumbnailUrl) {
+          const match = target.thumbnailUrl.match(/\/api\/storage\/(.+)$/) || target.thumbnailUrl.match(/^\/uploads\/(.+)$/);
+          if (match) {
+            const cleanPath = match[1].startsWith('uploads/') ? match[1] : `uploads/${match[1]}`;
+            await bunnyStorage.delete(cleanPath);
+            console.log(`[DB] Deleted Bunny Storage thumb asset: ${cleanPath}`);
           }
         }
       } catch (fileErr) {
-        console.warn(`[DB] Warning: Non-fatal error deleting physical files for project ${id}:`, fileErr);
+        console.warn(`[DB] Non-fatal error deleting cloud assets for project ${id}:`, fileErr);
       }
     }
 
     // 2. Remove associated configurations from configurations.json
     try {
-      const configs = readConfigs();
-      const updatedConfigs = configs.filter((c) => c.projectId !== id);
-      if (updatedConfigs.length !== configs.length) {
-        writeConfigs(updatedConfigs);
+      const allConfigs = await readConfigs();
+      const updatedConfigs = allConfigs.filter((c) => c.projectId !== id);
+      if (updatedConfigs.length !== allConfigs.length) {
+        await writeConfigs(updatedConfigs);
       }
     } catch (cfgErr) {
       console.warn(`[DB] Warning: Error cleaning configs for project ${id}:`, cfgErr);
@@ -279,34 +342,34 @@ export const db = {
 
     // 3. Remove project from projects.json permanently
     const filtered = projects.filter((p) => p.id !== id);
-    writeProjects(filtered);
+    await writeProjects(filtered);
     return true;
   },
 
   async saveConfiguration(config: ProjectConfiguration): Promise<ProjectConfiguration> {
-    const configs = readConfigs();
+    const configs = await readConfigs();
     const updated = [config, ...configs];
-    writeConfigs(updated);
+    await writeConfigs(updated);
 
     // Increment project savedConfigsCount
-    const projects = readProjects();
+    const projects = await readProjects();
     const projIndex = projects.findIndex((p) => p.id === config.projectId);
     if (projIndex !== -1) {
       projects[projIndex].savedConfigsCount = (projects[projIndex].savedConfigsCount || 0) + 1;
-      writeProjects(projects);
+      await writeProjects(projects);
     }
 
     return config;
   },
 
   async getConfigurations(projectId: string): Promise<ProjectConfiguration[]> {
-    const configs = readConfigs();
+    const configs = await readConfigs();
     return configs.filter((c) => c.projectId === projectId);
   },
 
   // --- USER AUTH MANAGEMENT ---
   async getAllUsers(): Promise<User[]> {
-    return readUsers();
+    return await readUsers();
   },
 
   async getUserByEmail(email: string): Promise<User | null> {
@@ -324,7 +387,7 @@ export const db = {
     if (normalized === GOOGLE_DEMO_USER.email.toLowerCase()) {
       return GOOGLE_DEMO_USER;
     }
-    const users = readUsers();
+    const users = await readUsers();
     const found = users.find((u) => u.email.toLowerCase().trim() === normalized);
     return found || null;
   },
@@ -339,13 +402,13 @@ export const db = {
     if (id === 'usr-google-arch') {
       return GOOGLE_DEMO_USER;
     }
-    const users = readUsers();
+    const users = await readUsers();
     const found = users.find((u) => u.id === id);
     return found || null;
   },
 
   async createUser(userData: Omit<User, 'id' | 'createdAt'>): Promise<User> {
-    const users = readUsers();
+    const users = await readUsers();
     const initials = userData.name
       .split(' ')
       .map((n) => n[0])
@@ -360,7 +423,7 @@ export const db = {
       createdAt: new Date().toISOString(),
     };
 
-    writeUsers([newUser, ...users]);
+    await writeUsers([newUser, ...users]);
     return newUser;
   },
 };
