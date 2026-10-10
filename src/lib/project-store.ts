@@ -1,6 +1,5 @@
 import { create } from 'zustand';
 import { Project, MaterialZone } from '@/types';
-import { DEMO_PROJECTS } from './demo-project';
 
 interface ProjectStoreState {
   projects: Project[];
@@ -66,7 +65,7 @@ function getInitialProjects(): Project[] {
         const parsed = JSON.parse(cached);
         if (Array.isArray(parsed)) {
           return parsed
-            .filter((p: Project) => !deletedIds.has(p.id))
+            .filter((p: Project) => !deletedIds.has(p.id) && p.id !== 'house-001' && p.id !== 'studio-002')
             .map(sanitizeProject);
         }
       }
@@ -90,7 +89,7 @@ function saveLocalCache(projects: Project[], userId?: string) {
 
 export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   projects: getInitialProjects(),
-  activeProjectId: 'house-001',
+  activeProjectId: null,
   isLoading: false,
 
   fetchProjects: async (userId?: string) => {
@@ -118,7 +117,9 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
         const data = await res.json();
         if (Array.isArray(data)) {
           const deletedIds = getDeletedProjectIds();
-          const filtered = data.filter((p: Project) => !deletedIds.has(p.id));
+          const filtered = data.filter(
+            (p: Project) => !deletedIds.has(p.id) && p.id !== 'house-001' && p.id !== 'studio-002'
+          );
           set({ projects: filtered, isLoading: false });
           saveLocalCache(filtered, effectiveUserId);
           return;
@@ -197,7 +198,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   getProject: (id) => {
     const deletedIds = getDeletedProjectIds();
     if (deletedIds.has(id)) return undefined;
-    return get().projects.find((p) => p.id === id) || DEMO_PROJECTS.find((p) => p.id === id);
+    return get().projects.find((p) => p.id === id);
   },
 
   updateProjectThumbnail: (projectId, thumbnailUrl) => {

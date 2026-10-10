@@ -1,7 +1,6 @@
 import fs from 'fs';
 import path from 'path';
 import { Project, ProjectConfiguration, User } from '@/types';
-import { DEMO_PROJECTS } from './demo-project';
 import { bunnyStorage } from './bunny-storage';
 
 const isVercel = Boolean(process.env.VERCEL);
@@ -61,10 +60,10 @@ function ensureDataDir() {
       try {
         fs.copyFileSync(bundledProjects, PROJECTS_FILE);
       } catch {
-        fs.writeFileSync(PROJECTS_FILE, JSON.stringify(DEMO_PROJECTS, null, 2), 'utf-8');
+        fs.writeFileSync(PROJECTS_FILE, JSON.stringify([], null, 2), 'utf-8');
       }
     } else {
-      fs.writeFileSync(PROJECTS_FILE, JSON.stringify(DEMO_PROJECTS, null, 2), 'utf-8');
+      fs.writeFileSync(PROJECTS_FILE, JSON.stringify([], null, 2), 'utf-8');
     }
   }
 
@@ -136,10 +135,9 @@ async function readProjects(): Promise<Project[]> {
     console.error('Failed to read projects database:', err);
   }
 
-  // 3. Fallback to bundled DEMO_PROJECTS
-  cachedProjects = DEMO_PROJECTS;
-  bunnyStorage.writeJson('data/projects.json', DEMO_PROJECTS).catch(() => {});
-  return DEMO_PROJECTS;
+  // 3. Fallback: Clean empty state (no default projects)
+  cachedProjects = [];
+  return [];
 }
 
 async function writeProjects(projects: Project[]): Promise<void> {
