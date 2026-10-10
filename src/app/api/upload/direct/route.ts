@@ -12,10 +12,8 @@ export async function POST(req: NextRequest) {
     const safeFilename = `${baseName}_${timestamp}${ext}`;
 
     const isSkp = ext === '.skp';
-    // If SKP, store in uploads/temp first, then convert. If not SKP, store directly in uploads/models
-    const storagePath = isSkp
-      ? `uploads/temp/${safeFilename}`
-      : `uploads/models/${safeFilename}`;
+    const targetFolder = body.targetFolder || (isSkp ? 'temp' : 'models');
+    const storagePath = `uploads/${targetFolder}/${safeFilename}`;
 
     const endpoint = BUNNY_STORAGE_CONFIG.endpoint.replace(/\/$/, '');
     const uploadUrl = `${endpoint}/${BUNNY_STORAGE_CONFIG.zone}/${storagePath}`;

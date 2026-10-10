@@ -7,6 +7,7 @@ import { useProjectStore } from '@/lib/project-store';
 import { useAuthStore } from '@/lib/auth-store';
 import { MATERIAL_LIBRARY } from '@/lib/materials';
 import { ModelThumbnailPreview } from '@/components/dashboard/ModelThumbnailPreview';
+import { SkpLibraryView } from '@/components/dashboard/SkpLibraryView';
 import {
   Plus,
   Search,
@@ -29,6 +30,7 @@ import {
   Trash2,
   LogOut,
   User as UserIcon,
+  UploadCloud,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -52,8 +54,20 @@ export default function DashboardPage() {
   }, [isInitialized, isAuthenticated, user, router]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'projects' | 'materials'>('projects');
+  const [activeTab, setActiveTab] = useState<'projects' | 'materials' | 'skp-library'>('projects');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tab = params.get('tab');
+      if (tab === 'skp-library' || tab === 'uploads') {
+        setActiveTab('skp-library');
+      } else if (tab === 'materials') {
+        setActiveTab('materials');
+      }
+    }
+  }, []);
   const [projectToDelete, setProjectToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteNotice, setDeleteNotice] = useState<string | null>(null);
@@ -207,6 +221,18 @@ export default function DashboardPage() {
           </button>
 
           <button
+            onClick={() => setActiveTab('skp-library')}
+            className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium rounded-xl transition-all mb-1 ${
+              activeTab === 'skp-library'
+                ? 'bg-white text-primary border border-border shadow-subtle'
+                : 'text-secondary hover:text-primary hover:bg-surface-100'
+            }`}
+          >
+            <UploadCloud className="w-4 h-4" />
+            <span>SKP File Library</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab('materials')}
             className={`w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium rounded-xl transition-all ${
               activeTab === 'materials'
@@ -276,13 +302,23 @@ export default function DashboardPage() {
                     Select a house to launch the buyer configurator or adjust material zones.
                   </p>
                 </div>
-                <Link
-                  href="/projects/new"
-                  className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-primary bg-white hover:bg-surface-50 border border-border rounded-xl transition-colors shadow-subtle"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Upload Model</span>
-                </Link>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setActiveTab('skp-library')}
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-secondary hover:text-primary bg-white hover:bg-surface-50 border border-border rounded-xl transition-colors shadow-subtle"
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>SKP File Library</span>
+                  </button>
+
+                  <Link
+                    href="/projects/new"
+                    className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl transition-colors shadow-subtle"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>Upload Model</span>
+                  </Link>
+                </div>
               </div>
 
               {/* Projects Grid */}
@@ -403,6 +439,8 @@ export default function DashboardPage() {
                 </div>
               )}
             </>
+          ) : activeTab === 'skp-library' ? (
+            <SkpLibraryView />
           ) : (
             /* Materials Library Tab */
             <div>

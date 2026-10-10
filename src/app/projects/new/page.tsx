@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/project-store';
@@ -18,7 +18,13 @@ import {
   ArrowRight,
   Sparkles,
   Camera,
+  Layers,
+  Search,
+  FileBox,
+  Check,
+  RefreshCw,
 } from 'lucide-react';
+import type { SkpFileRecord } from '@/app/api/skp-files/route';
 
 type UploadStage =
   | 'idle'
@@ -33,6 +39,12 @@ export default function NewProjectPage() {
   const addProject = useProjectStore((s) => s.addProject);
   const user = useAuthStore((s) => s.user);
 
+  const [uploadMode, setUploadMode] = useState<'device' | 'library'>('device');
+  const [libraryFiles, setLibraryFiles] = useState<SkpFileRecord[]>([]);
+  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
+  const [selectedLibraryFile, setSelectedLibraryFile] = useState<SkpFileRecord | null>(null);
+  const [librarySearch, setLibrarySearch] = useState('');
+
   const [projectName, setProjectName] = useState('');
   const [clientName, setClientName] = useState('');
   const [description, setDescription] = useState('');
@@ -44,6 +56,51 @@ export default function NewProjectPage() {
   const [capturedThumbnailUrl, setCapturedThumbnailUrl] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const fetchLibraryFiles = async () => {
+    setIsLoadingLibrary(true);
+    try {
+      const res = await fetch('/api/skp-files');
+      if (res.ok) {
+        const data = await res.json();
+        setLibraryFiles(data.files || []);
+      }
+    } catch (err) {
+      console.error('Failed to load SKP library files:', err);
+    } finally {
+      setIsLoadingLibrary(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLibraryFiles();
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const fromLibrary = params.get('fromLibrary');
+      const fileName = params.get('fileName');
+      const cleanName = params.get('cleanName');
+      const fileSize = params.get('fileSize');
+
+      if (fromLibrary) {
+        setUploadMode('library');
+        if (cleanName) {
+          setProjectName(cleanName);
+        }
+        setSelectedLibraryFile({
+          id: fromLibrary,
+          name: cleanName || fileName || 'SKP Model',
+          filename: fileName || fromLibrary.split('/').pop() || 'model.skp',
+          storagePath: fromLibrary,
+          size: Number(fileSize) || 0,
+          sizeMB: (Number(fileSize || 0) / (1024 * 1024)).toFixed(2),
+          updatedAt: new Date().toISOString(),
+          isConverted: false,
+          publicUrl: `/api/storage/${fromLibrary}`,
+        });
+      }
+    }
+  }, []);
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -99,7 +156,15 @@ export default function NewProjectPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile) return;
+
+    if (uploadMode === 'device' && !selectedFile) {
+      alert('Silakan pilih file 3D terlebih dahulu');
+      return;
+    }
+    if (uploadMode === 'library' && !selectedLibraryFile) {
+      alert('Silakan pilih file dari SKP Library terlebih dahulu');
+      return;
+    }
 
     setStage('uploading');
     setUploadProgress(10);
@@ -110,7 +175,51 @@ export default function NewProjectPage() {
     const candidateZones: MaterialZone[] = [];
 
     try {
-      if (selectedFile.size > 0) {
+      if (uploadMode === 'library' && selectedLibraryFile) {
+        setUploadProgress(40);
+
+        // Check if file is already converted to GLB
+        if (selectedLibraryFile.isConverted && selectedLibraryFile.glbUrl) {
+          modelUrl = selectedLibraryFile.glbUrl;
+          setUploadProgress(80);
+        } else {
+          // SKP file is already in Bunny Storage! Convert directly without uploading again
+          setStage('processing');
+          setUploadProgress(60);
+
+          const convRes = await fetch('/api/upload/convert-skp', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              storagePath: selectedLibraryFile.storagePath,
+              originalName: selectedLibraryFile.filename,
+              baseName: selectedLibraryFile.filename.replace(/\.[^/.]+$/, ''),
+              timestamp: Date.now(),
+            }),
+          });
+
+          if (!convRes.ok) {
+            const errText = await convRes.text();
+            let errMsg = 'Gagal mengonversi file SketchUp (.skp)';
+            try {
+              const parsed = JSON.parse(errText);
+              if (parsed.error) errMsg = parsed.error;
+            } catch {
+              errMsg = errText || errMsg;
+            }
+            throw new Error(errMsg);
+          }
+
+          const convData = await convRes.json();
+          modelUrl = convData.url;
+          if (convData.thumbnailUrl) {
+            generatedThumbnail = convData.thumbnailUrl;
+          }
+        }
+
+        setUploadProgress(85);
+        setStage('geometry');
+      } else if (selectedFile && selectedFile.size > 0) {
         // Direct Cloud Upload to Bunny Storage (bypasses Vercel 4.5MB request limit!)
         try {
           // 1. Prepare direct cloud upload parameters
@@ -344,7 +453,7 @@ export default function NewProjectPage() {
             defaultMaterialId: 'original',
           });
         }
-      } else if (selectedFile.name.toLowerCase().endsWith('.skp')) {
+      } else if (selectedFile?.name.toLowerCase().endsWith('.skp')) {
         // Built-in SketchUp template
         modelUrl = '/models/sample-sketchup-house.glb';
         generatedThumbnail = '/models/sample-sketchup-thumb.png';
@@ -565,91 +674,284 @@ export default function NewProjectPage() {
               />
             </div>
 
-            {/* Drag & Drop Upload Area */}
+            {/* 3D Model Selection (Mode Switcher: Upload Baru vs Library) */}
             <div>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
-                <div className="flex items-center gap-2">
-                  <label className="text-xs font-medium text-primary block">
-                    3D House Model (.glb, .gltf, atau .skp SketchUp) *
-                  </label>
-                  <span className="px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded">
-                    SKP Ready
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-xs">
-                  <button
-                    type="button"
-                    onClick={handleUseDemoTemplate}
-                    className="flex items-center gap-1 text-[11px] font-medium text-secondary hover:text-primary hover:underline"
-                  >
-                    <Sparkles className="w-3 h-3 text-accent" />
-                    <span>Demo GLB</span>
-                  </button>
-                  <span className="text-border">|</span>
-                  <button
-                    type="button"
-                    onClick={handleUseSkpTemplate}
-                    className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
-                  >
-                    <Sparkles className="w-3 h-3 text-emerald-600" />
-                    <span>Demo SketchUp (.skp)</span>
-                  </button>
-                </div>
+              <div className="flex bg-surface-100 p-1 rounded-2xl mb-4 border border-border">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadMode('device');
+                    setSelectedLibraryFile(null);
+                  }}
+                  className={`flex-1 py-2.5 px-4 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                    uploadMode === 'device'
+                      ? 'bg-white text-primary shadow-subtle'
+                      : 'text-secondary hover:text-primary'
+                  }`}
+                >
+                  <UploadCloud className="w-4 h-4" />
+                  <span>Upload File Baru (Drag & Drop)</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setUploadMode('library');
+                    setSelectedFile(null);
+                  }}
+                  className={`flex-1 py-2.5 px-4 text-xs font-semibold rounded-xl transition-all flex items-center justify-center gap-2 ${
+                    uploadMode === 'library'
+                      ? 'bg-white text-primary shadow-subtle'
+                      : 'text-secondary hover:text-primary'
+                  }`}
+                >
+                  <Layers className="w-4 h-4" />
+                  <span>Pilih dari SKP Library {libraryFiles.length > 0 && `(${libraryFiles.length})`}</span>
+                </button>
               </div>
 
-              <div
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleFileDrop}
-                onClick={() => fileInputRef.current?.click()}
-                className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
-                  selectedFile
-                    ? 'border-primary bg-surface-50/60'
-                    : 'border-border hover:border-surface-400 bg-surface-50/30'
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".glb,.gltf,.skp"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                />
-
-                {selectedFile ? (
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center mb-3 shadow-subtle">
-                      <FileCheck className="w-6 h-6" />
-                    </div>
-                    <span className="text-xs font-semibold text-primary">{selectedFile.name}</span>
-                    {selectedFile.name.toLowerCase().endsWith('.skp') && (
-                      <span className="mt-1 px-2.5 py-0.5 text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
-                        SketchUp (.skp) Auto-Converter Active
+              {uploadMode === 'device' ? (
+                /* Mode 1: Upload from Device (Drag & Drop) */
+                <div>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-medium text-primary block">
+                        3D House Model (.glb, .gltf, atau .skp SketchUp) *
+                      </label>
+                      <span className="px-2 py-0.5 text-[9px] font-mono font-semibold uppercase tracking-wider bg-emerald-100 text-emerald-800 rounded">
+                        SKP Ready
                       </span>
-                    )}
-                    <span className="text-[11px] text-secondary mt-1">
-                      {selectedFile.size > 0
-                        ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
-                        : 'Bundled Architecture Model'}
-                    </span>
-                    <span className="text-[10px] text-accent mt-2 underline">Click to change file</span>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center">
-                    <div className="w-12 h-12 rounded-xl bg-surface-100 flex items-center justify-center mb-3 text-secondary">
-                      <UploadCloud className="w-6 h-6" />
                     </div>
-                    <p className="text-xs font-semibold text-primary mb-1">
-                      Drag & drop file GLB, GLTF, atau SketchUp (.skp) di sini
-                    </p>
-                    <p className="text-[11px] text-secondary mb-4">
-                      File .skp akan otomatis dikonversi ke Web 3D & diekstrak zona materialnya
-                    </p>
-                    <span className="px-3.5 py-1.5 text-xs font-medium text-primary bg-white border border-border rounded-lg shadow-subtle hover:bg-surface-50">
-                      Pilih File Dari Komputer
-                    </span>
+                    <div className="flex items-center gap-2 text-xs">
+                      <button
+                        type="button"
+                        onClick={handleUseDemoTemplate}
+                        className="flex items-center gap-1 text-[11px] font-medium text-secondary hover:text-primary hover:underline"
+                      >
+                        <Sparkles className="w-3 h-3 text-accent" />
+                        <span>Demo GLB</span>
+                      </button>
+                      <span className="text-border">|</span>
+                      <button
+                        type="button"
+                        onClick={handleUseSkpTemplate}
+                        className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
+                      >
+                        <Sparkles className="w-3 h-3 text-emerald-600" />
+                        <span>Demo SketchUp (.skp)</span>
+                      </button>
+                    </div>
                   </div>
-                )}
-              </div>
+
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleFileDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`relative border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all ${
+                      selectedFile
+                        ? 'border-primary bg-surface-50/60'
+                        : 'border-border hover:border-surface-400 bg-surface-50/30'
+                    }`}
+                  >
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".glb,.gltf,.skp"
+                      onChange={handleFileSelect}
+                      className="hidden"
+                    />
+
+                    {selectedFile ? (
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center mb-3 shadow-subtle">
+                          <FileCheck className="w-6 h-6" />
+                        </div>
+                        <span className="text-xs font-semibold text-primary">{selectedFile.name}</span>
+                        {selectedFile.name.toLowerCase().endsWith('.skp') && (
+                          <span className="mt-1 px-2.5 py-0.5 text-[10px] font-mono font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
+                            SketchUp (.skp) Auto-Converter Active
+                          </span>
+                        )}
+                        <span className="text-[11px] text-secondary mt-1">
+                          {selectedFile.size > 0
+                            ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
+                            : 'Bundled Architecture Model'}
+                        </span>
+                        <span className="text-[10px] text-accent mt-2 underline">Klik untuk ganti file</span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center">
+                        <div className="w-12 h-12 rounded-xl bg-surface-100 flex items-center justify-center mb-3 text-secondary">
+                          <UploadCloud className="w-6 h-6" />
+                        </div>
+                        <p className="text-xs font-semibold text-primary mb-1">
+                          Drag & drop file GLB, GLTF, atau SketchUp (.skp) di sini
+                        </p>
+                        <p className="text-[11px] text-secondary mb-4">
+                          File .skp akan otomatis dikonversi ke Web 3D & diekstrak zona materialnya
+                        </p>
+                        <span className="px-3.5 py-1.5 text-xs font-medium text-primary bg-white border border-border rounded-lg shadow-subtle hover:bg-surface-50">
+                          Pilih File Dari Komputer
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* Mode 2: Select from Uploaded SKP Files Library */
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <label className="text-xs font-medium text-primary block">
+                        Pilih File dari SKP Library Cloud *
+                      </label>
+                      <span className="text-[11px] text-secondary block">
+                        Pilih file SKP yang telah di-upload sebelumnya tanpa perlu upload ulang.
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={fetchLibraryFiles}
+                        className="text-[11px] text-secondary hover:text-primary flex items-center gap-1 px-2 py-1 rounded-lg hover:bg-surface-100 transition-colors"
+                      >
+                        <RefreshCw className={`w-3 h-3 ${isLoadingLibrary ? 'animate-spin' : ''}`} />
+                        <span>Refresh</span>
+                      </button>
+
+                      <Link
+                        href="/dashboard?tab=skp-library"
+                        target="_blank"
+                        className="text-[11px] text-primary font-medium hover:underline flex items-center gap-0.5"
+                      >
+                        <span>Buka Library</span>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Search library */}
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-secondary" />
+                    <input
+                      type="text"
+                      placeholder="Cari nama model atau file di library..."
+                      value={librarySearch}
+                      onChange={(e) => setLibrarySearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 text-xs bg-surface-50 rounded-xl border border-border focus:outline-none focus:border-primary text-primary"
+                    />
+                  </div>
+
+                  {/* Files Grid */}
+                  {isLoadingLibrary ? (
+                    <div className="p-8 text-center bg-surface-50 rounded-2xl border border-border">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary mx-auto mb-2" />
+                      <p className="text-xs text-secondary">Memuat daftar file dari library...</p>
+                    </div>
+                  ) : libraryFiles.length === 0 ? (
+                    <div className="p-8 text-center bg-surface-50 rounded-2xl border border-dashed border-border">
+                      <FileBox className="w-8 h-8 text-secondary mx-auto mb-2" />
+                      <p className="text-xs font-semibold text-primary">Belum ada file di SKP Library</p>
+                      <p className="text-[11px] text-secondary mt-1 mb-3">
+                        Anda dapat upload file di tab "Upload File Baru" atau upload massal di menu SKP Library.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setUploadMode('device')}
+                        className="px-3 py-1.5 text-xs font-medium text-primary bg-white border border-border rounded-lg shadow-subtle hover:bg-surface-100"
+                      >
+                        Beralih ke Upload File Baru
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-72 overflow-y-auto pr-1">
+                      {libraryFiles
+                        .filter((f) =>
+                          f.name.toLowerCase().includes(librarySearch.toLowerCase()) ||
+                          f.filename.toLowerCase().includes(librarySearch.toLowerCase())
+                        )
+                        .map((f) => {
+                          const isSelected = selectedLibraryFile?.storagePath === f.storagePath;
+                          const isSkp = f.filename.toLowerCase().endsWith('.skp');
+
+                          return (
+                            <div
+                              key={f.id}
+                              onClick={() => {
+                                setSelectedLibraryFile(f);
+                                if (!projectName) {
+                                  setProjectName(f.name);
+                                }
+                              }}
+                              className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 text-left ${
+                                isSelected
+                                  ? 'bg-emerald-50/60 border-emerald-500 shadow-subtle ring-2 ring-emerald-500/20'
+                                  : 'bg-surface-50 hover:bg-surface-100/80 border-border hover:border-primary/30'
+                              }`}
+                            >
+                              <div
+                                className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-[10px] shrink-0 uppercase transition-colors ${
+                                  isSelected
+                                    ? 'bg-emerald-600 text-white shadow-subtle'
+                                    : 'bg-white border border-border text-primary'
+                                }`}
+                              >
+                                {isSelected ? <Check className="w-4 h-4" /> : isSkp ? 'SKP' : 'GLB'}
+                              </div>
+
+                              <div className="min-w-0 flex-1">
+                                <h4 className="text-xs font-bold text-primary truncate block leading-tight">
+                                  {f.name}
+                                </h4>
+                                <span className="text-[10px] text-secondary font-mono truncate block" title={f.filename}>
+                                  {f.filename}
+                                </span>
+                                <div className="flex items-center gap-2 mt-1 text-[10px] text-secondary font-mono">
+                                  <span>{f.sizeMB} MB</span>
+                                  <span>•</span>
+                                  {f.isConverted ? (
+                                    <span className="text-emerald-700 bg-emerald-100/70 px-1.5 py-0.2 rounded font-semibold">
+                                      Siap 3D
+                                    </span>
+                                  ) : (
+                                    <span className="text-blue-700 bg-blue-100/70 px-1.5 py-0.2 rounded font-semibold">
+                                      SKP Cloud
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  )}
+
+                  {/* Selected File Notice */}
+                  {selectedLibraryFile && (
+                    <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs shadow-subtle animate-in fade-in duration-200">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div className="min-w-0">
+                          <span className="font-bold block truncate">
+                            File Terpilih: {selectedLibraryFile.name}
+                          </span>
+                          <span className="text-[10px] text-emerald-700 font-mono truncate block">
+                            {selectedLibraryFile.filename} ({selectedLibraryFile.sizeMB} MB) • Langsung diproses dari Cloud Storage
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedLibraryFile(null)}
+                        className="text-[11px] text-emerald-800 hover:text-emerald-950 font-medium px-2 py-0.5 rounded hover:bg-emerald-100 shrink-0"
+                      >
+                        Batal Pilih
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Progress Bar (during processing) */}

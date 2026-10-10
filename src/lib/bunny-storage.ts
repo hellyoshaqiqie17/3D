@@ -7,6 +7,19 @@ export const BUNNY_STORAGE_CONFIG = {
   cdnUrl: (process.env.BUNNY_CDN_URL || '').replace(/\/$/, ''),
 };
 
+export interface BunnyFileItem {
+  Guid: string;
+  StorageZoneId: number;
+  Path: string;
+  ObjectName: string;
+  Length: number;
+  LastChanged: string;
+  IsDirectory: boolean;
+  ServerId?: number;
+  UserId?: string;
+  ContentType?: string;
+}
+
 export class BunnyStorageService {
   private get baseUrl(): string {
     return `${BUNNY_STORAGE_CONFIG.endpoint}/${BUNNY_STORAGE_CONFIG.zone}`;
@@ -63,6 +76,33 @@ export class BunnyStorageService {
     } catch (err) {
       console.warn(`[BunnyStorage] Delete failed for ${cleanPath}:`, err);
       return false;
+    }
+  }
+
+  /**
+   * List files in a directory in Bunny Storage
+   */
+  async listFiles(storageDir: string): Promise<BunnyFileItem[]> {
+    const cleanPath = storageDir.replace(/^\/+/, '').replace(/\/+$/, '');
+    const url = `${this.baseUrl}/${cleanPath}/`;
+
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: this.headers,
+      });
+
+      if (!res.ok) {
+        if (res.status === 404) return [];
+        console.warn(`[BunnyStorage] listFiles failed (${res.status}) for ${cleanPath}`);
+        return [];
+      }
+
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
+    } catch (err) {
+      console.warn(`[BunnyStorage] listFiles error for ${cleanPath}:`, err);
+      return [];
     }
   }
 
