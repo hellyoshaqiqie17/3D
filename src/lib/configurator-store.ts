@@ -68,6 +68,7 @@ interface ConfiguratorState {
   // UI modals
   isSaveModalOpen: boolean;
   isShareModalOpen: boolean;
+  isReportModalOpen: boolean;
 
   // User imported custom designer materials (.png / .jpg)
   uploadedMaterials: MaterialOption[];
@@ -98,6 +99,7 @@ interface ConfiguratorState {
   setOriginalMode: (val: boolean) => void;
   setSaveModalOpen: (val: boolean) => void;
   setShareModalOpen: (val: boolean) => void;
+  setReportModalOpen: (val: boolean) => void;
 
   // Perspective & Interior Visibility Actions
   toggleRoofHidden: () => void;
@@ -248,6 +250,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   isSaveModalOpen: false,
   isShareModalOpen: false,
+  isReportModalOpen: false,
 
   addDynamicZone: (zone) =>
     set((state) => {
@@ -402,6 +405,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   setSaveModalOpen: (val) => set({ isSaveModalOpen: val }),
   setShareModalOpen: (val) => set({ isShareModalOpen: val }),
+  setReportModalOpen: (val) => set({ isReportModalOpen: val }),
 
   toggleRoofHidden: () =>
     set((state) => {

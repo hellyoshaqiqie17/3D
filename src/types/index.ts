@@ -68,6 +68,7 @@ export interface MaterialZone {
 export interface Project {
   id: string;
   userId?: string;
+  author?: string;
   isPublic?: boolean;
   name: string;
   clientName: string;

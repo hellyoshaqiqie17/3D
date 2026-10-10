@@ -153,29 +153,57 @@ export function CameraManager() {
     };
   }, [isLookAround360, isWalkMode, gl, camera]);
 
-  // Expose Three instances for ViewCube and external tools
+  // Expose Three instances for ViewCube and report generator
   useEffect(() => {
     if (typeof window !== 'undefined') {
       (window as any).__THREE_SCENE__ = scene;
       (window as any).__THREE_CAMERA__ = camera;
       (window as any).__THREE_CONTROLS__ = controlsRef.current;
+      (window as any).__THREE_GL__ = gl;
+      (window as any).__THREE_RENDER_FRAME__ = () => {
+        gl.render(scene, camera);
+      };
     }
-  }, [scene, camera]);
+  }, [scene, camera, gl]);
 
-  // Listen to AutoCAD ViewCube orientation events
+  // Listen to AutoCAD ViewCube and automated report orientation events
   useEffect(() => {
     const handleCadOrient = (e: Event) => {
-      const customEvent = e as CustomEvent<{ pos: [number, number, number]; target: [number, number, number] }>;
+      const customEvent = e as CustomEvent<{
+        pos: [number, number, number];
+        target: [number, number, number];
+        instant?: boolean;
+        fov?: number;
+      }>;
       if (!customEvent.detail) return;
-      const { pos, target } = customEvent.detail;
-      targetCamPos.current.set(pos[0], pos[1], pos[2]);
-      targetLookAt.current.set(target[0], target[1], target[2]);
-      isTransitioning.current = true;
+      const { pos, target, instant, fov } = customEvent.detail;
+
+      if (fov && camera instanceof THREE.PerspectiveCamera) {
+        camera.fov = fov;
+        camera.updateProjectionMatrix();
+      }
+
+      if (instant) {
+        camera.position.set(pos[0], pos[1], pos[2]);
+        if (controlsRef.current) {
+          controlsRef.current.target.set(target[0], target[1], target[2]);
+          controlsRef.current.update();
+        }
+        camera.lookAt(target[0], target[1], target[2]);
+        targetCamPos.current.set(pos[0], pos[1], pos[2]);
+        targetLookAt.current.set(target[0], target[1], target[2]);
+        isTransitioning.current = false;
+        gl.render(scene, camera);
+      } else {
+        targetCamPos.current.set(pos[0], pos[1], pos[2]);
+        targetLookAt.current.set(target[0], target[1], target[2]);
+        isTransitioning.current = true;
+      }
     };
 
     window.addEventListener('cad-orient-camera', handleCadOrient);
     return () => window.removeEventListener('cad-orient-camera', handleCadOrient);
-  }, []);
+  }, [camera, gl, scene]);
 
   // Dynamic calculation of camera viewpoints based on actual loaded model bounds
   const calculatePresetVectors = useCallback(

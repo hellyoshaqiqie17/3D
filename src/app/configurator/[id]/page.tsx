@@ -12,6 +12,7 @@ import { ConfiguratorSidebar } from '@/components/configurator/ConfiguratorSideb
 import { CameraPresetBar } from '@/components/configurator/CameraPresetBar';
 import { PresentationOverlay } from '@/components/configurator/PresentationOverlay';
 import { SaveShareModal } from '@/components/configurator/SaveShareModal';
+import { ArchitectureReportModal } from '@/components/configurator/ArchitectureReportModal';
 import { ChevronLeft, AlertCircle, SlidersHorizontal } from 'lucide-react';
 
 interface PageProps {
@@ -164,8 +165,9 @@ export default function ConfiguratorPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Save & Share Dialog Modals */}
+      {/* Save, Share, and Architectural Report Modals */}
       <SaveShareModal project={project} />
+      <ArchitectureReportModal project={project} zones={allZones} />
     </div>
   );
 }

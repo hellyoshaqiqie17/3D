@@ -16,6 +16,7 @@ import {
   EyeOff,
   MoreHorizontal,
   Check,
+  FileText,
 } from 'lucide-react';
 
 interface ConfiguratorHeaderProps {
@@ -38,6 +39,7 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
   const toggleOriginalMode = useConfiguratorStore((s) => s.toggleOriginalMode);
   const setSaveModalOpen = useConfiguratorStore((s) => s.setSaveModalOpen);
   const setShareModalOpen = useConfiguratorStore((s) => s.setShareModalOpen);
+  const setReportModalOpen = useConfiguratorStore((s) => s.setReportModalOpen);
   const resetConfiguration = useConfiguratorStore((s) => s.resetConfiguration);
 
   const [isMoreOpen, setMoreOpen] = useState(false);
@@ -196,6 +198,16 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
         >
           <Maximize2 className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Presentasi</span>
+        </button>
+
+        {/* Export Architecture Report (PDF) */}
+        <button
+          onClick={() => setReportModalOpen(true)}
+          title="Export Laporan Arsitektur & Mockup 3D (PDF)"
+          className={`${ghostBtn} text-primary hover:bg-surface-100 border-border font-medium`}
+        >
+          <FileText className="w-3.5 h-3.5 text-amber-600" />
+          <span className="hidden sm:inline">Export PDF</span>
         </button>
 
         {/* Share */}
