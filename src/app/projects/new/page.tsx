@@ -102,15 +102,7 @@ export default function NewProjectPage() {
     if (!selectedFile) return;
 
     setStage('uploading');
-    setUploadProgress(25);
-
-    await new Promise((r) => setTimeout(r, 600));
-    setStage('processing');
-    setUploadProgress(50);
-
-    await new Promise((r) => setTimeout(r, 600));
-    setStage('geometry');
-    setUploadProgress(75);
+    setUploadProgress(10);
 
     // Parse model to extract meshes and generate initial candidate material zones
     let modelUrl = '/models/modern-villa.glb';
@@ -119,37 +111,100 @@ export default function NewProjectPage() {
 
     try {
       if (selectedFile.size > 0) {
-        // Upload CAD or SketchUp file directly to backend storage (backend auto-converts .skp to .glb)
+        // Direct Cloud Upload to Bunny Storage (bypasses Vercel 4.5MB request limit!)
         try {
-          const formData = new FormData();
-          formData.append('file', selectedFile);
-          const uploadEndpoint = process.env.NEXT_PUBLIC_VPS_URL
-            ? `${process.env.NEXT_PUBLIC_VPS_URL.replace(/\/$/, '')}/api/upload`
-            : '/api/upload';
-          const uploadRes = await fetch(uploadEndpoint, {
+          // 1. Prepare direct cloud upload parameters
+          const prepRes = await fetch('/api/upload/direct', {
             method: 'POST',
-            body: formData,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: selectedFile.name,
+              fileSize: selectedFile.size,
+            }),
           });
-          if (uploadRes.ok) {
-            const uploadData = await uploadRes.json();
-            if (uploadData.url) {
-              modelUrl = uploadData.url;
+
+          if (!prepRes.ok) {
+            const errText = await prepRes.text();
+            throw new Error(`Gagal mempersiapkan upload: ${errText}`);
+          }
+
+          const prepData = await prepRes.json();
+          const { uploadUrl, accessKey, isSkp, storagePath, baseName, timestamp, publicUrl } = prepData;
+
+          // 2. Upload file directly to Bunny Storage with XMLHttpRequest for progress tracking
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', uploadUrl, true);
+            xhr.setRequestHeader('AccessKey', accessKey);
+            xhr.setRequestHeader('Content-Type', selectedFile.type || 'application/octet-stream');
+
+            xhr.upload.onprogress = (evt) => {
+              if (evt.lengthComputable) {
+                const pct = Math.round((evt.loaded / evt.total) * 55) + 10; // 10% to 65%
+                setUploadProgress(pct);
+              }
+            };
+
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve();
+              } else {
+                reject(new Error(`Gagal mengunggah file ke cloud storage (Status ${xhr.status})`));
+              }
+            };
+
+            xhr.onerror = () => reject(new Error('Koneksi upload ke cloud storage terputus'));
+            xhr.ontimeout = () => reject(new Error('Waktu upload habis (timeout)'));
+            xhr.send(selectedFile);
+          });
+
+          setUploadProgress(65);
+
+          // 3. If SKP, convert on server
+          if (isSkp) {
+            setStage('processing');
+            setUploadProgress(75);
+
+            const convRes = await fetch('/api/upload/convert-skp', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                storagePath,
+                originalName: selectedFile.name,
+                baseName,
+                timestamp,
+              }),
+            });
+
+            if (!convRes.ok) {
+              const errText = await convRes.text();
+              let errMsg = 'Gagal mengonversi file SketchUp (.skp)';
+              try {
+                const parsed = JSON.parse(errText);
+                if (parsed.error) errMsg = parsed.error;
+              } catch {
+                errMsg = errText || errMsg;
+              }
+              throw new Error(errMsg);
             }
-            if (uploadData.thumbnailUrl) {
-              generatedThumbnail = uploadData.thumbnailUrl;
+
+            const convData = await convRes.json();
+            modelUrl = convData.url;
+            if (convData.thumbnailUrl) {
+              generatedThumbnail = convData.thumbnailUrl;
             }
           } else {
-            const errData = await uploadRes.json();
-            throw new Error(errData.error || 'Gagal memproses file 3D');
+            // Direct GLB / GLTF
+            modelUrl = publicUrl;
           }
+
+          setUploadProgress(85);
+          setStage('geometry');
         } catch (uploadErr: any) {
-          console.warn('Backend file upload fallback:', uploadErr);
-          if (selectedFile.name.toLowerCase().endsWith('.skp')) {
-            alert(uploadErr.message || 'Gagal mengonversi file SketchUp (.skp)');
-            setStage('idle');
-            return;
-          }
-          modelUrl = URL.createObjectURL(selectedFile);
+          console.error('Direct cloud upload error:', uploadErr);
+          alert(uploadErr.message || 'Gagal mengunggah file 3D');
+          setStage('idle');
+          return;
         }
 
         // Fetch converted GLB from modelUrl to parse geometry and detect zones
