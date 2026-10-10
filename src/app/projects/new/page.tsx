@@ -4,6 +4,7 @@ import React, { useState, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/project-store';
+import { useAuthStore } from '@/lib/auth-store';
 import { Project, MaterialZone } from '@/types';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as THREE from 'three';
@@ -30,6 +31,7 @@ type UploadStage =
 export default function NewProjectPage() {
   const router = useRouter();
   const addProject = useProjectStore((s) => s.addProject);
+  const user = useAuthStore((s) => s.user);
 
   const [projectName, setProjectName] = useState('');
   const [clientName, setClientName] = useState('');
@@ -121,7 +123,10 @@ export default function NewProjectPage() {
         try {
           const formData = new FormData();
           formData.append('file', selectedFile);
-          const uploadRes = await fetch('/api/upload', {
+          const uploadEndpoint = process.env.NEXT_PUBLIC_VPS_URL
+            ? `${process.env.NEXT_PUBLIC_VPS_URL.replace(/\/$/, '')}/api/upload`
+            : '/api/upload';
+          const uploadRes = await fetch(uploadEndpoint, {
             method: 'POST',
             body: formData,
           });
@@ -367,6 +372,8 @@ export default function NewProjectPage() {
     const newId = `project_${Date.now()}`;
     const newProject: Project = {
       id: newId,
+      userId: user?.id || 'usr-admin-lead',
+      isPublic: false,
       name: projectName.trim(),
       clientName: clientName.trim() || 'Private Client',
       description: description.trim() || 'Interactive architectural visualization.',

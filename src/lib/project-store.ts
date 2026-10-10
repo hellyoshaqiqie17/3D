@@ -6,15 +6,15 @@ interface ProjectStoreState {
   projects: Project[];
   activeProjectId: string | null;
   isLoading: boolean;
-  fetchProjects: () => Promise<void>;
+  fetchProjects: (userId?: string) => Promise<void>;
   addProject: (project: Project) => Promise<void>;
   updateProjectZones: (projectId: string, zones: MaterialZone[]) => Promise<void>;
-  deleteProject: (id: string) => Promise<void>;
+  deleteProject: (id: string, userId?: string) => Promise<void>;
   getProject: (id: string) => Project | undefined;
   updateProjectThumbnail: (projectId: string, thumbnailUrl: string) => void;
 }
 
-const STORAGE_KEY = 'homecraft_projects_v2';
+const STORAGE_PREFIX = 'homecraft_projects_usr_';
 
 function sanitizeProject(p: Project): Project {
   if (p.thumbnailUrl === '/models/villa-thumb.jpg') {
@@ -27,27 +27,37 @@ function sanitizeProject(p: Project): Project {
 }
 
 function getInitialProjects(): Project[] {
-  if (typeof window === 'undefined') {
-    return DEMO_PROJECTS;
-  }
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY) || localStorage.getItem('homecraft_projects_v1');
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map(sanitizeProject);
-      }
-    }
-  } catch (err) {
-    console.error('Error loading projects from local storage:', err);
-  }
-  return DEMO_PROJECTS;
-}
-
-function saveLocalCache(projects: Project[]) {
   if (typeof window !== 'undefined') {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
+      let currentUserId = 'default';
+      const authStored = localStorage.getItem('homecraft-auth-storage');
+      if (authStored) {
+        const parsedAuth = JSON.parse(authStored);
+        if (parsedAuth?.state?.user?.id) {
+          currentUserId = parsedAuth.state.user.id;
+        }
+      }
+
+      const key = `${STORAGE_PREFIX}${currentUserId}`;
+      const cached = localStorage.getItem(key);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map(sanitizeProject);
+        }
+      }
+    } catch (e) {
+      console.warn('Failed reading cached projects:', e);
+    }
+  }
+  return [];
+}
+
+function saveLocalCache(projects: Project[], userId?: string) {
+  if (typeof window !== 'undefined') {
+    try {
+      const key = `${STORAGE_PREFIX}${userId || 'default'}`;
+      localStorage.setItem(key, JSON.stringify(projects));
     } catch (err) {
       console.error('Error caching projects locally:', err);
     }
@@ -59,29 +69,45 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   activeProjectId: 'house-001',
   isLoading: false,
 
-  fetchProjects: async () => {
+  fetchProjects: async (userId?: string) => {
     set({ isLoading: true });
     try {
-      const res = await fetch('/api/projects');
+      let effectiveUserId = userId;
+      if (!effectiveUserId && typeof window !== 'undefined') {
+        try {
+          const authStored = localStorage.getItem('homecraft-auth-storage');
+          if (authStored) {
+            const parsedAuth = JSON.parse(authStored);
+            if (parsedAuth?.state?.user?.id) {
+              effectiveUserId = parsedAuth.state.user.id;
+            }
+          }
+        } catch {}
+      }
+
+      const url = effectiveUserId
+        ? `/api/projects?userId=${encodeURIComponent(effectiveUserId)}`
+        : '/api/projects';
+
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        if (Array.isArray(data) && data.length > 0) {
+        if (Array.isArray(data)) {
           set({ projects: data, isLoading: false });
-          saveLocalCache(data);
+          saveLocalCache(data, effectiveUserId);
           return;
         }
       }
     } catch (err) {
-      console.warn('Could not sync projects from server, using local cache:', err);
+      console.warn('Could not sync projects from server:', err);
     }
     set({ isLoading: false });
   },
 
   addProject: async (project) => {
-    // Optimistic UI update
     set((state) => {
       const updated = [project, ...state.projects.filter((p) => p.id !== project.id)];
-      saveLocalCache(updated);
+      saveLocalCache(updated, project.userId);
       return { projects: updated };
     });
 
@@ -122,17 +148,20 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
     }
   },
 
-  deleteProject: async (id) => {
+  deleteProject: async (id: string, userId?: string) => {
     set((state) => {
       const updated = state.projects.filter((p) => p.id !== id);
-      saveLocalCache(updated);
+      saveLocalCache(updated, userId);
       return { projects: updated };
     });
 
     try {
-      await fetch(`/api/projects/${id}`, {
+      const res = await fetch(`/api/projects/${id}`, {
         method: 'DELETE',
       });
+      if (!res.ok) {
+        console.error('Failed to permanently delete project on server, status:', res.status);
+      }
     } catch (err) {
       console.error('Failed to delete project on server database:', err);
     }
@@ -149,7 +178,6 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
           ? { ...p, thumbnailUrl, updatedAt: new Date().toISOString() }
           : p
       );
-      saveLocalCache(updated);
       return { projects: updated };
     });
   },

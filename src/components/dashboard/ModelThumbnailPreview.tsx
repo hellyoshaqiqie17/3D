@@ -31,8 +31,12 @@ export function ModelThumbnailPreview({ project, className = '' }: ModelThumbnai
   const triggerCapture = React.useCallback(() => {
     setIsCapturing(true);
     const loader = new GLTFLoader();
+    const resolvedModelUrl =
+      project.modelUrl.startsWith('/uploads/') && process.env.NEXT_PUBLIC_VPS_URL
+        ? `${process.env.NEXT_PUBLIC_VPS_URL.replace(/\/$/, '')}${project.modelUrl}`
+        : project.modelUrl;
     loader.load(
-      project.modelUrl,
+      resolvedModelUrl,
       (gltf) => {
         try {
           const capturedPng = generateModelThumbnail(gltf.scene, 640, 360);

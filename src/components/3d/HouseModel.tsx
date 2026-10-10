@@ -16,7 +16,11 @@ interface HouseModelProps {
 }
 
 export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
-  const gltf = useGLTF(modelUrl);
+  const resolvedModelUrl =
+    modelUrl.startsWith('/uploads/') && process.env.NEXT_PUBLIC_VPS_URL
+      ? `${process.env.NEXT_PUBLIC_VPS_URL.replace(/\/$/, '')}${modelUrl}`
+      : modelUrl;
+  const gltf = useGLTF(resolvedModelUrl);
   const modelRef = useRef<THREE.Group>(null);
 
   const selectedZoneId = useConfiguratorStore((s) => s.selectedZoneId);

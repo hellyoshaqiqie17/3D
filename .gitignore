@@ -40,3 +40,10 @@ next-env.d.ts
 # test artifacts
 /public/test-screenshots/
 test-*.js
+
+# binaries and temporary preview images
+cloudflared.exe
+*.exe
+landing_*.png
+login_preview.png
+modal_3d_preview.png

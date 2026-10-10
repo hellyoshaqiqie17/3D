@@ -67,6 +67,8 @@ export interface MaterialZone {
 
 export interface Project {
   id: string;
+  userId?: string;
+  isPublic?: boolean;
   name: string;
   clientName: string;
   description: string;
@@ -120,3 +122,19 @@ export interface BuildingFloorLevel {
   ceilingY: number; // elevation where this floor's ceiling starts
 }
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  username?: string;
+  studioName: string;
+  role: string;
+  avatar?: string;
+  createdAt: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  user?: User;
+  message?: string;
+}

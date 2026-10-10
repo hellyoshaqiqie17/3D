@@ -4,6 +4,7 @@ import React, { useState, useEffect, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useProjectStore } from '@/lib/project-store';
+import { useAuthStore } from '@/lib/auth-store';
 import { MaterialZone, MaterialCategory } from '@/types';
 import { MATERIAL_CATEGORIES, MATERIAL_LIBRARY } from '@/lib/materials';
 import { ConfiguratorCanvas } from '@/components/3d/ConfiguratorCanvas';
@@ -31,12 +32,16 @@ export default function ZoneEditorPage({ params }: EditorPageProps) {
 
   const getProject = useProjectStore((s) => s.getProject);
   const updateProjectZones = useProjectStore((s) => s.updateProjectZones);
+  const deleteProject = useProjectStore((s) => s.deleteProject);
+  const user = useAuthStore((s) => s.user);
   const project = getProject(projectId);
 
   const [zones, setZones] = useState<MaterialZone[]>([]);
   const [selectedMeshName, setSelectedMeshName] = useState<string | null>(null);
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null);
   const [isSavedNotice, setIsSavedNotice] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // New zone creation state
   const [isCreatingZone, setIsCreatingZone] = useState(false);
@@ -117,6 +122,17 @@ export default function ZoneEditorPage({ params }: EditorPageProps) {
     setNewZoneMeshes([]);
   };
 
+  const handleConfirmDeleteProject = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteProject(project.id, user?.id);
+      router.push('/dashboard');
+    } catch (err) {
+      console.error('Failed to permanently delete project:', err);
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#F7F7F5]">
       {/* Top Header */}
@@ -146,6 +162,16 @@ export default function ZoneEditorPage({ params }: EditorPageProps) {
         </div>
 
         <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => setShowDeleteModal(true)}
+            title="Hapus Model 3D Permanen"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Hapus Model</span>
+          </button>
+
           <Link
             href={`/configurator/${project.id}`}
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-primary hover:bg-surface-100 rounded-lg transition-colors border border-border"
@@ -367,6 +393,55 @@ export default function ZoneEditorPage({ params }: EditorPageProps) {
           </div>
         </aside>
       </div>
+
+      {/* Confirmation Modal: Permanent Delete in Editor */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-border shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center text-red-600 shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-primary">Hapus Model 3D Permanen?</h3>
+                <p className="text-xs text-secondary mt-1 leading-relaxed">
+                  Model <span className="font-semibold text-primary">&quot;{project.name}&quot;</span> beserta seluruh file CAD (GLB / SKP), tekstur, dan seluruh zona konfigurasi akan dihapus secara permanen dari server &amp; database.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 bg-red-50/70 rounded-xl border border-red-100 text-[11px] text-red-700 leading-snug">
+              ⚠️ <strong>Peringatan Permanen:</strong> Tindakan ini menghapus file fisik di storage dan data di database secara permanen. File tidak dapat dipulihkan kembali.
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 text-xs font-semibold text-secondary hover:text-primary hover:bg-surface-100 rounded-xl transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeleting}
+                onClick={handleConfirmDeleteProject}
+                className="flex items-center gap-1.5 px-4 py-2 text-xs font-semibold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-subtle transition-all disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <span>Menghapus...</span>
+                ) : (
+                  <>
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Ya, Hapus Permanen</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
