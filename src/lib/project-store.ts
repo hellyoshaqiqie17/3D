@@ -15,6 +15,27 @@ interface ProjectStoreState {
 }
 
 const STORAGE_PREFIX = 'homecraft_projects_usr_';
+const DELETED_PROJECTS_KEY = 'homecraft_deleted_project_ids';
+
+function getDeletedProjectIds(): Set<string> {
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem(DELETED_PROJECTS_KEY);
+      if (raw) return new Set(JSON.parse(raw));
+    } catch {}
+  }
+  return new Set();
+}
+
+function addDeletedProjectId(id: string) {
+  if (typeof window !== 'undefined') {
+    try {
+      const set = getDeletedProjectIds();
+      set.add(id);
+      localStorage.setItem(DELETED_PROJECTS_KEY, JSON.stringify(Array.from(set)));
+    } catch {}
+  }
+}
 
 function sanitizeProject(p: Project): Project {
   if (p.thumbnailUrl === '/models/villa-thumb.jpg') {
@@ -40,10 +61,13 @@ function getInitialProjects(): Project[] {
 
       const key = `${STORAGE_PREFIX}${currentUserId}`;
       const cached = localStorage.getItem(key);
+      const deletedIds = getDeletedProjectIds();
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map(sanitizeProject);
+        if (Array.isArray(parsed)) {
+          return parsed
+            .filter((p: Project) => !deletedIds.has(p.id))
+            .map(sanitizeProject);
         }
       }
     } catch (e) {
@@ -93,8 +117,10 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data)) {
-          set({ projects: data, isLoading: false });
-          saveLocalCache(data, effectiveUserId);
+          const deletedIds = getDeletedProjectIds();
+          const filtered = data.filter((p: Project) => !deletedIds.has(p.id));
+          set({ projects: filtered, isLoading: false });
+          saveLocalCache(filtered, effectiveUserId);
           return;
         }
       }
@@ -149,6 +175,7 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   },
 
   deleteProject: async (id: string, userId?: string) => {
+    addDeletedProjectId(id);
     set((state) => {
       const updated = state.projects.filter((p) => p.id !== id);
       saveLocalCache(updated, userId);
@@ -168,6 +195,8 @@ export const useProjectStore = create<ProjectStoreState>((set, get) => ({
   },
 
   getProject: (id) => {
+    const deletedIds = getDeletedProjectIds();
+    if (deletedIds.has(id)) return undefined;
     return get().projects.find((p) => p.id === id) || DEMO_PROJECTS.find((p) => p.id === id);
   },
 

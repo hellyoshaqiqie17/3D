@@ -101,16 +101,18 @@ let cachedConfigs: ProjectConfiguration[] | null = null;
 function readProjects(): Project[] {
   ensureDataDir();
   try {
-    const raw = fs.readFileSync(PROJECTS_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      cachedProjects = parsed;
-      return parsed;
+    if (fs.existsSync(PROJECTS_FILE)) {
+      const raw = fs.readFileSync(PROJECTS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        cachedProjects = parsed;
+        return parsed;
+      }
     }
   } catch (err) {
     console.error('Failed to read projects database:', err);
   }
-  return DEMO_PROJECTS;
+  return cachedProjects ?? DEMO_PROJECTS;
 }
 
 function writeProjects(projects: Project[]) {
@@ -189,7 +191,7 @@ export const db = {
   async getProjectsByUser(userId?: string): Promise<Project[]> {
     const projects = readProjects();
     if (!userId) {
-      return projects.filter((p) => p.isPublic || p.id === 'house-001' || p.id === 'studio-002');
+      return projects.filter((p) => p.isPublic);
     }
     // Admin sees all projects (including all uploaded models)
     if (userId === 'usr-admin-lead' || userId === 'admin') {
@@ -197,7 +199,7 @@ export const db = {
     }
     // Regular user only sees their own uploaded models + public showcase models
     return projects.filter(
-      (p) => p.userId === userId || p.isPublic || p.id === 'house-001' || p.id === 'studio-002'
+      (p) => p.userId === userId || p.isPublic
     );
   },
 
@@ -233,34 +235,35 @@ export const db = {
   async deleteProject(id: string): Promise<boolean> {
     const projects = readProjects();
     const target = projects.find((p) => p.id === id);
-    if (!target) return false;
 
     // 1. Remove physical files from disk if located in /uploads/
-    try {
-      if (target.modelUrl && target.modelUrl.startsWith('/uploads/')) {
-        const glbPath = path.join(process.cwd(), 'public', target.modelUrl.replace(/^\//, ''));
-        if (fs.existsSync(glbPath)) {
-          fs.unlinkSync(glbPath);
-          console.log(`[DB] Permanently deleted GLB asset: ${glbPath}`);
+    if (target) {
+      try {
+        if (target.modelUrl && target.modelUrl.startsWith('/uploads/')) {
+          const glbPath = path.join(process.cwd(), 'public', target.modelUrl.replace(/^\//, ''));
+          if (fs.existsSync(glbPath)) {
+            fs.unlinkSync(glbPath);
+            console.log(`[DB] Permanently deleted GLB asset: ${glbPath}`);
+          }
+
+          // Also delete associated SketchUp file if uploaded
+          const skpPath = glbPath.replace(/\.glb$/i, '.skp');
+          if (fs.existsSync(skpPath)) {
+            fs.unlinkSync(skpPath);
+            console.log(`[DB] Permanently deleted SKP source asset: ${skpPath}`);
+          }
         }
 
-        // Also delete associated SketchUp file if uploaded
-        const skpPath = glbPath.replace(/\.glb$/i, '.skp');
-        if (fs.existsSync(skpPath)) {
-          fs.unlinkSync(skpPath);
-          console.log(`[DB] Permanently deleted SKP source asset: ${skpPath}`);
+        if (target.thumbnailUrl && target.thumbnailUrl.startsWith('/uploads/')) {
+          const thumbPath = path.join(process.cwd(), 'public', target.thumbnailUrl.replace(/^\//, ''));
+          if (fs.existsSync(thumbPath)) {
+            fs.unlinkSync(thumbPath);
+            console.log(`[DB] Permanently deleted thumbnail asset: ${thumbPath}`);
+          }
         }
+      } catch (fileErr) {
+        console.warn(`[DB] Warning: Non-fatal error deleting physical files for project ${id}:`, fileErr);
       }
-
-      if (target.thumbnailUrl && target.thumbnailUrl.startsWith('/uploads/')) {
-        const thumbPath = path.join(process.cwd(), 'public', target.thumbnailUrl.replace(/^\//, ''));
-        if (fs.existsSync(thumbPath)) {
-          fs.unlinkSync(thumbPath);
-          console.log(`[DB] Permanently deleted thumbnail asset: ${thumbPath}`);
-        }
-      }
-    } catch (fileErr) {
-      console.warn(`[DB] Warning: Non-fatal error deleting physical files for project ${id}:`, fileErr);
     }
 
     // 2. Remove associated configurations from configurations.json

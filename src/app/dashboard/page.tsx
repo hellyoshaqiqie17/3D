@@ -128,14 +128,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link
-            href="/projects/new"
-            className="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-subtle"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>New 3D Project</span>
-          </Link>
-
           <div className="h-4 w-px bg-border mx-1" />
 
           <button className="p-2 text-secondary hover:text-primary hover:bg-surface-100 rounded-lg transition-colors">

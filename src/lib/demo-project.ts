@@ -3,6 +3,8 @@ import { Project, CameraPreset } from '@/types';
 export const DEMO_PROJECTS: Project[] = [
   {
     id: 'house-001',
+    userId: 'usr-admin-lead',
+    isPublic: true,
     name: 'Modern Pavilion Villa',
     clientName: 'Aura Living Developments',
     description: 'Single-storey contemporary villa featuring open-plan living, panoramic floor-to-ceiling glazing, and seamless indoor-outdoor terrace living.',
@@ -90,6 +92,8 @@ export const DEMO_PROJECTS: Project[] = [
   },
   {
     id: 'studio-002',
+    userId: 'usr-admin-lead',
+    isPublic: true,
     name: 'Nordic Minimalist Studio',
     clientName: 'Krona Architectural Group',
     description: 'Compact 85m² architectural guest pavilion with polished microcement surfaces, dark accents, and private Japanese bath garden.',
