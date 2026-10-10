@@ -36,7 +36,7 @@ export function calculateUniversalViewpoints(
   const cZ = center[2] || 0;
 
   // Comfortable human eye-level (standard architectural 1.40m - 1.50m)
-  const eyeLevel = Math.min(cY + 1.45, h * 0.48);
+  const eyeLevel = Math.min(cY + 1.45, h * 0.52);
 
   return [
     {
@@ -63,8 +63,8 @@ export function calculateUniversalViewpoints(
       subtitle: 'Sudut pandang interior mata manusia menghadap area depan ruangan',
       hideRoof: false,
       fov: 76,
-      pos: [cX, eyeLevel, cZ - d * 0.38], // Camera placed inside near rear wall
-      target: [cX, eyeLevel - 0.02, cZ + d * 0.48], // Looking straight forward
+      pos: [cX, eyeLevel, cZ - d * 0.30], // Placed inside rear seating area looking forward
+      target: [cX, eyeLevel - 0.02, cZ + d * 0.46], // Looking straight forward
     },
     {
       id: 'interior_back',
@@ -72,8 +72,8 @@ export function calculateUniversalViewpoints(
       subtitle: 'Sudut pandang interior mata manusia menghadap area belakang ruangan',
       hideRoof: false,
       fov: 76,
-      pos: [cX, eyeLevel, cZ + d * 0.38], // Camera placed inside near front wall
-      target: [cX, eyeLevel - 0.02, cZ - d * 0.48], // Looking straight rear
+      pos: [cX, eyeLevel, cZ + d * 0.30], // Placed inside front area (clears perimeter window mullions)
+      target: [cX, eyeLevel - 0.02, cZ - d * 0.46], // Looking straight rear
     },
     {
       id: 'interior_left',
@@ -81,8 +81,8 @@ export function calculateUniversalViewpoints(
       subtitle: 'Sudut pandang interior mata manusia menghadap bidang dinding kiri',
       hideRoof: false,
       fov: 78,
-      pos: [cX + w * 0.36, eyeLevel, cZ], // Camera placed inside near right wall
-      target: [cX - w * 0.48, eyeLevel - 0.02, cZ], // Looking across to left wall
+      pos: [cX + w * 0.18, eyeLevel, cZ], // Open central walkway, safe clearance from right wall
+      target: [cX - w * 0.46, eyeLevel - 0.02, cZ], // Looking across to left wall & furnishings
     },
     {
       id: 'interior_right',
@@ -90,8 +90,8 @@ export function calculateUniversalViewpoints(
       subtitle: 'Sudut pandang interior mata manusia menghadap bidang dinding kanan',
       hideRoof: false,
       fov: 78,
-      pos: [cX - w * 0.36, eyeLevel, cZ], // Camera placed inside near left wall
-      target: [cX + w * 0.48, eyeLevel - 0.02, cZ], // Looking across to right wall
+      pos: [cX - w * 0.18, eyeLevel, cZ], // Open central walkway, prevents clipping into left wall & panels
+      target: [cX + w * 0.46, eyeLevel - 0.02, cZ], // Looking across to right wall (TV/entertainment)
     },
   ];
 }
