@@ -13,6 +13,7 @@ import {
   Plus,
   Info,
   CheckCircle2,
+  AlertCircle,
 } from 'lucide-react';
 
 interface UploadMaterialModalProps {
@@ -44,6 +45,74 @@ function cleanMaterialName(fileName: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase()); // Huruf kapital tiap kata
+}
+
+/**
+ * Optimizes huge client images (e.g. 10MB+ raw PNGs from cameras/catalogs)
+ * down to ~400-800KB high-res 2048px textures for instant cloud upload & fast WebGL rendering.
+ */
+async function optimizeTextureFile(file: File): Promise<File> {
+  // If already under 1.5MB and is JPEG/WebP, upload as is
+  if (file.size < 1.5 * 1024 * 1024 && (file.type === 'image/jpeg' || file.type === 'image/webp')) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const MAX_DIM = 2048;
+      let width = img.width;
+      let height = img.height;
+
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            resolve(file);
+            return;
+          }
+          const baseName = file.name.replace(/\.[^/.]+$/, '');
+          const newFile = new File([blob], `${baseName}.jpg`, {
+            type: 'image/jpeg',
+            lastModified: Date.now(),
+          });
+          resolve(newFile);
+        },
+        'image/jpeg',
+        0.88
+      );
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file); // fallback to original on error
+    };
+
+    img.src = objectUrl;
+  });
 }
 
 export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMaterialModalProps) {
@@ -153,53 +222,61 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
 
     setIsUploading(true);
     setErrorMessage(null);
-    setUploadProgressText(`Mengunggah ${stagedFiles.length} file gambar ke CDN Cloud Storage...`);
 
     try {
-      // 1. Pack files into FormData
-      const formData = new FormData();
-      stagedFiles.forEach((item) => {
-        formData.append('files', item.file);
-      });
-
-      const uploadRes = await fetch('/api/materials/upload', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!uploadRes.ok) {
-        const errText = await uploadRes.text();
-        throw new Error(`Gagal mengunggah file ke server: ${errText}`);
-      }
-
-      const uploadData = await uploadRes.json();
-      const uploadedList: Array<{
+      const uploadedResults: Array<{
         url: string;
         filename: string;
-        originalName: string;
         cleanName: string;
-      }> = uploadData.uploaded || [];
+      }> = [];
 
-      if (uploadedList.length === 0 && uploadData.url) {
-        uploadedList.push({
-          url: uploadData.url,
-          filename: uploadData.filename,
-          originalName: uploadData.originalName,
-          cleanName: stagedFiles[0]?.name || 'Custom Texture',
+      // 1. Process and upload files individually to guarantee no 4.5MB Vercel payload limit issues
+      for (let i = 0; i < stagedFiles.length; i++) {
+        const item = stagedFiles[i];
+        setUploadProgressText(
+          `Mengunggah (${i + 1}/${stagedFiles.length}): ${item.name}...`
+        );
+
+        // Client-side image optimization
+        const optimizedFile = await optimizeTextureFile(item.file);
+
+        const formData = new FormData();
+        formData.append('file', optimizedFile);
+
+        const uploadRes = await fetch('/api/materials/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          const errText = await uploadRes.text();
+          throw new Error(`Gagal mengunggah "${item.name}": ${errText || uploadRes.statusText}`);
+        }
+
+        const uploadData = await uploadRes.json();
+        const textureUrl = uploadData.url || uploadData.uploaded?.[0]?.url;
+
+        if (!textureUrl) {
+          throw new Error(`URL tekstur tidak valid untuk "${item.name}"`);
+        }
+
+        uploadedResults.push({
+          url: textureUrl,
+          filename: uploadData.filename || uploadData.uploaded?.[0]?.filename || '',
+          cleanName: item.name || uploadData.cleanName,
         });
       }
 
-      setUploadProgressText(`Menyimpan ${uploadedList.length} material ke library...`);
+      setUploadProgressText(`Menyimpan ${uploadedResults.length} material ke pustaka...`);
 
-      // 2. Build MaterialOption records (Universal - tidak dikelompokkan/bisa diaplikasikan di mana saja)
-      const newMaterialsToSave: MaterialOption[] = uploadedList.map((uploaded, index) => {
-        const userStaged = stagedFiles[index];
-        const assignedName = (userStaged?.name || uploaded.cleanName || `Material Tekstur ${index + 1}`).trim();
+      // 2. Build MaterialOption records (Universal - bebas diaplikasikan di mana saja)
+      const newMaterialsToSave: MaterialOption[] = uploadedResults.map((uploaded, index) => {
+        const assignedName = uploaded.cleanName.trim() || `Material Tekstur ${index + 1}`;
 
         return {
           id: `custom_mat_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
           name: assignedName,
-          category: 'wall', // Default base category, universally accessible across all zones/sidebar
+          category: 'wall', // Base fallback, universally accessible in 3D Configurator sidebar
           type: 'texture',
           color: '#FFFFFF',
           textureUrl: uploaded.url,
@@ -265,9 +342,11 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
           {errorMessage && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-              <span>{errorMessage}</span>
+            <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-start gap-2.5">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong>Gagal Upload:</strong> {errorMessage}
+              </div>
             </div>
           )}
 
@@ -402,7 +481,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
           <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-amber-900 text-[11px]">
             <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="leading-relaxed">
-              <strong>Langsung Siap Pakai:</strong> Seluruh file yang diupload akan langsung muncul di panel material sidebar 3D. Di sidebar, Anda bebas memilih dinding, lantai, atau bagian mana pun yang ingin diganti, serta mengatur ukuran nat (tiling), rotasi, dan kilap secara real-time.
+              <strong>Langsung Siap Pakai:</strong> Seluruh file yang diupload akan otomatis muncul di panel material sidebar 3D. Di sidebar, Anda bebas memilih dinding, lantai, atau bagian mana pun yang ingin diganti, serta mengatur ukuran nat (tiling), rotasi, dan kilap secara real-time.
             </div>
           </div>
         </form>

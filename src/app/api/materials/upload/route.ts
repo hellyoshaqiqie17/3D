@@ -19,8 +19,12 @@ export async function POST(req: NextRequest) {
     }
 
     const localDir = path.join(process.cwd(), 'public', 'uploads', 'textures');
-    if (!fs.existsSync(localDir)) {
-      fs.mkdirSync(localDir, { recursive: true });
+    try {
+      if (!fs.existsSync(localDir)) {
+        fs.mkdirSync(localDir, { recursive: true });
+      }
+    } catch {
+      // Expected on serverless Vercel read-only filesystem
     }
 
     const uploadedResults: Array<{
@@ -44,11 +48,11 @@ export async function POST(req: NextRequest) {
       const arrayBuffer = await file.arrayBuffer();
       const buffer = Buffer.from(arrayBuffer);
 
-      // 1. Local copy for instantaneous access
+      // 1. Local copy (only if filesystem is writable)
       try {
         fs.writeFileSync(path.join(localDir, filename), buffer);
-      } catch (localErr) {
-        console.warn(`[Texture Upload] Failed local write for ${filename}:`, localErr);
+      } catch {
+        // Read-only on serverless, safely ignored
       }
 
       // 2. Bunny Cloud Storage CDN upload
