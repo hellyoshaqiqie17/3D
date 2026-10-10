@@ -101,27 +101,39 @@ export async function GET() {
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
-    const storagePath = searchParams.get('storagePath');
+    let rawPath = searchParams.get('storagePath');
 
-    if (!storagePath) {
+    if (!rawPath) {
+      try {
+        const body = await req.json();
+        rawPath = body.storagePath;
+      } catch {}
+    }
+
+    if (!rawPath) {
       return NextResponse.json({ error: 'storagePath parameter is required' }, { status: 400 });
     }
 
+    // Extract clean uploads/... path even if full URL or leading slash was passed
+    const cleanStoragePath =
+      rawPath.split('?')[0].match(/(?:uploads\/[a-zA-Z0-9_\-\.\/]+)/)?.[0] ||
+      rawPath.replace(/^\/+/, '');
+
     // Ensure path is within uploads
-    if (!storagePath.startsWith('uploads/')) {
+    if (!cleanStoragePath.startsWith('uploads/')) {
       return NextResponse.json({ error: 'Invalid storage path' }, { status: 400 });
     }
 
-    const success = await bunnyStorage.delete(storagePath);
+    const success = await bunnyStorage.delete(cleanStoragePath);
 
-    // Also attempt deleting associated GLB if deleting an SKP
-    if (storagePath.endsWith('.skp')) {
-      const base = path.basename(storagePath, '.skp');
+    // Also attempt deleting associated GLB and thumbnail if deleting an SKP
+    if (cleanStoragePath.endsWith('.skp')) {
+      const base = path.basename(cleanStoragePath, '.skp');
       await bunnyStorage.delete(`uploads/models/${base}.glb`).catch(() => {});
       await bunnyStorage.delete(`uploads/models/${base}_thumb.png`).catch(() => {});
     }
 
-    return NextResponse.json({ success });
+    return NextResponse.json({ success, deletedPath: cleanStoragePath });
   } catch (error: any) {
     console.error('[API skp-files DELETE] Error:', error);
     return NextResponse.json({ error: 'Gagal menghapus file dari storage' }, { status: 500 });

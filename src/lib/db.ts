@@ -143,6 +143,16 @@ function ensureDataDir() {
   }
 }
 
+export function extractBunnyStoragePath(urlOrPath?: string): string | null {
+  if (!urlOrPath) return null;
+  const clean = urlOrPath.split('?')[0].split('#')[0];
+  const match = clean.match(/(?:uploads\/[a-zA-Z0-9_\-\.\/]+)/);
+  if (match) {
+    return match[0];
+  }
+  return null;
+}
+
 // In-memory cache for fast lookups
 let cachedProjects: Project[] | null = null;
 let cachedConfigs: ProjectConfiguration[] | null = null;
@@ -400,22 +410,41 @@ export const db = {
     // 1. Remove physical files from Bunny Storage or disk
     if (target) {
       try {
-        if (target.modelUrl) {
-          const match = target.modelUrl.match(/\/api\/storage\/(.+)$/) || target.modelUrl.match(/^\/uploads\/(.+)$/);
-          if (match) {
-            const cleanPath = match[1].startsWith('uploads/') ? match[1] : `uploads/${match[1]}`;
-            await bunnyStorage.delete(cleanPath);
-            console.log(`[DB] Deleted Bunny Storage model asset: ${cleanPath}`);
-          }
+        const pathsToDelete = new Set<string>();
+
+        const modelPath = extractBunnyStoragePath(target.modelUrl);
+        if (modelPath) pathsToDelete.add(modelPath);
+
+        const thumbPath = extractBunnyStoragePath(target.thumbnailUrl);
+        if (thumbPath) pathsToDelete.add(thumbPath);
+
+        const skpUrl =
+          (target as any).skpUrl ||
+          (target as any).skpOriginalUrl ||
+          (target as any).metadata?.skpOriginalUrl;
+        const skpPath = extractBunnyStoragePath(skpUrl);
+        if (skpPath) pathsToDelete.add(skpPath);
+
+        if (modelPath && modelPath.endsWith('.glb')) {
+          const base = modelPath.slice(0, -4);
+          pathsToDelete.add(`${base}.skp`);
+          pathsToDelete.add(`${base}_thumb.png`);
         }
 
-        if (target.thumbnailUrl) {
-          const match = target.thumbnailUrl.match(/\/api\/storage\/(.+)$/) || target.thumbnailUrl.match(/^\/uploads\/(.+)$/);
-          if (match) {
-            const cleanPath = match[1].startsWith('uploads/') ? match[1] : `uploads/${match[1]}`;
+        for (const cleanPath of pathsToDelete) {
+          try {
             await bunnyStorage.delete(cleanPath);
-            console.log(`[DB] Deleted Bunny Storage thumb asset: ${cleanPath}`);
+            console.log(`[DB] Deleted Bunny Storage project asset: ${cleanPath}`);
+          } catch (delErr) {
+            console.warn(`[DB] Warning deleting cloud asset ${cleanPath}:`, delErr);
           }
+
+          try {
+            const localFile = path.join(process.cwd(), 'public', cleanPath);
+            if (fs.existsSync(localFile)) {
+              fs.unlinkSync(localFile);
+            }
+          } catch {}
         }
       } catch (fileErr) {
         console.warn(`[DB] Non-fatal error deleting cloud assets for project ${id}:`, fileErr);
@@ -542,14 +571,28 @@ export const db = {
   async deleteCustomMaterial(id: string): Promise<boolean> {
     const materials = await readMaterials();
     const target = materials.find((m) => m.id === id);
-    if (target && target.textureUrl) {
-      try {
-        const match = target.textureUrl.match(/\/api\/storage\/(.+)$/) || target.textureUrl.match(/^\/uploads\/(.+)$/);
-        if (match) {
-          const cleanPath = match[1].startsWith('uploads/') ? match[1] : `uploads/${match[1]}`;
+    if (target) {
+      const pathsToDelete = new Set<string>();
+      const texPath = extractBunnyStoragePath(target.textureUrl);
+      if (texPath) pathsToDelete.add(texPath);
+      const thumbPath = extractBunnyStoragePath(target.previewThumbnail);
+      if (thumbPath) pathsToDelete.add(thumbPath);
+
+      for (const cleanPath of pathsToDelete) {
+        try {
           await bunnyStorage.delete(cleanPath);
+          console.log(`[DB] Deleted Bunny Storage texture asset: ${cleanPath}`);
+        } catch (delErr) {
+          console.warn(`[DB] Warning deleting cloud texture ${cleanPath}:`, delErr);
         }
-      } catch {}
+
+        try {
+          const localFile = path.join(process.cwd(), 'public', cleanPath);
+          if (fs.existsSync(localFile)) {
+            fs.unlinkSync(localFile);
+          }
+        } catch {}
+      }
     }
     const filtered = materials.filter((m) => m.id !== id);
     await writeMaterials(filtered);
