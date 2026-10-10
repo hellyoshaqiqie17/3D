@@ -1,19 +1,18 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MaterialOption, MaterialCategory } from '@/types';
+import { MaterialOption } from '@/types';
 import { useMaterialsStore } from '@/lib/materials-store';
 import {
   UploadCloud,
   X,
   Sparkles,
-  Check,
   Image as ImageIcon,
   Loader2,
   Trash2,
   Plus,
-  Layers,
   Info,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface UploadMaterialModalProps {
@@ -27,18 +26,8 @@ interface StagedFile {
   file: File;
   previewUrl: string;
   name: string;
-  category: MaterialCategory;
   sizeFormatted: string;
 }
-
-const CATEGORY_OPTIONS: { id: MaterialCategory; label: string }[] = [
-  { id: 'wall', label: 'Dinding & Fasad (Walls)' },
-  { id: 'floor', label: 'Lantai Utama (Floors)' },
-  { id: 'bathroom', label: 'Keramik & Kamar Mandi (Tiles)' },
-  { id: 'exterior', label: 'Eksterior & Outdoor (Exterior)' },
-  { id: 'roof', label: 'Atap & Canopy (Roofing)' },
-  { id: 'door', label: 'Pintu & Kusen (Doors)' },
-];
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -50,17 +39,16 @@ function formatBytes(bytes: number): string {
 
 function cleanMaterialName(fileName: string): string {
   return fileName
-    .replace(/\.[^/.]+$/, '') // remove extension
-    .replace(/[-_]/g, ' ') // replace dashes and underscores with space
+    .replace(/\.[^/.]+$/, '') // hapus ekstensi file
+    .replace(/[-_]/g, ' ') // ganti strip dan underscore dengan spasi
     .replace(/\s+/g, ' ')
     .trim()
-    .replace(/\b\w/g, (c) => c.toUpperCase()); // Capitalize words
+    .replace(/\b\w/g, (c) => c.toUpperCase()); // Huruf kapital tiap kata
 }
 
 export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMaterialModalProps) {
   const addCustomMaterials = useMaterialsStore((s) => s.addCustomMaterials);
 
-  const [defaultCategory, setDefaultCategory] = useState<MaterialCategory>('wall');
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
@@ -97,13 +85,12 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         file,
         previewUrl,
         name,
-        category: defaultCategory,
         sizeFormatted: formatBytes(file.size),
       });
     });
 
     if (newStaged.length === 0) {
-      setErrorMessage('Pilih setidaknya satu file gambar yang valid (JPG, PNG, WebP).');
+      setErrorMessage('Pilih file gambar yang valid (JPG, PNG, atau WebP).');
       return;
     }
 
@@ -151,26 +138,9 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
     setErrorMessage(null);
   };
 
-  const handleDefaultCategoryChange = (cat: MaterialCategory) => {
-    setDefaultCategory(cat);
-    // Optionally also update existing staged files that haven't been manually assigned
-    setStagedFiles((prev) =>
-      prev.map((item) => ({
-        ...item,
-        category: cat,
-      }))
-    );
-  };
-
   const handleUpdateItemName = (id: string, newName: string) => {
     setStagedFiles((prev) =>
       prev.map((item) => (item.id === id ? { ...item, name: newName } : item))
-    );
-  };
-
-  const handleUpdateItemCategory = (id: string, newCat: MaterialCategory) => {
-    setStagedFiles((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, category: newCat } : item))
     );
   };
 
@@ -219,18 +189,17 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         });
       }
 
-      setUploadProgressText(`Menyimpan ${uploadedList.length} material ke pustaka PBR...`);
+      setUploadProgressText(`Menyimpan ${uploadedList.length} material ke library...`);
 
-      // 2. Build MaterialOption records
+      // 2. Build MaterialOption records (Universal - tidak dikelompokkan/bisa diaplikasikan di mana saja)
       const newMaterialsToSave: MaterialOption[] = uploadedList.map((uploaded, index) => {
         const userStaged = stagedFiles[index];
         const assignedName = (userStaged?.name || uploaded.cleanName || `Material Tekstur ${index + 1}`).trim();
-        const assignedCategory = userStaged?.category || defaultCategory;
 
         return {
           id: `custom_mat_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
           name: assignedName,
-          category: assignedCategory,
+          category: 'wall', // Default base category, universally accessible across all zones/sidebar
           type: 'texture',
           color: '#FFFFFF',
           textureUrl: uploaded.url,
@@ -247,7 +216,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         };
       });
 
-      // 3. Save batch to database and store
+      // 3. Save batch to database and global store
       const saved = await addCustomMaterials(newMaterialsToSave);
 
       // Clean object URLs
@@ -268,7 +237,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200">
-      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-border flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-border flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="p-5 border-b border-border flex items-center justify-between bg-surface/40">
           <div className="flex items-center gap-3">
@@ -277,10 +246,10 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
             </div>
             <div>
               <h2 className="text-base font-bold text-primary flex items-center gap-2">
-                Upload Tekstur Material (Bulk / Sekaligus)
+                Upload Tekstur Material
               </h2>
               <p className="text-xs text-secondary mt-0.5">
-                Pilih atau seret banyak foto keramik, batu, atau dinding sekaligus. Konfigurasi tiling & kilap diatur langsung di 3D Configurator.
+                Pilih atau seret banyak foto tekstur sekaligus. Material bebas diaplikasikan ke dinding, lantai, atau elemen apa saja di 3D Configurator.
               </p>
             </div>
           </div>
@@ -302,38 +271,13 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
             </div>
           )}
 
-          {/* Global Category Selector */}
-          <div>
-            <label className="block text-xs font-semibold text-primary mb-1.5 flex items-center justify-between">
-              <span className="flex items-center gap-1.5">
-                <Layers className="w-3.5 h-3.5 text-accent" />
-                Kategori Utama untuk File yang Diunggah
-              </span>
-              <span className="text-[11px] font-normal text-secondary">
-                (Dapat diubah per item di bawah)
-              </span>
-            </label>
-            <select
-              value={defaultCategory}
-              onChange={(e) => handleDefaultCategoryChange(e.target.value as MaterialCategory)}
-              disabled={isUploading}
-              className="w-full text-xs bg-surface/50 border border-border rounded-xl px-3 py-2.5 text-primary font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all cursor-pointer"
-            >
-              {CATEGORY_OPTIONS.map((cat) => (
-                <option key={cat.id} value={cat.id}>
-                  {cat.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
           {/* Dropzone Area */}
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
             onClick={() => fileInputRef.current?.click()}
-            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
+            className={`border-2 border-dashed rounded-2xl p-7 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2.5 ${
               isDragging
                 ? 'border-accent bg-accent/5 scale-[0.99]'
                 : 'border-border/80 hover:border-accent/60 bg-surface/30 hover:bg-surface/60'
@@ -347,13 +291,12 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
               onChange={(e) => {
                 if (e.target.files && e.target.files.length > 0) {
                   handleProcessFiles(e.target.files);
-                  // Reset input so re-selecting same files triggers change
                   e.target.value = '';
                 }
               }}
               className="hidden"
             />
-            <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-border flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+            <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-border flex items-center justify-center text-primary transition-transform">
               <UploadCloud className="w-6 h-6 text-accent" />
             </div>
             <div>
@@ -361,7 +304,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                 Klik untuk memilih banyak file atau seret file gambar ke sini
               </p>
               <p className="text-[11px] text-secondary mt-0.5">
-                Mendukung banyak file sekaligus (PNG, JPG, WebP)
+                Bisa upload sekaligus banyak file gambar (PNG, JPG, WebP)
               </p>
             </div>
           </div>
@@ -372,7 +315,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
               <div className="flex items-center justify-between text-xs font-semibold text-primary">
                 <span className="flex items-center gap-1.5">
                   <ImageIcon className="w-3.5 h-3.5 text-accent" />
-                  Daftar File Terpilih ({stagedFiles.length} item)
+                  Daftar File ({stagedFiles.length} file dipilih)
                 </span>
                 <div className="flex items-center gap-2">
                   <button
@@ -381,7 +324,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                     disabled={isUploading}
                     className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium"
                   >
-                    <Plus className="w-3 h-3" /> Tambah File Lagi
+                    <Plus className="w-3 h-3" /> Tambah File Lain
                   </button>
                   <span className="text-border">|</span>
                   <button
@@ -396,14 +339,14 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
               </div>
 
               {/* Scrollable list of staged items */}
-              <div className="max-h-64 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40">
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
                 {stagedFiles.map((item, index) => (
                   <div
                     key={item.id}
-                    className="pt-2 first:pt-0 flex items-center gap-3 p-2 rounded-xl bg-surface/40 border border-border/60 hover:bg-surface transition-colors"
+                    className="flex items-center gap-3 p-2.5 rounded-xl bg-surface/40 border border-border/70 hover:bg-surface transition-colors"
                   >
                     {/* Thumbnail */}
-                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-stone-100 shrink-0 relative">
+                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-border bg-stone-100 shrink-0 relative shadow-sm">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={item.previewUrl}
@@ -415,7 +358,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                       </span>
                     </div>
 
-                    {/* Inputs */}
+                    {/* Clean Name Input & Universal Badge */}
                     <div className="flex-1 min-w-0 space-y-1.5">
                       <div className="flex items-center gap-2">
                         <input
@@ -432,22 +375,9 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <select
-                          value={item.category}
-                          onChange={(e) =>
-                            handleUpdateItemCategory(item.id, e.target.value as MaterialCategory)
-                          }
-                          disabled={isUploading}
-                          className="text-[11px] bg-white border border-border rounded-lg px-2 py-0.5 text-secondary font-medium focus:outline-none focus:ring-1 focus:ring-accent"
-                        >
-                          {CATEGORY_OPTIONS.map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
-                          PBR Siap
+                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Bebas diaplikasikan ke dinding, lantai, atau elemen apa pun
                         </span>
                       </div>
                     </div>
@@ -472,7 +402,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
           <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-amber-900 text-[11px]">
             <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="leading-relaxed">
-              <strong>Pengaturan Mudah & Cepat:</strong> Semua tekstur yang diupload di sini akan otomatis langsung muncul di <strong>3D Configurator</strong>. Parameter seperti ukuran nat keramik, pengulangan (tiling), dan kilap dapat langsung disesuaikan secara interaktif di sidebar saat mendesain.
+              <strong>Langsung Siap Pakai:</strong> Seluruh file yang diupload akan langsung muncul di panel material sidebar 3D. Di sidebar, Anda bebas memilih dinding, lantai, atau bagian mana pun yang ingin diganti, serta mengatur ukuran nat (tiling), rotasi, dan kilap secara real-time.
             </div>
           </div>
         </form>
@@ -481,7 +411,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         <div className="p-4 border-t border-border bg-surface/30 flex items-center justify-between gap-3">
           <div className="text-xs text-secondary">
             {stagedFiles.length > 0 ? (
-              <span className="font-medium text-primary">
+              <span className="font-semibold text-primary">
                 {stagedFiles.length} material siap diupload
               </span>
             ) : (

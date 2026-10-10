@@ -108,7 +108,8 @@ export default function DashboardPage() {
       if (
         materialFilterCategory !== 'all' &&
         materialFilterCategory !== 'custom' &&
-        mat.category !== materialFilterCategory
+        mat.category !== materialFilterCategory &&
+        !mat.isCustomUpload
       ) {
         return false;
       }
@@ -685,7 +686,7 @@ export default function DashboardPage() {
                             {mat.name}
                           </h4>
                           <span className="text-[10px] text-secondary font-mono block uppercase">
-                            {mat.category}
+                            {mat.isCustomUpload ? 'Universal (Semua Bagian)' : mat.category}
                           </span>
                         </div>
 
