@@ -531,6 +531,14 @@ export const db = {
     return material;
   },
 
+  async createCustomMaterials(newMaterials: MaterialOption[]): Promise<MaterialOption[]> {
+    const materials = await readMaterials();
+    const newIds = new Set(newMaterials.map((m) => m.id));
+    const updated = [...newMaterials, ...materials.filter((m) => !newIds.has(m.id))];
+    await writeMaterials(updated);
+    return newMaterials;
+  },
+
   async deleteCustomMaterial(id: string): Promise<boolean> {
     const materials = await readMaterials();
     const target = materials.find((m) => m.id === id);

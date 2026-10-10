@@ -746,8 +746,10 @@ export default function DashboardPage() {
       <UploadMaterialModal
         isOpen={isUploadMaterialOpen}
         onClose={() => setIsUploadMaterialOpen(false)}
-        onSuccess={(mat) => {
-          setMaterialNotice(`Material "${mat.name}" berhasil diunggah dan disimpan ke library!`);
+        onSuccess={(result) => {
+          const list = Array.isArray(result) ? result : [result];
+          const label = list.length > 1 ? `${list.length} material tekstur` : `Material "${list[0]?.name}"`;
+          setMaterialNotice(`${label} berhasil diunggah dan disimpan ke library!`);
           setTimeout(() => setMaterialNotice(null), 4000);
         }}
       />

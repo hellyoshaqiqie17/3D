@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { MaterialOption, MaterialCategory, FinishType } from '@/types';
+import React, { useState, useRef, useEffect } from 'react';
+import { MaterialOption, MaterialCategory } from '@/types';
 import { useMaterialsStore } from '@/lib/materials-store';
 import {
   UploadCloud,
@@ -9,17 +9,26 @@ import {
   Sparkles,
   Check,
   Image as ImageIcon,
-  Sliders,
-  Layers,
-  Palette,
-  Eye,
   Loader2,
+  Trash2,
+  Plus,
+  Layers,
+  Info,
 } from 'lucide-react';
 
 interface UploadMaterialModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: (material: MaterialOption) => void;
+  onSuccess?: (materials: MaterialOption[] | MaterialOption) => void;
+}
+
+interface StagedFile {
+  id: string;
+  file: File;
+  previewUrl: string;
+  name: string;
+  category: MaterialCategory;
+  sizeFormatted: string;
 }
 
 const CATEGORY_OPTIONS: { id: MaterialCategory; label: string }[] = [
@@ -31,440 +40,486 @@ const CATEGORY_OPTIONS: { id: MaterialCategory; label: string }[] = [
   { id: 'door', label: 'Pintu & Kusen (Doors)' },
 ];
 
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B';
+  const k = 1024;
+  const sizes = ['B', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
+}
+
+function cleanMaterialName(fileName: string): string {
+  return fileName
+    .replace(/\.[^/.]+$/, '') // remove extension
+    .replace(/[-_]/g, ' ') // replace dashes and underscores with space
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase()); // Capitalize words
+}
+
 export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMaterialModalProps) {
-  const addCustomMaterial = useMaterialsStore((s) => s.addCustomMaterial);
+  const addCustomMaterials = useMaterialsStore((s) => s.addCustomMaterials);
 
-  const [name, setName] = useState('');
-  const [category, setCategory] = useState<MaterialCategory>('wall');
-  const [finish, setFinish] = useState<FinishType>('gloss');
-  const [roughness, setRoughness] = useState(0.25);
-  const [metalness, setMetalness] = useState(0.04);
-  const [bumpScale, setBumpScale] = useState(0.16);
-  const [repeatCount, setRepeatCount] = useState(4);
-  const [tintColor, setTintColor] = useState('#FFFFFF');
-  const [description, setDescription] = useState('');
-
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewDataUrl, setPreviewDataUrl] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [defaultCategory, setDefaultCategory] = useState<MaterialCategory>('wall');
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgressText, setUploadProgressText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Revoke object URLs on unmount / clear
+  useEffect(() => {
+    return () => {
+      stagedFiles.forEach((item) => {
+        if (item.previewUrl.startsWith('blob:')) {
+          URL.revokeObjectURL(item.previewUrl);
+        }
+      });
+    };
+  }, [stagedFiles]);
+
   if (!isOpen) return null;
 
-  const handleFile = (file: File) => {
-    setSelectedFile(file);
+  const handleProcessFiles = (incomingFiles: FileList | File[]) => {
     setErrorMessage(null);
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPreviewDataUrl(reader.result as string);
-    };
-    reader.readAsDataURL(file);
+    const newStaged: StagedFile[] = [];
 
-    if (!name) {
-      const cleanBase = file.name
-        .replace(/\.[^/.]+$/, '')
-        .replace(/[-_]/g, ' ')
-        .replace(/\b\w/g, (l) => l.toUpperCase());
-      setName(cleanBase);
+    Array.from(incomingFiles).forEach((file) => {
+      if (!file.type.startsWith('image/')) return;
+
+      const previewUrl = URL.createObjectURL(file);
+      const name = cleanMaterialName(file.name);
+
+      newStaged.push({
+        id: `${file.name}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        file,
+        previewUrl,
+        name,
+        category: defaultCategory,
+        sizeFormatted: formatBytes(file.size),
+      });
+    });
+
+    if (newStaged.length === 0) {
+      setErrorMessage('Pilih setidaknya satu file gambar yang valid (JPG, PNG, WebP).');
+      return;
+    }
+
+    setStagedFiles((prev) => [...prev, ...newStaged]);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleProcessFiles(e.dataTransfer.files);
     }
   };
 
-  const handleFinishChange = (newFinish: FinishType) => {
-    setFinish(newFinish);
-    if (newFinish === 'gloss') {
-      setRoughness(0.18);
-      setBumpScale(0.14);
-    } else if (newFinish === 'satin') {
-      setRoughness(0.38);
-      setBumpScale(0.12);
-    } else if (newFinish === 'textured') {
-      setRoughness(0.65);
-      setBumpScale(0.25);
-    } else {
-      setRoughness(0.85);
-      setBumpScale(0.08);
-    }
+  const handleRemoveStaged = (id: string) => {
+    setStagedFiles((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target && target.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  };
+
+  const handleClearAll = () => {
+    stagedFiles.forEach((item) => {
+      if (item.previewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(item.previewUrl);
+      }
+    });
+    setStagedFiles([]);
+    setErrorMessage(null);
+  };
+
+  const handleDefaultCategoryChange = (cat: MaterialCategory) => {
+    setDefaultCategory(cat);
+    // Optionally also update existing staged files that haven't been manually assigned
+    setStagedFiles((prev) =>
+      prev.map((item) => ({
+        ...item,
+        category: cat,
+      }))
+    );
+  };
+
+  const handleUpdateItemName = (id: string, newName: string) => {
+    setStagedFiles((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, name: newName } : item))
+    );
+  };
+
+  const handleUpdateItemCategory = (id: string, newCat: MaterialCategory) => {
+    setStagedFiles((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, category: newCat } : item))
+    );
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedFile && !previewDataUrl) {
-      setErrorMessage('Silakan pilih file gambar tekstur (JPG, PNG, atau WebP)');
-      return;
-    }
-    if (!name.trim()) {
-      setErrorMessage('Nama material wajib diisi');
+    if (stagedFiles.length === 0) {
+      setErrorMessage('Silakan pilih atau seret minimal 1 file gambar tekstur terlebih dahulu.');
       return;
     }
 
-    setIsSubmitting(true);
+    setIsUploading(true);
     setErrorMessage(null);
+    setUploadProgressText(`Mengunggah ${stagedFiles.length} file gambar ke CDN Cloud Storage...`);
 
     try {
-      let textureUrl = previewDataUrl || '/textures/designer-tile-mosaic.jpg';
+      // 1. Pack files into FormData
+      const formData = new FormData();
+      stagedFiles.forEach((item) => {
+        formData.append('files', item.file);
+      });
 
-      // 1. Upload file to server & cloud storage if file object exists
-      if (selectedFile) {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
+      const uploadRes = await fetch('/api/materials/upload', {
+        method: 'POST',
+        body: formData,
+      });
 
-        const uploadRes = await fetch('/api/materials/upload', {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          throw new Error(`Gagal upload tekstur: ${errText}`);
-        }
-
-        const uploadData = await uploadRes.json();
-        if (uploadData.url) {
-          textureUrl = uploadData.url;
-        }
+      if (!uploadRes.ok) {
+        const errText = await uploadRes.text();
+        throw new Error(`Gagal mengunggah file ke server: ${errText}`);
       }
 
-      // 2. Register material
-      const newMaterial: MaterialOption = {
-        id: `custom_mat_${Date.now()}`,
-        name: name.trim(),
-        category,
-        type: 'texture',
-        color: tintColor,
-        textureUrl,
-        previewThumbnail: textureUrl,
-        roughness,
-        metalness,
-        bumpScale,
-        finish,
-        repeat: [repeatCount, repeatCount],
-        description: description.trim() || 'Custom user uploaded architectural PBR material.',
-        tag: 'Custom PBR',
-        isCustomUpload: true,
-      };
+      const uploadData = await uploadRes.json();
+      const uploadedList: Array<{
+        url: string;
+        filename: string;
+        originalName: string;
+        cleanName: string;
+      }> = uploadData.uploaded || [];
 
-      const saved = await addCustomMaterial(newMaterial);
-      if (onSuccess && saved) {
+      if (uploadedList.length === 0 && uploadData.url) {
+        uploadedList.push({
+          url: uploadData.url,
+          filename: uploadData.filename,
+          originalName: uploadData.originalName,
+          cleanName: stagedFiles[0]?.name || 'Custom Texture',
+        });
+      }
+
+      setUploadProgressText(`Menyimpan ${uploadedList.length} material ke pustaka PBR...`);
+
+      // 2. Build MaterialOption records
+      const newMaterialsToSave: MaterialOption[] = uploadedList.map((uploaded, index) => {
+        const userStaged = stagedFiles[index];
+        const assignedName = (userStaged?.name || uploaded.cleanName || `Material Tekstur ${index + 1}`).trim();
+        const assignedCategory = userStaged?.category || defaultCategory;
+
+        return {
+          id: `custom_mat_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
+          name: assignedName,
+          category: assignedCategory,
+          type: 'texture',
+          color: '#FFFFFF',
+          textureUrl: uploaded.url,
+          previewThumbnail: uploaded.url,
+          roughness: 0.32,
+          metalness: 0.04,
+          bumpScale: 0.16,
+          rotation: 0,
+          repeat: [4, 4],
+          finish: 'gloss',
+          description: `Tekstur PBR kustom: ${assignedName}`,
+          tag: 'Custom PBR',
+          isCustomUpload: true,
+        };
+      });
+
+      // 3. Save batch to database and store
+      const saved = await addCustomMaterials(newMaterialsToSave);
+
+      // Clean object URLs
+      handleClearAll();
+
+      if (onSuccess) {
         onSuccess(saved);
       }
-
       onClose();
     } catch (err: any) {
-      console.error('[Upload Material] Failed:', err);
-      setErrorMessage(err?.message || 'Gagal menyimpan material. Coba lagi.');
+      console.error('[Upload Material Batch] Error:', err);
+      setErrorMessage(err?.message || 'Terjadi kesalahan saat mengunggah file. Silakan coba lagi.');
     } finally {
-      setIsSubmitting(false);
+      setIsUploading(false);
+      setUploadProgressText('');
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl border border-border animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto animate-in fade-in duration-200">
+      <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-border flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 duration-200">
         {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-border mb-6">
+        <div className="p-5 border-b border-border flex items-center justify-between bg-surface/40">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary" />
+            <div className="w-10 h-10 rounded-xl bg-primary/5 text-primary flex items-center justify-center border border-primary/10">
+              <Sparkles className="w-5 h-5 text-accent" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-primary">Upload Custom PBR Material</h3>
-              <p className="text-xs text-secondary">
-                Upload tekstur keramik, batu, atau dinding untuk diterapkan di 3D Configurator
+              <h2 className="text-base font-bold text-primary flex items-center gap-2">
+                Upload Tekstur Material (Bulk / Sekaligus)
+              </h2>
+              <p className="text-xs text-secondary mt-0.5">
+                Pilih atau seret banyak foto keramik, batu, atau dinding sekaligus. Konfigurasi tiling & kilap diatur langsung di 3D Configurator.
               </p>
             </div>
           </div>
           <button
-            type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-xl hover:bg-surface-100 flex items-center justify-center text-secondary hover:text-primary transition-colors"
+            disabled={isUploading}
+            className="p-2 rounded-xl text-secondary hover:text-primary hover:bg-surface transition-colors disabled:opacity-40"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
-        {errorMessage && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
-            {errorMessage}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* File Upload & Preview Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Drop Zone */}
-            <div>
-              <label className="block text-xs font-semibold text-primary mb-1.5">
-                File Tekstur / Foto Keramik *
-              </label>
-              <div
-                onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-                    handleFile(e.dataTransfer.files[0]);
-                  }
-                }}
-                className={`border-2 border-dashed rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all aspect-[4/3] ${
-                  previewDataUrl
-                    ? 'border-emerald-400 bg-emerald-50/30'
-                    : 'border-border hover:border-primary/50 bg-surface-50 hover:bg-surface-100/60'
-                }`}
-              >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/png, image/jpeg, image/jpg, image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files[0]) {
-                      handleFile(e.target.files[0]);
-                    }
-                  }}
-                />
-
-                <div className="w-10 h-10 rounded-xl bg-white shadow-subtle flex items-center justify-center text-primary mb-2">
-                  <UploadCloud className="w-5 h-5" />
-                </div>
-                <span className="text-xs font-semibold text-primary block mb-0.5">
-                  {selectedFile ? selectedFile.name : 'Pilih atau Drag File Foto'}
-                </span>
-                <span className="text-[10px] text-secondary block">
-                  PNG, JPG, WebP (Rekomendasi seamless tile)
-                </span>
-              </div>
+        {/* Form Body */}
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+          {errorMessage && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+              <span>{errorMessage}</span>
             </div>
+          )}
 
-            {/* Live 2D Pattern Preview */}
-            <div>
-              <label className="block text-xs font-semibold text-primary mb-1.5 flex items-center justify-between">
-                <span>Pratinjau Pola Pengulangan (Tiling)</span>
-                <span className="text-[10px] text-secondary font-mono">{repeatCount}x Repeat</span>
-              </label>
-              <div className="aspect-[4/3] rounded-2xl border border-border overflow-hidden relative shadow-inner bg-surface-100 flex items-center justify-center">
-                {previewDataUrl ? (
-                  <div
-                    className="w-full h-full"
-                    style={{
-                      backgroundImage: `url(${previewDataUrl})`,
-                      backgroundSize: `${100 / repeatCount}% ${100 / repeatCount}%`,
-                      backgroundRepeat: 'repeat',
-                      backgroundColor: tintColor,
-                    }}
-                  />
-                ) : (
-                  <div className="flex flex-col items-center text-secondary text-xs p-4 text-center">
-                    <ImageIcon className="w-8 h-8 mb-2 opacity-40" />
-                    <span>Upload file tekstur untuk melihat pratinjau tiling</span>
-                  </div>
-                )}
-
-                <div className="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 backdrop-blur-sm text-[10px] font-mono text-white">
-                  {finish.toUpperCase()} • R:{roughness.toFixed(2)}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Material Name & Category */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-semibold text-primary mb-1.5">
-                Nama Material *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="Contoh: Keramik Granit Carrara 60x60"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border focus:outline-none focus:border-primary text-primary"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-primary mb-1.5">
-                Kategori Penggunaan *
-              </label>
-              <select
-                value={category}
-                onChange={(e) => setCategory(e.target.value as MaterialCategory)}
-                className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-border focus:outline-none focus:border-primary text-primary bg-white cursor-pointer"
-              >
-                {CATEGORY_OPTIONS.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Finish Type Preset */}
+          {/* Global Category Selector */}
           <div>
-            <label className="block text-xs font-semibold text-primary mb-1.5">
-              Karakter Permukaan (Finish Preset)
+            <label className="block text-xs font-semibold text-primary mb-1.5 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Layers className="w-3.5 h-3.5 text-accent" />
+                Kategori Utama untuk File yang Diunggah
+              </span>
+              <span className="text-[11px] font-normal text-secondary">
+                (Dapat diubah per item di bawah)
+              </span>
             </label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {[
-                { id: 'gloss', label: 'Keramik Glossy', desc: 'Licin & Mengkilap' },
-                { id: 'satin', label: 'Semi-Gloss Satin', desc: 'Kilap Halus' },
-                { id: 'textured', label: 'Batu Relief / Nat', desc: 'Tekstur Timbul' },
-                { id: 'matte', label: 'Matte Dinding', desc: 'Doff Halus' },
-              ].map((f) => {
-                const isSelected = finish === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => handleFinishChange(f.id as FinishType)}
-                    className={`p-2.5 rounded-xl border text-left transition-all ${
-                      isSelected
-                        ? 'bg-primary text-white border-primary shadow-subtle'
-                        : 'bg-white border-border text-primary hover:bg-surface-50'
-                    }`}
-                  >
-                    <span className="text-xs font-bold block truncate">{f.label}</span>
-                    <span
-                      className={`text-[10px] block truncate ${
-                        isSelected ? 'text-white/80' : 'text-secondary'
-                      }`}
-                    >
-                      {f.desc}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            <select
+              value={defaultCategory}
+              onChange={(e) => handleDefaultCategoryChange(e.target.value as MaterialCategory)}
+              disabled={isUploading}
+              className="w-full text-xs bg-surface/50 border border-border rounded-xl px-3 py-2.5 text-primary font-medium focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent transition-all cursor-pointer"
+            >
+              {CATEGORY_OPTIONS.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
           </div>
 
-          {/* Physical PBR Adjusters */}
-          <div className="p-4 bg-surface-50 rounded-2xl border border-border space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-primary">
-              <Sliders className="w-3.5 h-3.5" />
-              <span>Kalibrasi Fisik PBR (Roughness & Bump Relief)</span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* Tiling repeat */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-secondary font-medium">Pengulangan (Tiling)</span>
-                  <span className="font-mono text-primary font-bold">{repeatCount}x</span>
-                </div>
-                <input
-                  type="range"
-                  min="1"
-                  max="12"
-                  step="1"
-                  value={repeatCount}
-                  onChange={(e) => setRepeatCount(Number(e.target.value))}
-                  className="w-full accent-primary h-1.5 bg-border rounded-lg cursor-pointer"
-                />
-              </div>
-
-              {/* 3D Bump depth */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-secondary font-medium">Kedalaman Tekstur (Nat)</span>
-                  <span className="font-mono text-primary font-bold">{bumpScale.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="0.4"
-                  step="0.02"
-                  value={bumpScale}
-                  onChange={(e) => setBumpScale(Number(e.target.value))}
-                  className="w-full accent-primary h-1.5 bg-border rounded-lg cursor-pointer"
-                />
-              </div>
-
-              {/* Roughness */}
-              <div>
-                <div className="flex items-center justify-between text-[11px] mb-1">
-                  <span className="text-secondary font-medium">Roughness (Doff)</span>
-                  <span className="font-mono text-primary font-bold">{roughness.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.05"
-                  max="1.0"
-                  step="0.05"
-                  value={roughness}
-                  onChange={(e) => setRoughness(Number(e.target.value))}
-                  className="w-full accent-primary h-1.5 bg-border rounded-lg cursor-pointer"
-                />
-              </div>
-            </div>
-
-            {/* Tint Color */}
-            <div className="flex items-center gap-3 pt-2 border-t border-border/60">
-              <span className="text-[11px] text-secondary font-medium">Warna Dasar / Tint:</span>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  value={tintColor}
-                  onChange={(e) => setTintColor(e.target.value)}
-                  className="w-7 h-7 rounded-lg border border-border cursor-pointer p-0.5 bg-white"
-                />
-                <span className="text-[10px] font-mono text-secondary">{tintColor.toUpperCase()}</span>
-                <button
-                  type="button"
-                  onClick={() => setTintColor('#FFFFFF')}
-                  className="text-[10px] text-secondary hover:text-primary underline ml-1"
-                >
-                  Reset Putih
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-xs font-semibold text-primary mb-1">
-              Catatan / Deskripsi Tekstur (Opsional)
-            </label>
+          {/* Dropzone Area */}
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+            className={`border-2 border-dashed rounded-2xl p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 ${
+              isDragging
+                ? 'border-accent bg-accent/5 scale-[0.99]'
+                : 'border-border/80 hover:border-accent/60 bg-surface/30 hover:bg-surface/60'
+            }`}
+          >
             <input
-              type="text"
-              placeholder="Contoh: Keramik kamar mandi anti selip ukuran 60x60 motif urat marmer"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3.5 py-2 text-xs rounded-xl border border-border focus:outline-none focus:border-primary text-primary"
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  handleProcessFiles(e.target.files);
+                  // Reset input so re-selecting same files triggers change
+                  e.target.value = '';
+                }
+              }}
+              className="hidden"
             />
+            <div className="w-12 h-12 rounded-2xl bg-white shadow-sm border border-border flex items-center justify-center text-primary group-hover:scale-105 transition-transform">
+              <UploadCloud className="w-6 h-6 text-accent" />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-primary">
+                Klik untuk memilih banyak file atau seret file gambar ke sini
+              </p>
+              <p className="text-[11px] text-secondary mt-0.5">
+                Mendukung banyak file sekaligus (PNG, JPG, WebP)
+              </p>
+            </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-border">
+          {/* Staged Files Preview List */}
+          {stagedFiles.length > 0 && (
+            <div className="space-y-2.5 pt-1">
+              <div className="flex items-center justify-between text-xs font-semibold text-primary">
+                <span className="flex items-center gap-1.5">
+                  <ImageIcon className="w-3.5 h-3.5 text-accent" />
+                  Daftar File Terpilih ({stagedFiles.length} item)
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="text-[11px] text-accent hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <Plus className="w-3 h-3" /> Tambah File Lagi
+                  </button>
+                  <span className="text-border">|</span>
+                  <button
+                    type="button"
+                    onClick={handleClearAll}
+                    disabled={isUploading}
+                    className="text-[11px] text-red-500 hover:underline flex items-center gap-1 font-medium"
+                  >
+                    <Trash2 className="w-3 h-3" /> Bersihkan
+                  </button>
+                </div>
+              </div>
+
+              {/* Scrollable list of staged items */}
+              <div className="max-h-64 overflow-y-auto space-y-2 pr-1 divide-y divide-border/40">
+                {stagedFiles.map((item, index) => (
+                  <div
+                    key={item.id}
+                    className="pt-2 first:pt-0 flex items-center gap-3 p-2 rounded-xl bg-surface/40 border border-border/60 hover:bg-surface transition-colors"
+                  >
+                    {/* Thumbnail */}
+                    <div className="w-14 h-14 rounded-lg overflow-hidden border border-border/80 bg-stone-100 shrink-0 relative">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.previewUrl}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <span className="absolute bottom-0 right-0 bg-black/70 text-white text-[9px] px-1 py-0.5 rounded-tl font-mono">
+                        #{index + 1}
+                      </span>
+                    </div>
+
+                    {/* Inputs */}
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={item.name}
+                          onChange={(e) => handleUpdateItemName(item.id, e.target.value)}
+                          placeholder="Nama Material"
+                          disabled={isUploading}
+                          className="flex-1 text-xs font-semibold text-primary bg-white border border-border rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-accent"
+                        />
+                        <span className="text-[10px] text-secondary font-mono shrink-0">
+                          {item.sizeFormatted}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={item.category}
+                          onChange={(e) =>
+                            handleUpdateItemCategory(item.id, e.target.value as MaterialCategory)
+                          }
+                          disabled={isUploading}
+                          className="text-[11px] bg-white border border-border rounded-lg px-2 py-0.5 text-secondary font-medium focus:outline-none focus:ring-1 focus:ring-accent"
+                        >
+                          {CATEGORY_OPTIONS.map((c) => (
+                            <option key={c.id} value={c.id}>
+                              {c.label}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="text-[10px] text-emerald-600 font-medium bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200 shrink-0">
+                          PBR Siap
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Remove button */}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveStaged(item.id)}
+                      disabled={isUploading}
+                      title="Hapus dari daftar"
+                      className="p-1.5 text-secondary hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors shrink-0 disabled:opacity-40"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Information Tip */}
+          <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-amber-900 text-[11px]">
+            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="leading-relaxed">
+              <strong>Pengaturan Mudah & Cepat:</strong> Semua tekstur yang diupload di sini akan otomatis langsung muncul di <strong>3D Configurator</strong>. Parameter seperti ukuran nat keramik, pengulangan (tiling), dan kilap dapat langsung disesuaikan secara interaktif di sidebar saat mendesain.
+            </div>
+          </div>
+        </form>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-border bg-surface/30 flex items-center justify-between gap-3">
+          <div className="text-xs text-secondary">
+            {stagedFiles.length > 0 ? (
+              <span className="font-medium text-primary">
+                {stagedFiles.length} material siap diupload
+              </span>
+            ) : (
+              <span>Pilih file untuk memulai</span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
             <button
               type="button"
-              disabled={isSubmitting}
               onClick={onClose}
-              className="px-4 py-2 text-xs font-medium text-secondary hover:text-primary hover:bg-surface-100 rounded-xl transition-colors disabled:opacity-50"
+              disabled={isUploading}
+              className="px-4 py-2 text-xs font-semibold text-secondary hover:text-primary rounded-xl transition-colors disabled:opacity-50"
             >
               Batal
             </button>
             <button
-              type="submit"
-              disabled={isSubmitting || !name.trim()}
-              className="px-6 py-2.5 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              type="button"
+              onClick={handleSubmit}
+              disabled={isUploading || stagedFiles.length === 0}
+              className="px-5 py-2 text-xs font-bold text-white bg-primary hover:bg-black rounded-xl transition-all shadow-md shadow-primary/10 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-[1.02] active:scale-[0.98]"
             >
-              {isSubmitting ? (
+              {isUploading ? (
                 <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Mengunggah Tekstur...</span>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin text-accent" />
+                  <span>{uploadProgressText || 'Mengunggah...'}</span>
                 </>
               ) : (
                 <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Simpan ke PBR Material Library</span>
+                  <UploadCloud className="w-3.5 h-3.5 text-accent" />
+                  <span>
+                    Upload {stagedFiles.length > 0 ? `${stagedFiles.length} Material` : 'Material'}
+                  </span>
                 </>
               )}
             </button>
           </div>
-        </form>
+        </div>
       </div>
     </div>
   );

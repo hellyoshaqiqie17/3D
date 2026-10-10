@@ -24,6 +24,39 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
+    // 1. Batch materials creation
+    if (body.materials && Array.isArray(body.materials)) {
+      const itemsToSave: MaterialOption[] = body.materials.map((item: any, idx: number) => ({
+        id: item.id || `custom_mat_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+        name: (item.name || `Material Tekstur ${idx + 1}`).trim(),
+        category: item.category || 'wall',
+        type: 'texture',
+        color: item.color || '#FFFFFF',
+        textureUrl: item.textureUrl,
+        previewThumbnail: item.previewThumbnail || item.textureUrl,
+        roughness: typeof item.roughness === 'number' ? item.roughness : 0.35,
+        metalness: typeof item.metalness === 'number' ? item.metalness : 0.05,
+        bumpScale: typeof item.bumpScale === 'number' ? item.bumpScale : 0.15,
+        rotation: typeof item.rotation === 'number' ? item.rotation : 0,
+        repeat: Array.isArray(item.repeat) ? item.repeat : [4, 4],
+        finish: item.finish || 'gloss',
+        description: item.description || 'Custom user uploaded architectural PBR material.',
+        tag: item.tag || 'Custom PBR',
+        isCustomUpload: true,
+      }));
+
+      const saved = await db.createCustomMaterials(itemsToSave);
+      return NextResponse.json(
+        {
+          success: true,
+          count: saved.length,
+          materials: saved,
+        },
+        { status: 201 }
+      );
+    }
+
+    // 2. Single material creation
     if (!body.name || !body.category) {
       return NextResponse.json(
         { error: 'Material name and category are required' },
@@ -32,7 +65,7 @@ export async function POST(req: NextRequest) {
     }
 
     const newMaterial: MaterialOption = {
-      id: body.id || `custom_mat_${Date.now()}`,
+      id: body.id || `custom_mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: body.name.trim(),
       category: body.category,
       type: body.type || 'texture',
@@ -52,10 +85,13 @@ export async function POST(req: NextRequest) {
 
     const saved = await db.createCustomMaterial(newMaterial);
 
-    return NextResponse.json({
-      success: true,
-      material: saved,
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        material: saved,
+      },
+      { status: 201 }
+    );
   } catch (err: any) {
     console.error('[API Materials POST] Error:', err);
     return NextResponse.json(

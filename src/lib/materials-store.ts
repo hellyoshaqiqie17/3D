@@ -11,6 +11,7 @@ interface MaterialsState {
   error: string | null;
   fetchCustomMaterials: () => Promise<void>;
   addCustomMaterial: (material: MaterialOption) => Promise<MaterialOption | null>;
+  addCustomMaterials: (materials: MaterialOption[]) => Promise<MaterialOption[]>;
   deleteCustomMaterial: (id: string) => Promise<boolean>;
   getCombinedMaterialsByCategory: (category: MaterialCategory) => MaterialOption[];
 }
@@ -111,6 +112,59 @@ export const useMaterialsStore = create<MaterialsState>((set, get) => ({
         return { customMaterials: updated };
       });
       return material;
+    }
+  },
+
+  addCustomMaterials: async (materials: MaterialOption[]) => {
+    if (!materials || materials.length === 0) return [];
+
+    try {
+      const res = await fetch('/api/materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materials }),
+      });
+
+      let savedMats = materials;
+      if (res.ok) {
+        const data = await res.json();
+        if (data.materials && Array.isArray(data.materials)) {
+          savedMats = data.materials;
+        }
+      }
+
+      set((state) => {
+        const newIds = new Set(savedMats.map((m) => m.id));
+        const updated = [...savedMats, ...state.customMaterials.filter((m) => !newIds.has(m.id))];
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          } catch {}
+        }
+        return { customMaterials: updated };
+      });
+
+      // Sync into configuratorStore
+      const currentUploaded = useConfiguratorStore.getState().uploadedMaterials;
+      const newIds = new Set(savedMats.map((m) => m.id));
+      const updatedUploaded = [...savedMats, ...currentUploaded.filter((m) => !newIds.has(m.id))];
+      useConfiguratorStore.setState({ uploadedMaterials: updatedUploaded });
+
+      return savedMats;
+    } catch (err: any) {
+      console.error('[MaterialsStore] Add custom materials batch error:', err);
+      // Optimistic local update
+      set((state) => {
+        const newIds = new Set(materials.map((m) => m.id));
+        const updated = [...materials, ...state.customMaterials.filter((m) => !newIds.has(m.id))];
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          } catch {}
+        }
+        return { customMaterials: updated };
+      });
+      return materials;
     }
   },
 
