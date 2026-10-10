@@ -12,7 +12,7 @@ import { ConfiguratorSidebar } from '@/components/configurator/ConfiguratorSideb
 import { CameraPresetBar } from '@/components/configurator/CameraPresetBar';
 import { PresentationOverlay } from '@/components/configurator/PresentationOverlay';
 import { SaveShareModal } from '@/components/configurator/SaveShareModal';
-import { ChevronLeft, AlertCircle } from 'lucide-react';
+import { ChevronLeft, AlertCircle, SlidersHorizontal } from 'lucide-react';
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -31,6 +31,8 @@ export default function ConfiguratorPage({ params }: PageProps) {
   const project = serverProject || getProject(projectId);
 
   const isPresentationMode = useConfiguratorStore((s) => s.isPresentationMode);
+  const isSidebarHidden = useConfiguratorStore((s) => s.isSidebarHidden);
+  const toggleSidebar = useConfiguratorStore((s) => s.toggleSidebar);
   const loadConfiguration = useConfiguratorStore((s) => s.loadConfiguration);
   const resetConfiguration = useConfiguratorStore((s) => s.resetConfiguration);
   const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
@@ -129,7 +131,7 @@ export default function ConfiguratorPage({ params }: PageProps) {
       {/* Main Workspace Area */}
       <div className="flex-1 flex flex-col lg:flex-row relative overflow-hidden">
         {/* 3D Scene Viewport */}
-        <main className="flex-1 relative w-full h-full">
+        <main className="flex-1 relative h-full min-w-0 w-full overflow-hidden">
           <ConfiguratorCanvas
             modelUrl={project.modelUrl}
             zones={allZones}
@@ -141,10 +143,25 @@ export default function ConfiguratorPage({ params }: PageProps) {
 
           {/* Fullscreen Presentation Mode HUD */}
           <PresentationOverlay project={project} />
+
+          {/* Floating Expand Sidebar Button when sidebar is collapsed */}
+          {!isPresentationMode && isSidebarHidden && (
+            <button
+              type="button"
+              onClick={toggleSidebar}
+              title="Tampilkan Panel Kustomisasi Material (Dinding & Lantai)"
+              className="absolute top-4 right-4 z-10 flex items-center gap-2 px-3.5 py-2 bg-white/95 backdrop-blur-md hover:bg-white text-primary rounded-xl border border-border shadow-float transition-all hover:scale-105 font-medium text-xs shadow-md"
+            >
+              <SlidersHorizontal className="w-4 h-4 text-primary" />
+              <span>Buka Panel Material</span>
+            </button>
+          )}
         </main>
 
-        {/* Customization Sidebar (hidden in presentation mode) */}
-        {!isPresentationMode && <ConfiguratorSidebar zones={allZones} />}
+        {/* Customization Sidebar (hidden in presentation mode or when toggled hidden) */}
+        {!isPresentationMode && !isSidebarHidden && (
+          <ConfiguratorSidebar zones={allZones} />
+        )}
       </div>
 
       {/* Save & Share Dialog Modals */}

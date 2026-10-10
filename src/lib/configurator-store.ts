@@ -28,6 +28,7 @@ interface ConfiguratorState {
   activeCameraPreset: string;
   cameraPresetVersion: number; // increments on every preset click (re-click = go back to that view)
   isPresentationMode: boolean;
+  isSidebarHidden: boolean;
   isWireframeMode: boolean;
   isOriginalMode: boolean;
 
@@ -90,6 +91,8 @@ interface ConfiguratorState {
   setCameraPreset: (presetId: string) => void;
   togglePresentationMode: () => void;
   setPresentationMode: (val: boolean) => void;
+  toggleSidebar: () => void;
+  setSidebarHidden: (val: boolean) => void;
   toggleWireframe: () => void;
   toggleOriginalMode: () => void;
   setOriginalMode: (val: boolean) => void;
@@ -202,6 +205,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   activeCameraPreset: 'exterior',
   cameraPresetVersion: 0,
   isPresentationMode: false,
+  isSidebarHidden: false,
   isWireframeMode: false,
   isOriginalMode: false,
 
@@ -382,8 +386,14 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setCameraPreset: (presetId) =>
     set((state) => ({ activeCameraPreset: presetId, cameraPresetVersion: state.cameraPresetVersion + 1 })),
 
-  togglePresentationMode: () => set((state) => ({ isPresentationMode: !state.isPresentationMode })),
-  setPresentationMode: (val) => set({ isPresentationMode: val }),
+  togglePresentationMode: () =>
+    set((state) => {
+      const next = !state.isPresentationMode;
+      return { isPresentationMode: next, ...(next ? {} : { isSidebarHidden: false }) };
+    }),
+  setPresentationMode: (val) => set({ isPresentationMode: val, ...(val ? {} : { isSidebarHidden: false }) }),
+  toggleSidebar: () => set((state) => ({ isSidebarHidden: !state.isSidebarHidden })),
+  setSidebarHidden: (val) => set({ isSidebarHidden: val }),
 
   toggleWireframe: () => set((state) => ({ isWireframeMode: !state.isWireframeMode })),
 

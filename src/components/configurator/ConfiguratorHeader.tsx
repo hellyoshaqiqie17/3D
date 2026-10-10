@@ -30,6 +30,8 @@ interface ConfiguratorHeaderProps {
 export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
   const isPresentationMode = useConfiguratorStore((s) => s.isPresentationMode);
   const togglePresentationMode = useConfiguratorStore((s) => s.togglePresentationMode);
+  const isSidebarHidden = useConfiguratorStore((s) => s.isSidebarHidden);
+  const toggleSidebar = useConfiguratorStore((s) => s.toggleSidebar);
   const isWireframeMode = useConfiguratorStore((s) => s.isWireframeMode);
   const toggleWireframe = useConfiguratorStore((s) => s.toggleWireframe);
   const isOriginalMode = useConfiguratorStore((s) => s.isOriginalMode);
@@ -171,6 +173,20 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
         </div>
 
         <div className="h-5 w-px bg-border mx-1" />
+
+        {/* Toggle Customization Sidebar */}
+        <button
+          onClick={toggleSidebar}
+          title={isSidebarHidden ? "Buka Panel Pengaturan Material" : "Sembunyikan Panel Material (Tampilan Layar Penuh)"}
+          className={`${ghostBtn} ${
+            !isSidebarHidden
+              ? 'bg-surface-100 text-primary border-border'
+              : 'text-secondary hover:text-primary hover:bg-surface-100 border-border'
+          }`}
+        >
+          <SlidersHorizontal className="w-3.5 h-3.5" />
+          <span className="hidden md:inline">{isSidebarHidden ? 'Buka Panel' : 'Sembunyikan Panel'}</span>
+        </button>
 
         {/* Presentation mode */}
         <button

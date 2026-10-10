@@ -10,13 +10,14 @@ import { ColorPickerSection } from './ColorPickerSection';
 import { FloorTileCustomizer } from './FloorTileCustomizer';
 import { CustomTextureUploader } from './CustomTextureUploader';
 import { TextureAdjusterPanel } from './TextureAdjusterPanel';
-import { Info, Sparkles, CheckCircle2, Layers, ChevronDown, ChevronUp } from 'lucide-react';
+import { Info, Sparkles, CheckCircle2, Layers, ChevronDown, ChevronUp, ChevronRight } from 'lucide-react';
 
 interface ConfiguratorSidebarProps {
   zones: MaterialZone[];
 }
 
 export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
+  const toggleSidebar = useConfiguratorStore((s) => s.toggleSidebar);
   const activeCategory = useConfiguratorStore((s) => s.activeCategory);
   const selectedZoneId = useConfiguratorStore((s) => s.selectedZoneId);
   const selectZone = useConfiguratorStore((s) => s.selectZone);
@@ -88,7 +89,21 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const isOriginal = !hasCustomColor && (!appliedMaterialId || appliedMaterialId === 'original');
 
   return (
-    <aside className="w-full lg:w-96 bg-white border-l border-border flex flex-col h-[400px] lg:h-full z-10 shrink-0 shadow-subtle overflow-hidden">
+    <aside className="w-full lg:w-96 bg-white border-l border-border flex flex-col h-[400px] lg:h-full z-10 shrink-0 shadow-subtle overflow-hidden transition-all">
+      {/* Top Sidebar Bar with Collapse Button */}
+      <div className="flex items-center justify-between px-3.5 py-2 border-b border-border bg-surface-50 shrink-0">
+        <span className="text-xs font-semibold text-primary">Kustomisasi Material & Warna</span>
+        <button
+          type="button"
+          onClick={toggleSidebar}
+          title="Sembunyikan Panel Material (Tampilan Penuh)"
+          className="flex items-center gap-1 text-[11px] font-medium text-secondary hover:text-primary px-2 py-0.5 rounded-lg hover:bg-surface-200 transition-colors"
+        >
+          <span>Tutup</span>
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
       {/* Category Tabs */}
       <CategorySelector availableCategories={availableCategories} />
 
