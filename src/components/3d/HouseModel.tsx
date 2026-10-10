@@ -8,6 +8,7 @@ import { MaterialZone, BuildingFloorLevel } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials, restoreZoneOriginalMaterial } from '@/lib/material-applier';
 import { getMaterialById } from '@/lib/materials';
+import { splitMergedSurfaces } from '@/lib/mesh-splitter';
 
 interface HouseModelProps {
   modelUrl: string;
@@ -51,6 +52,10 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   // Deep clone scene so modifications are isolated to this session
   const sceneClone = useMemo(() => {
     const clone = gltf.scene.clone(true);
+
+    // Split room-scale merged surfaces (e.g. SketchUp material-merged walls) into individual surfaces
+    // so left wall, right wall, front wall, back wall can be independently selected and customized
+    splitMergedSurfaces(clone);
 
     // 1. Calculate overall model box and dedicated house box (excluding outer trees and giant site grounds)
     const totalBox = new THREE.Box3().setFromObject(clone);
@@ -519,6 +524,32 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
   // Helper to format friendly display name for any 3D mesh
   const formatMeshDisplayName = (name: string): string => {
+    // Specific friendly names for smart-split room surfaces
+    if (name.includes('__Dinding_Kanan')) {
+      const match = name.match(/__Dinding_Kanan(?:_(\d+))?/);
+      return match && match[1] ? `Dinding Kanan #${match[1]}` : 'Dinding Kanan (Right Wall)';
+    }
+    if (name.includes('__Dinding_Kiri')) {
+      const match = name.match(/__Dinding_Kiri(?:_(\d+))?/);
+      return match && match[1] ? `Dinding Kiri #${match[1]}` : 'Dinding Kiri (Left Wall)';
+    }
+    if (name.includes('__Dinding_Depan')) {
+      const match = name.match(/__Dinding_Depan(?:_(\d+))?/);
+      return match && match[1] ? `Dinding Depan #${match[1]}` : 'Dinding Depan (Front Wall)';
+    }
+    if (name.includes('__Dinding_Belakang')) {
+      const match = name.match(/__Dinding_Belakang(?:_(\d+))?/);
+      return match && match[1] ? `Dinding Belakang #${match[1]}` : 'Dinding Belakang (Back Wall)';
+    }
+    if (name.includes('__Lantai_Bawah')) {
+      const match = name.match(/__Lantai_Bawah(?:_(\d+))?/);
+      return match && match[1] ? `Lantai Ruangan #${match[1]}` : 'Lantai Ruangan (Floor)';
+    }
+    if (name.includes('__Plafon_Atas')) {
+      const match = name.match(/__Plafon_Atas(?:_(\d+))?/);
+      return match && match[1] ? `Plafon Ruangan #${match[1]}` : 'Plafon Ruangan (Ceiling)';
+    }
+
     const lower = name.toLowerCase();
     if (name.includes('Group#1_2') || name === 'Group#1') {
       return 'Lantai Carport & Garasi';
@@ -535,8 +566,8 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     if (lower.includes('wall') || lower.includes('dinding')) {
       return `Dinding (${name.replace(/_/g, ' ')})`;
     }
-    if (lower.includes('roof') || lower.includes('atap') || lower.includes('dak')) {
-      return `Atap / Dak (${name.replace(/_/g, ' ')})`;
+    if (lower.includes('roof') || lower.includes('atap') || lower.includes('dak') || lower.includes('plafon')) {
+      return `Atap / Plafon (${name.replace(/_/g, ' ')})`;
     }
     if (lower.includes('door') || lower.includes('pintu')) {
       return `Pintu (${name.replace(/_/g, ' ')})`;
@@ -585,12 +616,13 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       lower.includes('genteng') ||
       lower.includes('kanopi') ||
       lower.includes('canopy') ||
-      lower.includes('dak')
+      lower.includes('dak') ||
+      lower.includes('plafon')
     ) {
       return {
         category: 'roof',
         name: formatMeshDisplayName(mesh.name),
-        description: 'Bidang penutup atap atau kanopi dak bangunan.',
+        description: 'Bidang penutup atap atau kanopi dak/plafon bangunan.',
       };
     }
     if (
