@@ -97,6 +97,49 @@ export function calculateUniversalViewpoints(
 }
 
 /**
+ * Safely locates the actual WebGL HTMLCanvasElement across React Three Fiber wrapper divs.
+ */
+export function getThreeCanvasElement(): HTMLCanvasElement {
+  if (typeof window === 'undefined') {
+    throw new Error('Window environment tidak tersedia.');
+  }
+
+  // 1. Explicit window reference set in ConfiguratorCanvas
+  if ((window as any).__THREE_CANVAS__ instanceof HTMLCanvasElement) {
+    return (window as any).__THREE_CANVAS__;
+  }
+  if ((window as any).__THREE_GL__?.domElement instanceof HTMLCanvasElement) {
+    return (window as any).__THREE_GL__.domElement;
+  }
+
+  // 2. Direct canvas ID
+  const direct = document.getElementById('configurator-3d-webgl-canvas');
+  if (direct instanceof HTMLCanvasElement) {
+    return direct;
+  }
+
+  // 3. Child canvas inside the R3F wrapper div
+  const wrapper = document.getElementById('configurator-3d-canvas');
+  if (wrapper instanceof HTMLCanvasElement) {
+    return wrapper;
+  }
+  if (wrapper) {
+    const child = wrapper.querySelector('canvas');
+    if (child instanceof HTMLCanvasElement) {
+      return child;
+    }
+  }
+
+  // 4. Any canvas element in document
+  const anyCanvas = document.querySelector('canvas');
+  if (anyCanvas instanceof HTMLCanvasElement) {
+    return anyCanvas;
+  }
+
+  throw new Error('Canvas 3D WebGL tidak ditemukan. Pastikan 3D Configurator telah dimuat sepenuhnya.');
+}
+
+/**
  * Automates the 3D camera to capture all 6 architectural viewpoints sequentially.
  * Safely restores the user's camera and visibility state afterwards.
  */
@@ -111,10 +154,7 @@ export async function captureArchitectureViews(
   const total = viewpoints.length;
   const results: CapturedView[] = [];
 
-  const canvas = document.getElementById('configurator-3d-canvas') as HTMLCanvasElement | null;
-  if (!canvas) {
-    throw new Error('Canvas 3D tidak ditemukan. Pastikan 3D Configurator telah dimuat.');
-  }
+  const canvas = getThreeCanvasElement();
 
   // Backup current camera state from window.__THREE_CAMERA__
   const threeCam = (window as any).__THREE_CAMERA__;

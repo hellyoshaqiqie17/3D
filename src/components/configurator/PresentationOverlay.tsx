@@ -49,8 +49,19 @@ export function PresentationOverlay({ project }: PresentationOverlayProps) {
   if (!isPresentationMode) return null;
 
   const handleTakeScreenshot = () => {
-    const canvas = document.getElementById('configurator-3d-canvas') as HTMLCanvasElement;
-    if (canvas) {
+    let canvas: HTMLCanvasElement | null = null;
+    const direct = document.getElementById('configurator-3d-webgl-canvas');
+    if (direct instanceof HTMLCanvasElement) canvas = direct;
+    if (!canvas && (window as any).__THREE_CANVAS__ instanceof HTMLCanvasElement) canvas = (window as any).__THREE_CANVAS__;
+    if (!canvas && (window as any).__THREE_GL__?.domElement instanceof HTMLCanvasElement) canvas = (window as any).__THREE_GL__.domElement;
+    if (!canvas) {
+      const wrapper = document.getElementById('configurator-3d-canvas');
+      if (wrapper instanceof HTMLCanvasElement) canvas = wrapper;
+      else if (wrapper) canvas = wrapper.querySelector('canvas');
+    }
+    if (!canvas) canvas = document.querySelector('canvas');
+
+    if (canvas && typeof canvas.toDataURL === 'function') {
       try {
         const imageUri = canvas.toDataURL('image/png', 1.0);
         const link = document.createElement('a');

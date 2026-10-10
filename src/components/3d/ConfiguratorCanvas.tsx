@@ -111,6 +111,12 @@ export function ConfiguratorCanvas({
           shadows
           dpr={[1, 2]}
           camera={{ position: [12, 8, 14], fov: 50, near: 0.03, far: 2000 }}
+          onCreated={({ gl }) => {
+            gl.domElement.id = 'configurator-3d-webgl-canvas';
+            if (typeof window !== 'undefined') {
+              (window as any).__THREE_CANVAS__ = gl.domElement;
+            }
+          }}
           gl={{
             antialias: true,
             alpha: true,
