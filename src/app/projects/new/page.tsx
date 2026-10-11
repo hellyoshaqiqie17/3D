@@ -444,7 +444,7 @@ export default function NewProjectPage() {
         candidateZones.push({
           id: 'zone_vents',
           name: 'Vents, Fixtures & Accents',
-          category: 'roof',
+          category: 'exterior',
           meshNames: ventMeshes,
           defaultMaterialId: 'original',
         });

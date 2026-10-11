@@ -367,9 +367,23 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           name.startsWith('Component_342') ||
           name.startsWith('Component_3434');
 
+        if (isEnv) {
+          child.visible = !isFurnitureHidden && !isEnvironmentHidden;
+          return;
+        }
+
+        // Bare Room Mode: Hide all loose furniture, appliances (kulkas, kompor, oven), cabinets, island, decor,
+        // lamps, fixtures, and Enscape lights/widgets. Only pure Wall, Floor, and Plafon/Roof remain visible.
+        if (isFurnitureHidden) {
+          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY);
+          if (!isStructural) {
+            child.visible = false;
+            return;
+          }
+        }
+
         // Check world bounding box of this child
         const box = new THREE.Box3().setFromObject(child);
-
         const minY = box.min.y;
         const centerY = (box.min.y + box.max.y) / 2;
 
@@ -385,7 +399,6 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           lower.includes('plafon') ||
           lower.includes('ceiling') ||
           lower.includes('pergola') ||
-          name.includes('PointLight') ||
           name.startsWith('Group#137') ||
           name.startsWith('Group#138') ||
           name.startsWith('Group#139') ||
@@ -402,11 +415,6 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           name.startsWith('Component_196') ||
           name.startsWith('Component_197');
 
-        if (isEnv) {
-          child.visible = !isFurnitureHidden && !isEnvironmentHidden;
-          return;
-        }
-
         // Roof: explicit roof keywords OR meshes located at/above the detected roof elevation
         const isRoof =
           (isExplicitRoof || minY >= roofElevationY - 0.1 || centerY >= roofElevationY) &&
@@ -415,16 +423,6 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         if (isRoof) {
           child.visible = !isRoofHidden;
           return;
-        }
-
-        // Bare Room Mode: Hide all loose furniture, appliances (kulkas, kompor, oven), cabinets, island & decor
-        // Only keep pure Wall, Floor, and Plafon/Roof
-        if (isFurnitureHidden) {
-          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY);
-          if (!isStructural) {
-            child.visible = false;
-            return;
-          }
         }
 
         // Check if belonging to a floor level that is toggled off (e.g. Lantai 2, Lantai 3)

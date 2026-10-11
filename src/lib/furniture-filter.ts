@@ -33,7 +33,7 @@ export const FURNITURE_KEYWORDS = [
   'bed', 'kasur', 'ranjang', 'mattress', 'headboard', 'nightstand', 'nakas',
   'toilet', 'closet_wc', 'wc', 'urinal', 'bidet',
   'bathtub', 'shower', 'vanity', 'mirror', 'cermin',
-  'lamp', 'lampu', 'chandelier', 'pendant', 'sconce', 'lantern', 'standing_lamp', 'light', 'spotlight', 'pointlight',
+  'lamp', 'lampu', 'chandelier', 'pendant', 'sconce', 'lantern', 'standing_lamp', 'light', 'spotlight', 'pointlight', 'enscape', 'linear', 'spot', 'point', 'pole', 'rod', 'rail',
   'tv', 'television', 'monitor', 'screen', 'audio', 'speaker',
   'decor', 'decoration', 'hiasan', 'pajangan', 'accessories', 'sculpture', 'statue', 'art', 'print',
   'pot', 'plant', 'tanaman', 'flower', 'bunga', 'vase', 'vas', 'cactus', 'potted',
@@ -131,6 +131,7 @@ export function isStructuralShellMesh(
     (mesh.userData as any)?.splitFrom || '',
     (mesh.userData as any)?.originalName || '',
     mesh.parent?.name || '',
+    mesh.parent?.parent?.name || '',
   ].join(' ');
 
   const tokens = new Set(
