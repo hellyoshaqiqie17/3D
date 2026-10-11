@@ -8,7 +8,6 @@ import {
   Layers,
   Sun,
   Grid,
-  Bed,
   Orbit,
   Compass,
   ChevronUp,
@@ -31,8 +30,6 @@ import {
 } from 'lucide-react';
 
 const PRESETS = [
-  { id: 'interior', name: 'Ruang Tamu', icon: Sofa, description: 'Masuk ke dalam tengah ruang tamu (eye-level)' },
-  { id: 'bedroom', name: 'Kamar', icon: Bed, description: 'Masuk ke dalam kamar tidur' },
   { id: 'exterior', name: 'Tampak Luar', icon: Eye, description: 'Lihat seluruh rumah dari luar' },
   { id: 'facade', name: 'Depan', icon: Sun, description: 'Lihat fasad & teras dari depan' },
   { id: 'dollhouse', name: 'Dari Atas', icon: Layers, description: 'Lihat isi semua ruangan dari atas (atap dibuka)' },

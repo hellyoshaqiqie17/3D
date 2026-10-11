@@ -11,6 +11,21 @@ import { getMaterialById } from '@/lib/materials';
 import { splitMergedSurfaces } from '@/lib/mesh-splitter';
 import { calculateRoomBounds, isStructuralShellMesh } from '@/lib/furniture-filter';
 
+const ARCHITECTURAL_SURFACES: {
+  tag: string;
+  id: string;
+  name: string;
+  category: MaterialZone['category'];
+  description: string;
+}[] = [
+  { tag: '__Dinding_Belakang', id: 'surface_dinding_belakang', name: 'Dinding Belakang (Back Wall)', category: 'wall', description: 'Seluruh permukaan dinding belakang ruangan.' },
+  { tag: '__Dinding_Depan', id: 'surface_dinding_depan', name: 'Dinding Depan (Front Wall)', category: 'wall', description: 'Seluruh permukaan dinding depan ruangan.' },
+  { tag: '__Dinding_Kiri', id: 'surface_dinding_kiri', name: 'Dinding Kiri (Left Wall)', category: 'wall', description: 'Seluruh permukaan dinding kiri ruangan.' },
+  { tag: '__Dinding_Kanan', id: 'surface_dinding_kanan', name: 'Dinding Kanan (Right Wall)', category: 'wall', description: 'Seluruh permukaan dinding kanan ruangan.' },
+  { tag: '__Lantai_Bawah', id: 'surface_lantai_bawah', name: 'Lantai Ruangan (Floor)', category: 'floor', description: 'Seluruh permukaan lantai ruangan.' },
+  { tag: '__Plafon_Atas', id: 'surface_plafon_atas', name: 'Plafon Ruangan (Ceiling)', category: 'roof', description: 'Seluruh permukaan plafon/atap ruangan.' },
+];
+
 interface HouseModelProps {
   modelUrl: string;
   zones: MaterialZone[];
@@ -327,6 +342,36 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     return [...zones, ...dynamicZones];
   }, [zones, dynamicZones]);
 
+  // Automatically discover and register architectural surface zones across all split pieces
+  useEffect(() => {
+    if (!sceneClone) return;
+
+    ARCHITECTURAL_SURFACES.forEach((surf) => {
+      const matching: string[] = [];
+      sceneClone.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.name && child.name.includes(surf.tag)) {
+          matching.push(child.name);
+        }
+      });
+      if (matching.length > 0) {
+        const alreadyCovered =
+          dynamicZones.some((z) => z.id === surf.id || z.meshNames.some((m) => matching.includes(m))) ||
+          zones.some((z) => z.meshNames.some((m) => matching.includes(m)));
+
+        if (!alreadyCovered) {
+          addDynamicZone({
+            id: surf.id,
+            name: surf.name,
+            category: surf.category,
+            meshNames: matching,
+            defaultMaterialId: 'original',
+            description: surf.description,
+          });
+        }
+      }
+    });
+  }, [sceneClone, addDynamicZone, dynamicZones, zones]);
+
   // Memoize room architectural bounds for structural shell classification
   const roomBounds = useMemo(() => {
     if (!sceneClone) return { minX: -2.5, maxX: 2.5, minZ: -2.5, maxZ: 2.5, groundY: 0, ceilingY: 3, roomHeight: 3, roomWidth: 5, roomDepth: 5 };
@@ -478,13 +523,13 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   // Mesh to zone lookup map
   const meshToZoneMap = useMemo(() => {
     const map = new Map<string, MaterialZone>();
-    zones.forEach((zone) => {
+    combinedZones.forEach((zone) => {
       zone.meshNames.forEach((meshName) => {
         map.set(meshName, zone);
       });
     });
     return map;
-  }, [zones]);
+  }, [combinedZones]);
 
   // Apply default/custom materials or restore original model based on mode
   useEffect(() => {
@@ -497,7 +542,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
     const isDemo = modelUrl.includes('modern-villa.glb') || modelUrl === '/models/modern-villa.glb';
 
-    zones.forEach((zone) => {
+    combinedZones.forEach((zone) => {
       const selectedMatId = selectedMaterials[zone.id] || (isDemo ? zone.defaultMaterialId : 'original');
       const customColor = customColors[zone.id];
 
@@ -524,7 +569,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     });
   }, [
     sceneClone,
-    zones,
+    combinedZones,
     selectedMaterials,
     customColors,
     uploadedMaterials,
@@ -717,7 +762,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       document.body.style.cursor = 'pointer';
       const existingZone =
         dynamicZones.find((z) => z.meshNames.includes(mesh.name)) ||
-        zones.find((z) => z.meshNames.length === 1 && z.meshNames[0] === mesh.name);
+        zones.find((z) => z.meshNames.includes(mesh.name));
       if (existingZone) {
         setHoveredMesh(existingZone.name);
       } else {
@@ -741,10 +786,10 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     // Immediately highlight this exact box with the blue wireframe BoxHelper
     setSelectedMesh(mesh.name);
 
-    // Look for an existing single-mesh zone or dynamic zone for this exact box
+    // Look for an existing zone covering this mesh
     const existingZone =
       dynamicZones.find((z) => z.meshNames.includes(mesh.name)) ||
-      zones.find((z) => z.meshNames.length === 1 && z.meshNames[0] === mesh.name);
+      zones.find((z) => z.meshNames.includes(mesh.name));
 
     if (existingZone) {
       selectZone(existingZone.id);
@@ -753,17 +798,42 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       return;
     }
 
-    // Create a new dedicated single-box zone for this exact mesh
-    const detected = detectMeshCategoryAndName(mesh);
-    const dynamicId = `box_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    // Check if this mesh belongs to one of the architectural surface families
+    const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => mesh.name.includes(s.tag));
+    let targetMeshNames = [mesh.name];
+    let zoneId = `box_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+    let zoneName = '';
+    let zoneCategory: MaterialZone['category'] = 'wall';
+    let zoneDesc = '';
+
+    if (matchedSurface) {
+      const matchingSiblings: string[] = [];
+      sceneClone.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+          matchingSiblings.push(child.name);
+        }
+      });
+      if (matchingSiblings.length > 0) {
+        targetMeshNames = matchingSiblings;
+      }
+      zoneId = matchedSurface.id;
+      zoneName = matchedSurface.name;
+      zoneCategory = matchedSurface.category;
+      zoneDesc = matchedSurface.description;
+    } else {
+      const detected = detectMeshCategoryAndName(mesh);
+      zoneName = detected.name;
+      zoneCategory = detected.category;
+      zoneDesc = detected.description;
+    }
 
     const newZone: MaterialZone = {
-      id: dynamicId,
-      name: detected.name,
-      category: detected.category,
-      meshNames: [mesh.name],
+      id: zoneId,
+      name: zoneName,
+      category: zoneCategory,
+      meshNames: targetMeshNames,
       defaultMaterialId: 'original',
-      description: detected.description,
+      description: zoneDesc,
     };
 
     addDynamicZone(newZone);
@@ -783,7 +853,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       if (obj) return obj;
     }
     if (selectedZoneId) {
-      const zone = zones.find((z) => z.id === selectedZoneId);
+      const zone = combinedZones.find((z) => z.id === selectedZoneId);
       if (zone && zone.meshNames.length > 0) {
         for (const name of zone.meshNames) {
           const obj = sceneClone.getObjectByName(name);
@@ -792,7 +862,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       }
     }
     return null;
-  }, [sceneClone, selectedMeshName, selectedZoneId, zones]);
+  }, [sceneClone, selectedMeshName, selectedZoneId, combinedZones]);
 
   return (
     <group ref={modelRef}>

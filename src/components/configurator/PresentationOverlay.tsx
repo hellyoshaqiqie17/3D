@@ -19,7 +19,6 @@ import {
 
 const PRESETS = [
   { id: 'exterior', name: 'Tampak Luar', icon: Eye },
-  { id: 'interior', name: 'Ruang Tamu', icon: Sofa },
   { id: 'dollhouse', name: 'Perspektif Atas', icon: Layers },
   { id: 'facade', name: 'Fasad Depan', icon: Sun },
   { id: 'top', name: 'Denah Atas', icon: Grid },

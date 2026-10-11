@@ -115,17 +115,37 @@ function ensureWorldUVs(mesh: THREE.Mesh): void {
 
     let u: number;
     let v: number;
-    if (ay >= ax && ay >= az) {
-      // Floors / ceilings / roads: project from top
+    const meshName = mesh.name || '';
+
+    if (meshName.includes('__Dinding_Belakang')) {
       u = p.x;
-      v = n.y >= 0 ? -p.z : p.z;
+      v = p.y;
+    } else if (meshName.includes('__Dinding_Depan')) {
+      u = -p.x;
+      v = p.y;
+    } else if (meshName.includes('__Dinding_Kiri')) {
+      u = p.z;
+      v = p.y;
+    } else if (meshName.includes('__Dinding_Kanan')) {
+      u = -p.z;
+      v = p.y;
+    } else if (meshName.includes('__Lantai_Bawah')) {
+      u = p.x;
+      v = -p.z;
+    } else if (meshName.includes('__Plafon_Atas')) {
+      u = p.x;
+      v = p.z;
+    } else if (ay >= ax && ay >= az) {
+      // Floors / ceilings / horizontal surfaces: project from top
+      u = p.x;
+      v = -p.z;
     } else if (ax >= az) {
       // Walls facing ±X
-      u = n.x >= 0 ? -p.z : p.z;
+      u = p.z;
       v = p.y;
     } else {
       // Walls facing ±Z
-      u = n.z >= 0 ? p.x : -p.x;
+      u = p.x;
       v = p.y;
     }
     uvs[i * 2] = u;
