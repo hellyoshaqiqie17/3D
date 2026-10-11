@@ -177,21 +177,26 @@ export default function DashboardPage() {
   };
 
   const displayName = user?.name || (isInitialized ? 'Super Admin Architect' : 'Memuat profil...');
-  const displayStudio = user?.studioName || 'HomeCraft 3D Studio';
+  const displayStudio = user?.studioName || 'Mitra Megah Interior';
   const displayRole = user?.role || 'Administrator & Principal Architect';
-  const displayAvatar = user?.avatar || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'AD');
+  const displayAvatar = user?.avatar || (user?.name ? user.name.slice(0, 2).toUpperCase() : 'MM');
 
   return (
     <div className="min-h-screen bg-[#F7F7F5] flex flex-col">
       {/* Top Navbar */}
       <header className="h-16 px-6 bg-white border-b border-border flex items-center justify-between sticky top-0 z-30">
         <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center font-bold text-sm tracking-wider">
-              HC
+          <Link href="/" className="flex items-center gap-2.5 group">
+            <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-border shrink-0 group-hover:scale-105 transition-transform">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Mitra Megah Interior"
+                className="w-full h-full object-cover"
+              />
             </div>
             <span className="font-semibold text-sm tracking-tight text-primary">
-              HOMECRAFT <span className="font-normal text-secondary">STUDIO</span>
+              MITRA MEGAH <span className="font-normal text-secondary">INTERIOR</span>
             </span>
           </Link>
 
@@ -224,8 +229,8 @@ export default function DashboardPage() {
                 <span className="text-xs font-bold text-primary block leading-tight">
                   {displayName}
                 </span>
-                <span className="text-[10px] text-secondary font-mono block leading-tight">
-                  {displayStudio.split(' ')[0]}
+                <span className="text-[10px] text-secondary font-mono block leading-tight truncate max-w-[130px]">
+                  {displayStudio}
                 </span>
               </div>
               <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-xs font-bold shadow-sm">
@@ -238,7 +243,7 @@ export default function DashboardPage() {
               <div className="absolute right-0 mt-2 w-64 bg-white border border-border rounded-2xl shadow-float p-3 z-50">
                 <div className="p-2 border-b border-border mb-2">
                   <span className="text-xs font-bold text-primary block">{displayName}</span>
-                  <span className="text-[11px] text-secondary block font-mono">{user?.email || 'admin@homecraft3d.com'}</span>
+                  <span className="text-[11px] text-secondary block font-mono">{user?.email || 'admin@mitramegahinterior.com'}</span>
                   <span className="text-[10px] text-accent-warm font-semibold block mt-1">{displayRole}</span>
                 </div>
 

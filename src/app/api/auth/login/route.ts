@@ -48,6 +48,7 @@ export async function POST(request: Request) {
     // 1. SPECIFIC REQUIREMENT: Check admin / admin123
     if (
       identifier === 'admin' ||
+      identifier === 'admin@mitramegahinterior.com' ||
       identifier === 'admin@homecraft3d.com' ||
       identifier === 'admin@atelier3d.com'
     ) {

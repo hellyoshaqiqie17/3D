@@ -152,12 +152,17 @@ function LoginForm() {
         {/* Top Header & Branding */}
         <div className="relative z-10 flex items-center justify-between">
           <Link href="/" className="group flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-white text-[#121211] flex items-center justify-center font-bold text-sm tracking-wider shadow-md group-hover:scale-105 transition-transform">
-              HC
+            <div className="w-10 h-10 rounded-full overflow-hidden shadow-md border border-white/20 group-hover:scale-105 transition-transform shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Mitra Megah Interior"
+                className="w-full h-full object-cover"
+              />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm tracking-tight text-white">HOMECRAFT 3D</span>
+                <span className="font-semibold text-sm tracking-tight text-white">MITRA MEGAH INTERIOR</span>
                 <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-white/10 text-white/70 border border-white/10">
                   STUDIO
                 </span>
@@ -248,10 +253,15 @@ function LoginForm() {
         {/* Mobile Header */}
         <div className="flex lg:hidden items-center justify-between mb-8 pb-4 border-b border-border">
           <Link href="/" className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#171717] text-white flex items-center justify-center font-bold text-xs">
-              HC
+            <div className="w-8 h-8 rounded-full overflow-hidden shadow-sm border border-border shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="Mitra Megah Interior"
+                className="w-full h-full object-cover"
+              />
             </div>
-            <span className="font-semibold text-sm tracking-tight text-[#171717]">HOMECRAFT 3D</span>
+            <span className="font-semibold text-sm tracking-tight text-[#171717]">MITRA MEGAH INTERIOR</span>
           </Link>
           <Link href="/" className="text-xs text-[#6B6B6B] hover:text-[#171717] flex items-center gap-1">
             <ArrowLeft className="w-3 h-3" />
@@ -573,8 +583,8 @@ function LoginForm() {
 
         {/* Footer info */}
         <div className="pt-6 border-t border-[#E8E8E5] flex items-center justify-between text-[11px] text-[#A3A39E] font-mono">
-          <span>HOMECRAFT 3D PLATFORM</span>
-          <span>© 2026 ARCHITECTURAL TECHNOLOGIES</span>
+          <span>MITRA MEGAH INTERIOR PLATFORM</span>
+          <span>© 2026 MITRA MEGAH INTERIOR</span>
         </div>
       </div>
     </div>

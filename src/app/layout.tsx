@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'HomeCraft 3D | Interactive Architectural Home Configurator',
+  title: 'Mitra Megah Interior | 3D Architectural & Interior Configurator',
   description:
-    'Commercial 3D Home Configurator for architects and buyers. Explore architectural models in real time and customize wall colors, hardwood flooring, and ceramic tiles directly inside the browser.',
+    'Mitra Megah Interior - Solusi Desain Interior & Arsitektur Interaktif 3D. Kustomisasi warna dinding, material lantai, dan visualisasi spasial secara real-time langsung di browser.',
 };
 
 export default function RootLayout({

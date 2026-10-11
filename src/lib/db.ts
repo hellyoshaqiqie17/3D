@@ -33,10 +33,10 @@ export const ADMIN_USER: User = {
   id: 'usr-admin-lead',
   username: 'admin',
   name: 'Super Admin Architect',
-  email: 'admin@homecraft3d.com',
-  studioName: 'HomeCraft 3D Studio',
+  email: 'admin@mitramegahinterior.com',
+  studioName: 'Mitra Megah Interior',
   role: 'Administrator & Principal Architect',
-  avatar: 'AD',
+  avatar: 'MM',
   createdAt: '2026-01-01T00:00:00Z',
 };
 
@@ -432,6 +432,7 @@ export const db = {
     const normalized = email.toLowerCase().trim();
     if (
       normalized === 'admin' ||
+      normalized === 'admin@mitramegahinterior.com' ||
       normalized === 'admin@homecraft3d.com' ||
       normalized === 'admin@atelier3d.com'
     ) {

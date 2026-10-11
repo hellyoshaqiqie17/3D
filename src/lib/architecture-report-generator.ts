@@ -293,7 +293,7 @@ export function buildArchitectureReportPdf(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(161, 161, 170); // #A1A1AA
-    doc.text(`HOMECRAFT 3D ARCHITECTURAL CAD REPORT | ${sheetTitle.toUpperCase()}`, 14, 15);
+    doc.text(`MITRA MEGAH INTERIOR ARCHITECTURAL CAD REPORT | ${sheetTitle.toUpperCase()}`, 14, 15);
 
     // Right: Date & Sheet Number
     doc.setFont('helvetica', 'bold');
@@ -322,7 +322,7 @@ export function buildArchitectureReportPdf(
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.5);
     doc.setTextColor(113, 113, 122);
-    doc.text('Dihasilkan secara otomatis oleh HomeCraft 3D CAD - Interactive Architectural Configurator', 14, pageHeight - 7);
+    doc.text('Dihasilkan secara otomatis oleh Mitra Megah Interior - Interactive 3D Configurator', 14, pageHeight - 7);
     doc.text(pageStr, pageWidth - 14, pageHeight - 7, { align: 'right' });
   };
 

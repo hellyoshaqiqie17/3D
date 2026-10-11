@@ -78,11 +78,19 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
       <div className="flex items-center gap-3 min-w-0">
         <Link
           href="/dashboard"
-          title="Kembali ke Dashboard"
-          className="flex items-center gap-1 h-9 px-2 text-xs font-medium text-secondary hover:text-primary rounded-lg hover:bg-surface-100 transition-colors shrink-0"
+          title="Kembali ke Dashboard Mitra Megah Interior"
+          className="flex items-center gap-2 h-9 px-2 text-xs font-medium text-secondary hover:text-primary rounded-lg hover:bg-surface-100 transition-colors shrink-0"
         >
           <ChevronLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">Dashboard</span>
+          <div className="w-6 h-6 rounded-full overflow-hidden shadow-xs border border-border shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Mitra Megah Interior"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <span className="hidden sm:inline font-semibold text-primary">Dashboard</span>
         </Link>
 
         <div className="h-5 w-px bg-border shrink-0" />

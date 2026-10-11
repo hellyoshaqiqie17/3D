@@ -16,29 +16,29 @@ import {
 export default function ArchitecturalShowcasePage() {
   const [activeHeroSlide, setActiveHeroSlide] = useState(0);
 
-  // Hero carousel slides matching Image 1
+  // Hero carousel slides featuring Mitra Megah Interior
   const heroSlides = [
     {
       image:
-        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2400&q=85',
-      headlineSans: 'Building',
-      headlineSerif: 'Beyond',
+        'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=2400&q=85',
+      headlineSans: 'Mitra Megah',
+      headlineSerif: 'Interior',
       vitruviusQuote:
-        'According to Vitruvius, the architect should strive to fulfill each of these three attributes as well as possible: firmitas, utilitas, venustas.',
-      definitionTitle: 'Architecture can mean:',
+        'Harmoni kemewahan ruang, presisi material, dan kenyamanan fungsional berpadu sempurna dalam setiap karya interior modern.',
+      definitionTitle: 'Filosofi Interior Kami:',
       definitionText:
-        'A general term to describe buildings and other physical structures.',
+        'Mewujudkan ruang hunian dan komersial eksklusif dengan keahlian pengerjaan tinggi, material premium, dan visualisasi 3D spasial interaktif.',
     },
     {
       image:
-        'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=2400&q=85',
-      headlineSans: 'Form &',
-      headlineSerif: 'Function',
+        'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=2400&q=85',
+      headlineSans: 'Kemewahan &',
+      headlineSerif: 'Kenyamanan',
       vitruviusQuote:
-        'Beauty emerges from the harmony of purpose, materiality, and the living spirit of modern dwelling.',
-      definitionTitle: 'Spatial proportions:',
+        'Kualitas tanpa kompromi: dari kurasi marmer alami, panel kayu arsitektural kustom, hingga tata pencahayaan yang memikat.',
+      definitionTitle: 'Desain Kustom Spasial:',
       definitionText:
-        'High-contrast volumetric forms engineered for residential and civic masterplans.',
+        'Personalisasi interior presisi tinggi yang disesuaikan secara khusus dengan karakter dan gaya hidup prestisius Anda.',
     },
     {
       image:
@@ -46,85 +46,86 @@ export default function ArchitecturalShowcasePage() {
       headlineSans: 'Living',
       headlineSerif: 'Sanctuary',
       vitruviusQuote:
-        'Every spatial threshold is engineered to blur the boundary between natural landscapes and crafted stone.',
-      definitionTitle: 'Material craftsmanship:',
+        'Menghadirkan suasana hunian yang hangat, menenangkan, sekaligus megah melalui sentuhan estetika interior kontemporer.',
+      definitionTitle: 'Material Craftsmanship:',
       definitionText:
-        'Calibrated timber, honed travertine, and structural glazing customized live.',
+        'Pilihan marmer premium, parket kayu solid, dan finishing PBR realistis yang dapat disimulasikan secara interaktif.',
     },
     {
       image:
-        'https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=2400&q=85',
+        'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2400&q=85',
       headlineSans: 'Modernist',
-      headlineSerif: 'Horizon',
+      headlineSerif: 'Elegance',
       vitruviusQuote:
-        'Atelier practice uniting architectural precision with timeless materiality.',
-      definitionTitle: 'Architectural atelier:',
+        'Kemitraan terpercaya untuk kebutuhan rancang bangun, renovasi total, dan pembuatan furnitur kustom berstandar tinggi.',
+      definitionTitle: 'Mitra Megah Interior:',
       definitionText:
-        'Direct physical structure planning with daylight and spatial rhythm.',
+        'Konsultasikan proyek interior hunian, apartemen, atau ruang kantor Anda bersama tim perancang profesional kami.',
     },
   ];
 
-  // Recent Projects matching Image 1
+  // Recent Projects - Mitra Megah Interior Portfolio
   const recentProjects = [
     {
       id: 'proj-1',
-      title: 'The modern Versailles',
-      location: 'Alexander City, New York',
+      title: 'Modern Luxury Penthouse Suite',
+      location: 'SCBD, Jakarta Selatan',
       image:
-        'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=1200&q=80',
     },
     {
       id: 'proj-2',
-      title: 'Buckingham Palace',
-      location: 'Lake Havasu City, Washington',
+      title: 'Grand Residence Living & Dining',
+      location: 'Pondok Indah, Jakarta Selatan',
       image:
-        'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=1200&q=80',
     },
     {
       id: 'proj-3',
-      title: 'Les Palais Bulles',
-      location: 'North Little Rock, California',
+      title: 'Contemporary Luxury Villa Interior',
+      location: 'Canggu, Bali',
       image:
-        'https://images.unsplash.com/photo-1600566753376-12c8ab7fb75b?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=1200&q=80',
     },
   ];
 
-  // Architects directory matching Image 1
+  // Architects & Designers Directory
   const architectsDirectory = [
     {
-      name: 'Max Abramovitz',
-      specialty: '* Hathor, relief on capitals at Philae island, southern Egypt.',
-      hasAvatar: false,
+      name: 'Tim Desainer Mitra Megah Interior',
+      specialty: '• Spesialis Konsep Interior Modern Kontemporer & Luxury Living',
+      hasAvatar: true,
+      avatarUrl: '/logo.png',
     },
     {
-      name: 'Cameron Williamson',
-      specialty: '* Brighton, Brighton and Hove, United Kingdom',
+      name: 'Spatial Planner & Lighting Architect',
+      specialty: '• Tata Ruang Fungsional, Ergonomi & Ambience Pencahayaan Arsitektural',
       hasAvatar: true,
       avatarUrl:
         'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
     },
     {
-      name: 'Pietro Belluschi',
-      specialty: '* Cushion capital and early English Gothic foliated capital.',
+      name: 'Material & Finishing Specialist',
+      specialty: '• Kurasi Marmer Alami, Custom Woodworking & High-End Finishes',
       hasAvatar: false,
     },
   ];
 
-  // Case studies matching Image 1
+  // Case studies
   const caseStudies = [
     {
-      title: 'Fulham Town Hall extension',
+      title: 'Transformasi Luxury Master Bedroom & Walk-in Closet',
       description:
-        'Improvement on the floor plan and layout of a loft apartment in Paris to maximise the use of space and additional.',
+        'Optimalisasi tata ruang kamar utama dengan panel kayu oak bertekstur, pencahayaan LED tersembunyi, dan walk-in wardrobe elegan bernuansa mewah.',
       image:
-        'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=1200&q=80',
     },
     {
-      title: 'The White Apartment',
+      title: 'Open-Concept Living & Dining Room Pavilion',
       description:
-        'Redefining Urban Elegance: Bridging Heritage and Modern Living in an Iconic Residential Landmark.',
+        'Penggabungan ruang keluarga dan ruang makan bergaya kontemporer dengan finishing marmer carrara dan sofa kustom berdimensi presisi.',
       image:
-        'https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=1200&q=80',
+        'https://images.unsplash.com/photo-1600585152220-90363fe7e115?auto=format&fit=crop&w=1200&q=80',
     },
   ];
 
@@ -151,7 +152,7 @@ export default function ArchitecturalShowcasePage() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-black/60 pointer-events-none" />
           </div>
 
-          {/* Integrated DNOIN.INC Header Navigation */}
+          {/* Integrated Mitra Megah Interior Header Navigation */}
           <ArchitecturalNavbar />
 
           {/* Hero Main Content */}
@@ -232,20 +233,19 @@ export default function ArchitecturalShowcasePage() {
       <main className="bg-[#FFFFFF] text-[#171717] rounded-t-[36px] sm:rounded-t-[48px] px-6 sm:px-12 lg:px-20 py-16 sm:py-24 space-y-28 shadow-2xl">
         {/* 
           ----------------------------------------------------------------------
-          SECTION 2: • ABOUT US (Manifesto)
+          SECTION 2: • TENTANG KAMI (Manifesto)
           ----------------------------------------------------------------------
         */}
         <section id="about" className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-16 items-start pt-4">
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-[#171717]">
               <span className="w-2 h-2 rounded-full bg-[#171717]" />
-              <span>About Us</span>
+              <span>Tentang Mitra Megah Interior</span>
             </div>
           </div>
           <div className="md:col-span-9">
             <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-bold text-[#171717] leading-[1.25] tracking-tight">
-              The art and science of designing buildings and nonbuilding structures.
-              The style of design and method of construction of buildings and other physical structures.
+              Seni dan presisi rancang bangun interior serta tata ruang arsitektural. Mitra Megah Interior menghadirkan keindahan, fungsionalitas, dan kualitas pengerjaan terbaik untuk mewujudkan hunian dan ruang impian Anda.
             </h2>
           </div>
         </section>
@@ -260,17 +260,15 @@ export default function ArchitecturalShowcasePage() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-end pb-4 border-b border-[#F0F0ED]">
             <div className="md:col-span-4">
               <h2 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-[#171717] leading-none">
-                Recent <br />
+                Portofolio <br />
                 <span className="font-serif italic font-normal text-[#171717]">
-                  Projects
+                  Terbaru
                 </span>
               </h2>
             </div>
             <div className="md:col-span-5">
               <p className="text-xs sm:text-sm text-[#737373] leading-relaxed max-w-md">
-                After completing your year 12 education and earning the necessary scores,
-                you may apply for a bachelor&apos;s degree in architecture. To qualify,
-                students can complete one of three entrance exams:
+                Eksplorasi karya desain interior dan rancang bangun pilihan dari Mitra Megah Interior, dirancang dengan sentuhan kemewahan modern dan material berkualitas tinggi.
               </p>
             </div>
             <div className="md:col-span-3 md:text-right">
@@ -278,7 +276,7 @@ export default function ArchitecturalShowcasePage() {
                 href="#projects"
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-full border border-[#171717] hover:bg-[#171717] hover:text-white transition-all text-xs font-semibold tracking-wide group"
               >
-                <span>View All</span>
+                <span>Lihat Semua</span>
                 <span className="w-5 h-5 rounded-full bg-[#171717] text-white flex items-center justify-center group-hover:bg-white group-hover:text-[#171717] transition-colors">
                   <ChevronRight className="w-3 h-3" />
                 </span>
@@ -297,7 +295,6 @@ export default function ArchitecturalShowcasePage() {
                 <div className="relative rounded-2xl overflow-hidden aspect-[4/3] bg-[#EBEBE8] shadow-sm group-hover:shadow-xl transition-all duration-500">
                   {/* Top Architectural Scoop Notch Overlay */}
                   <CardTopNotch className="absolute top-0 inset-x-0 z-10" fillColor="#FFFFFF" />
-
                   <img
                     src={project.image}
                     alt={project.title}
@@ -322,14 +319,14 @@ export default function ArchitecturalShowcasePage() {
 
         {/* 
           ----------------------------------------------------------------------
-          SECTION 4: • OUR ARCHITECTS (Directory)
+          SECTION 4: • TIM DESAINER (Directory)
           ----------------------------------------------------------------------
         */}
         <section id="architects" className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-16 items-start pt-6">
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-[#171717]">
               <span className="w-2 h-2 rounded-full bg-[#171717]" />
-              <span>Our Architects</span>
+              <span>Tim &amp; Konsultan Desain</span>
             </div>
           </div>
 
@@ -344,7 +341,7 @@ export default function ArchitecturalShowcasePage() {
                     <img
                       src={architect.avatarUrl}
                       alt={architect.name}
-                      className="w-12 h-12 rounded-xl object-cover object-center shadow-sm"
+                      className="w-12 h-12 rounded-xl object-cover object-center shadow-sm border border-black/5"
                     />
                   ) : (
                     <div className="w-1.5 h-1.5 rounded-full bg-[#C28448] hidden sm:block" />
@@ -367,7 +364,7 @@ export default function ArchitecturalShowcasePage() {
                     href="#contact"
                     className="inline-flex items-center gap-1 text-xs font-semibold text-[#171717] hover:text-[#C28448] transition-colors"
                   >
-                    <span>View Profile</span>
+                    <span>Konsultasi</span>
                     <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
                   </a>
                 </div>
@@ -383,11 +380,11 @@ export default function ArchitecturalShowcasePage() {
         */}
         <section className="max-w-7xl mx-auto">
           <div className="relative rounded-[32px] sm:rounded-[44px] overflow-hidden bg-[#1E1E1E] text-white min-h-[480px] sm:min-h-[540px] flex flex-col justify-between shadow-2xl">
-            {/* Background Photographic Render (Warm modern pavilion matching Image 1) */}
+            {/* Background Photographic Render */}
             <div className="absolute inset-0 z-0">
               <img
                 src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=2400&q=85"
-                alt="Modern glass architecture pavilion at dusk"
+                alt="Mitra Megah Interior modern luxury interior"
                 className="w-full h-full object-cover object-center"
               />
               <div className="absolute inset-0 bg-gradient-to-r from-black/85 via-black/50 to-transparent pointer-events-none" />
@@ -401,12 +398,12 @@ export default function ArchitecturalShowcasePage() {
             {/* Banner Main Content */}
             <div className="relative z-10 px-8 sm:px-14 lg:px-16 py-12 flex flex-col md:flex-row justify-between items-end gap-10 flex-grow">
               <div className="space-y-8">
-                {/* Headline: "Project Categories" */}
+                {/* Headline: "Layanan & Kategori" */}
                 <div>
                   <h2 className="text-4xl sm:text-6xl lg:text-7xl font-bold tracking-tight text-white leading-none">
-                    Project <br />
+                    Layanan <br />
                     <span className="font-serif italic font-normal text-white">
-                      Categories
+                      Interior
                     </span>
                   </h2>
                 </div>
@@ -415,19 +412,19 @@ export default function ArchitecturalShowcasePage() {
                 <ul className="space-y-2 text-sm sm:text-base font-medium text-white/90">
                   <li className="flex items-center gap-2.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                    <span>Interior design</span>
+                    <span>Interior Design &amp; Fit-Out Kontraktor</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                    <span>Commercial architect</span>
+                    <span>Custom Furniture, Kitchen Set &amp; Wardrobe</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                    <span>Landscape architect</span>
+                    <span>Luxury Residential Architecture &amp; Remodeling</span>
                   </li>
                   <li className="flex items-center gap-2.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-white" />
-                    <span>Civic project</span>
+                    <span>Commercial, Office &amp; Retail Space Styling</span>
                   </li>
                 </ul>
               </div>
@@ -438,7 +435,7 @@ export default function ArchitecturalShowcasePage() {
                   href="#contact"
                   className="inline-flex items-center gap-3 px-7 py-3 rounded-full bg-black/65 hover:bg-black text-white border border-white/20 backdrop-blur-md text-xs font-semibold tracking-wider transition-all shadow-xl hover:border-white/50 group"
                 >
-                  <span>Contact Us</span>
+                  <span>Hubungi Kami</span>
                   <span className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-white group-hover:translate-x-0.5 transition-transform">
                     <ChevronRight className="w-3.5 h-3.5" />
                   </span>
@@ -455,14 +452,14 @@ export default function ArchitecturalShowcasePage() {
 
         {/* 
           ----------------------------------------------------------------------
-          SECTION 6: • RECENT CASE STUDIES
+          SECTION 6: • STUDI KASUS PROYEK
           ----------------------------------------------------------------------
         */}
         <section className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-12 gap-8 lg:gap-16 items-start pt-4">
           <div className="md:col-span-3">
             <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-[#171717]">
               <span className="w-2 h-2 rounded-full bg-[#171717]" />
-              <span>Recent case studies</span>
+              <span>Studi Kasus Interior</span>
             </div>
           </div>
 
@@ -487,7 +484,7 @@ export default function ArchitecturalShowcasePage() {
                       href="#contact"
                       className="inline-flex items-center gap-2.5 px-6 py-2.5 rounded-full bg-[#EAEAEA] hover:bg-[#171717] hover:text-white transition-all text-xs font-semibold text-[#171717] group shadow-sm"
                     >
-                      <span>View more</span>
+                      <span>Pelajari detail</span>
                       <span className="w-5 h-5 rounded-full bg-[#171717] text-white flex items-center justify-center group-hover:bg-white group-hover:text-[#171717] transition-colors">
                         <ChevronRight className="w-3.5 h-3.5" />
                       </span>
@@ -513,83 +510,102 @@ export default function ArchitecturalShowcasePage() {
 
         {/* 
           ----------------------------------------------------------------------
-          ATELIER FOOTER
+          MITRA MEGAH INTERIOR FOOTER
           ----------------------------------------------------------------------
         */}
         <footer id="contact" className="max-w-7xl mx-auto pt-16 border-t border-[#E5E5E0] space-y-12">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-start">
-            <div className="md:col-span-4 space-y-3">
-              <span className="font-extrabold text-xl tracking-[0.25em] text-[#171717] uppercase block">
-                DNOIN.INC
-              </span>
+            <div className="md:col-span-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-full overflow-hidden shadow-md border border-amber-400/40 shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src="/logo.png"
+                    alt="Mitra Megah Interior"
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <span className="font-extrabold text-base tracking-[0.12em] text-[#171717] uppercase leading-tight">
+                    MITRA MEGAH
+                  </span>
+                  <span className="text-[10px] tracking-[0.25em] text-[#737373] font-semibold uppercase leading-tight">
+                    INTERIOR
+                  </span>
+                </div>
+              </div>
               <p className="text-xs text-[#737373] leading-relaxed max-w-sm">
-                Architectural atelier &amp; design practice. Designed for
-                contemporary residential masterplans, luxury facades, and timeless physical structures.
+                Studio perancangan interior &amp; kontraktor kustom terpercaya. Menghadirkan solusi tata ruang berkelas, furnitur eksklusif, dan visualisasi arsitektur 3D interaktif real-time.
               </p>
             </div>
 
             <div className="md:col-span-3 space-y-2 text-xs">
               <h5 className="font-bold text-[#171717] tracking-wider uppercase mb-3 text-[11px]">
-                Offices
+                Kantor &amp; Workshop
               </h5>
-              <p className="text-[#737373]">Paris • 14 Rue de Rivoli</p>
-              <p className="text-[#737373]">Tokyo • Minato City, Roppongi</p>
-              <p className="text-[#737373]">Jakarta • SCBD District 8</p>
+              <p className="text-[#737373]">Jakarta • SCBD District 8 &amp; Senopati</p>
+              <p className="text-[#737373]">Tangerang • BSD City Commercial Area</p>
+              <p className="text-[#737373]">Surabaya • Pakuwon Mall Area</p>
             </div>
 
             <div className="md:col-span-3 space-y-2 text-xs">
               <h5 className="font-bold text-[#171717] tracking-wider uppercase mb-3 text-[11px]">
-                Navigation
+                Navigasi
               </h5>
               <div>
                 <a href="#projects" className="text-[#737373] hover:text-[#171717]">
-                  Recent Projects
+                  Portofolio Proyek
                 </a>
               </div>
               <div>
                 <a href="#about" className="text-[#737373] hover:text-[#171717]">
-                  About Atelier
+                  Tentang Mitra Megah
                 </a>
               </div>
               <div>
                 <a href="#architects" className="text-[#737373] hover:text-[#171717]">
-                  Our Architects
+                  Konsultan Desain
+                </a>
+              </div>
+              <div>
+                <a href="#contact" className="text-[#737373] hover:text-[#171717]">
+                  Kontak &amp; Konsultasi
                 </a>
               </div>
             </div>
 
             <div className="md:col-span-2 space-y-2 text-xs">
               <h5 className="font-bold text-[#171717] tracking-wider uppercase mb-3 text-[11px]">
-                Studio
+                Studio Workspace
               </h5>
               <div>
                 <Link href="/login" className="text-[#737373] hover:text-[#171717]">
-                  Architect Sign In
+                  Studio Sign In
+                </Link>
+              </div>
+              <div>
+                <Link href="/dashboard" className="text-[#737373] hover:text-[#171717]">
+                  3D Configurator
                 </Link>
               </div>
               <div>
                 <a href="#about" className="text-[#737373] hover:text-[#171717]">
-                  Manifesto
-                </a>
-              </div>
-              <div>
-                <a href="#projects" className="text-[#737373] hover:text-[#171717]">
-                  Portfolio
+                  Filosofi Desain
                 </a>
               </div>
             </div>
           </div>
 
           <div className="pt-8 border-t border-[#F0F0ED] flex flex-col sm:flex-row items-center justify-between text-xs text-[#8A8A85] gap-4">
-            <p>© 2026 DNOIN.INC / HOMECRAFT ARCHITECTURE. All rights reserved.</p>
+            <p>© 2026 MITRA MEGAH INTERIOR. All rights reserved.</p>
             <div className="flex items-center gap-6">
-              <span className="hover:text-[#171717] cursor-pointer">Privacy Policy</span>
-              <span className="hover:text-[#171717] cursor-pointer">Terms of Architecture</span>
+              <span className="hover:text-[#171717] cursor-pointer">Kebijakan Privasi</span>
+              <span className="hover:text-[#171717] cursor-pointer">Syarat &amp; Ketentuan</span>
               <button
                 onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                 className="hover:text-[#171717] cursor-pointer font-medium"
               >
-                Back to top ↑
+                Kembali ke atas ↑
               </button>
             </div>
           </div>

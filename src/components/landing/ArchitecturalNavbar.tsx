@@ -27,11 +27,24 @@ export function ArchitecturalNavbar() {
     <>
       {/* Primary Top Bar embedded within the Hero frame header */}
       <header className="w-full pt-6 pb-2 px-6 sm:px-10 lg:px-14 flex items-center justify-between relative z-30">
-        {/* Brand Logo: DNOIN.INC */}
-        <Link href="/" className="flex items-center gap-2 group">
-          <span className="font-extrabold text-lg sm:text-xl tracking-[0.2em] text-white uppercase group-hover:tracking-[0.25em] transition-all">
-            DNOIN.INC
-          </span>
+        {/* Brand Logo: Mitra Megah Interior */}
+        <Link href="/" className="flex items-center gap-3 group">
+          <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full overflow-hidden shadow-lg border border-amber-300/40 group-hover:scale-105 transition-transform shrink-0">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Mitra Megah Interior"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-extrabold text-base sm:text-lg tracking-[0.12em] text-white uppercase group-hover:text-amber-200 transition-colors leading-tight">
+              MITRA MEGAH
+            </span>
+            <span className="text-[10px] tracking-[0.25em] text-white/80 font-medium uppercase leading-tight">
+              INTERIOR
+            </span>
+          </div>
         </Link>
 
         {/* Center White Tab / Notch Navigation Menu (Matching Image 1) */}
@@ -43,7 +56,7 @@ export function ArchitecturalNavbar() {
             About us
           </a>
           <a href="#architects" className="text-[#171717] hover:text-[#C28448] transition-colors">
-            Blog
+            Designers
           </a>
           <a href="#contact" className="text-[#171717] hover:text-[#C28448] transition-colors">
             Contact
@@ -99,9 +112,15 @@ export function ArchitecturalNavbar() {
           isScrolled ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-4'
         }`}
       >
-        <div className="bg-[#171717]/90 text-white backdrop-blur-xl px-5 py-2.5 rounded-full border border-white/15 shadow-2xl flex items-center gap-6 text-xs font-medium">
-          <Link href="/" className="font-bold tracking-wider text-xs uppercase text-white hover:text-[#C28448] transition-colors">
-            DNOIN.INC
+        <div className="bg-[#171717]/90 text-white backdrop-blur-xl px-5 py-2 rounded-full border border-white/15 shadow-2xl flex items-center gap-6 text-xs font-medium">
+          <Link href="/" className="flex items-center gap-2 font-bold tracking-wider text-xs uppercase text-white hover:text-amber-200 transition-colors">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Mitra Megah Interior"
+              className="w-6 h-6 rounded-full object-cover shadow-sm border border-white/20"
+            />
+            <span>Mitra Megah Interior</span>
           </Link>
           <div className="hidden sm:flex items-center gap-5 text-white/70">
             <a href="#projects" className="hover:text-white transition-colors">
@@ -169,7 +188,7 @@ export function ArchitecturalNavbar() {
               onClick={() => setMobileMenuOpen(false)}
               className="py-2 hover:text-[#C28448]"
             >
-              Contact Atelier
+              Contact Mitra Megah
             </a>
           </div>
 

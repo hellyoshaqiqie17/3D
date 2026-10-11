@@ -97,7 +97,7 @@ export function MaterialLaboratory() {
             Architectural Material Laboratory
           </h2>
           <p className="text-sm text-[#6B6B6B] mt-2 leading-relaxed">
-            Every material in HomeCraft 3D is physically calibrated with genuine micro-surface roughness, specular reflectance, and normal maps to ensure exact physical realism under changing daylight.
+            Every material in Mitra Megah Interior is physically calibrated with genuine micro-surface roughness, specular reflectance, and normal maps to ensure exact physical realism under changing daylight.
           </p>
         </div>
 
