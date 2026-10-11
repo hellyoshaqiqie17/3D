@@ -170,11 +170,11 @@ function collectZoneMeshes(scene: THREE.Object3D, meshNames: string[]): THREE.Me
 
   scene.traverse((node) => {
     if (!node.name || !targetNames.has(node.name)) return;
-    if (node instanceof THREE.Mesh) {
-      result.add(node);
+    if ((node as any).isMesh || node instanceof THREE.Mesh) {
+      result.add(node as THREE.Mesh);
     } else {
       node.traverse((child) => {
-        if (child instanceof THREE.Mesh) result.add(child);
+        if ((child as any).isMesh || child instanceof THREE.Mesh) result.add(child as THREE.Mesh);
       });
     }
   });
@@ -187,12 +187,13 @@ function collectZoneMeshes(scene: THREE.Object3D, meshNames: string[]): THREE.Me
  */
 export function backupOriginalMaterials(scene: THREE.Object3D): void {
   scene.traverse((child) => {
-    if (child instanceof THREE.Mesh && !originalMaterialMap.has(child) && child.material) {
+    if (((child as any).isMesh || child instanceof THREE.Mesh) && !originalMaterialMap.has(child as THREE.Mesh) && (child as THREE.Mesh).material) {
+      const mesh = child as THREE.Mesh;
       originalMaterialMap.set(
-        child,
-        Array.isArray(child.material)
-          ? child.material.map((m) => m.clone())
-          : child.material.clone()
+        mesh,
+        Array.isArray(mesh.material)
+          ? mesh.material.map((m) => m.clone())
+          : mesh.material.clone()
       );
     }
   });
@@ -203,7 +204,7 @@ export function backupOriginalMaterials(scene: THREE.Object3D): void {
  */
 export function restoreZoneOriginalMaterial(scene: THREE.Object3D, zone: MaterialZone): void {
   collectZoneMeshes(scene, zone.meshNames).forEach((child) => {
-    if (child instanceof THREE.Mesh && originalMaterialMap.has(child)) {
+    if (((child as any).isMesh || child instanceof THREE.Mesh) && originalMaterialMap.has(child)) {
       const orig = originalMaterialMap.get(child);
       if (orig) {
         child.material = Array.isArray(orig)
@@ -224,16 +225,17 @@ export function restoreZoneOriginalMaterial(scene: THREE.Object3D, zone: Materia
  */
 export function restoreOriginalMaterials(scene: THREE.Object3D): void {
   scene.traverse((child) => {
-    if (child instanceof THREE.Mesh && originalMaterialMap.has(child)) {
-      const orig = originalMaterialMap.get(child);
+    if (((child as any).isMesh || child instanceof THREE.Mesh) && originalMaterialMap.has(child as THREE.Mesh)) {
+      const mesh = child as THREE.Mesh;
+      const orig = originalMaterialMap.get(mesh);
       if (orig) {
-        child.material = Array.isArray(orig)
+        mesh.material = Array.isArray(orig)
           ? orig.map((m) => m.clone())
           : orig.clone();
-        if (Array.isArray(child.material)) {
-          child.material.forEach((m) => (m.needsUpdate = true));
+        if (Array.isArray(mesh.material)) {
+          mesh.material.forEach((m) => (m.needsUpdate = true));
         } else {
-          child.material.needsUpdate = true;
+          mesh.material.needsUpdate = true;
         }
       }
     }
@@ -400,8 +402,9 @@ export function extractSceneMeshes(scene: THREE.Object3D): {
   }[] = [];
 
   scene.traverse((obj) => {
-    if (obj instanceof THREE.Mesh) {
-      const mat = Array.isArray(obj.material) ? obj.material[0] : obj.material;
+    if ((obj as any).isMesh || obj instanceof THREE.Mesh) {
+      const mesh = obj as THREE.Mesh;
+      const mat = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
       let color = '#CCCCCC';
       let matName = 'Default';
 
@@ -412,10 +415,10 @@ export function extractSceneMeshes(scene: THREE.Object3D): {
         matName = mat.name;
       }
 
-      const vertexCount = obj.geometry?.attributes?.position?.count || 0;
+      const vertexCount = mesh.geometry?.attributes?.position?.count || 0;
 
       result.push({
-        name: obj.name || `Mesh_${obj.id}`,
+        name: mesh.name || `Mesh_${mesh.id}`,
         materialName: matName,
         initialColor: color,
         vertexCount,

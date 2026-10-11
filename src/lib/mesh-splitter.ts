@@ -24,6 +24,8 @@ const MAX_TRIANGLES = 300_000;
 interface Piece {
   triangles: number[];
   box: THREE.Box3;
+  orientKey: string;
+  normal: THREE.Vector3;
 }
 
 function getTriangleVertexIndex(geo: THREE.BufferGeometry, tri: number, corner: number): number {
@@ -113,7 +115,11 @@ function orientationGroups(geo: THREE.BufferGeometry, triangles: number[]): numb
 
   // Re-run connectivity inside each orientation group so opposite walls facing the same way stay apart
   const result: number[][] = [];
-  groups.forEach((tris) => result.push(...connectedComponents(geo, tris)));
+  groups.forEach((tris, key) => {
+    const comps = connectedComponents(geo, tris);
+    comps.forEach((comp) => ((comp as any)._orientKey = key));
+    result.push(...comps);
+  });
   return result;
 }
 
@@ -130,26 +136,63 @@ function boxOfTriangles(geo: THREE.BufferGeometry, triangles: number[], matrix: 
   return box;
 }
 
+function computeDominantNormal(geo: THREE.BufferGeometry, triangles: number[]): THREE.Vector3 {
+  const pos = geo.getAttribute('position') as THREE.BufferAttribute;
+  const a = new THREE.Vector3(), b = new THREE.Vector3(), c = new THREE.Vector3(), n = new THREE.Vector3();
+  const avg = new THREE.Vector3();
+  triangles.forEach((t) => {
+    a.fromBufferAttribute(pos, getTriangleVertexIndex(geo, t, 0));
+    b.fromBufferAttribute(pos, getTriangleVertexIndex(geo, t, 1));
+    c.fromBufferAttribute(pos, getTriangleVertexIndex(geo, t, 2));
+    n.subVectors(c, b).cross(a.clone().sub(b)).normalize();
+    avg.add(n);
+  });
+  return avg.normalize();
+}
+
 function isSurfacePiece(box: THREE.Box3): boolean {
   const s = box.getSize(new THREE.Vector3());
   const dims = [s.x, s.y, s.z].sort((a, b) => a - b);
-  // A real surface (wall / floor / ceiling) spans a meaningful area; thin trims & edge strips don't.
-  return dims[2] >= MIN_PIECE_SIZE && dims[1] >= MIN_PIECE_SIZE * 0.6;
+  // Real surfaces span a meaningful area; smaller strips get attached or filtered
+  return dims[2] >= 0.5 && dims[1] >= 0.25;
 }
 
-/** Group raw triangle lists into "large" surface pieces, attaching small trims/edges to the nearest large piece. */
+/** Group raw triangle lists into surface pieces, attaching small trims strictly to plane-compatible pieces */
 function buildPieces(geo: THREE.BufferGeometry, groups: number[][], matrix: THREE.Matrix4): Piece[] {
-  const all = groups.map((triangles) => ({ triangles, box: boxOfTriangles(geo, triangles, matrix) }));
+  const all: Piece[] = groups.map((triangles) => ({
+    triangles,
+    box: boxOfTriangles(geo, triangles, matrix),
+    orientKey: (triangles as any)._orientKey || '+y',
+    normal: computeDominantNormal(geo, triangles),
+  }));
+
   const large = all.filter((p) => isSurfacePiece(p.box));
   const small = all.filter((p) => !isSurfacePiece(p.box));
   if (large.length < 2) return [];
 
   const center = new THREE.Vector3();
+  const lc = new THREE.Vector3();
   small.forEach((s) => {
     s.box.getCenter(center);
-    let best = large[0];
+    // Strictly attach ONLY to a large piece sharing the SAME orientation AND same plane elevation!
+    // Never attach a ceiling piece to a floor piece or an interior wall to an exterior wall!
+    const candidates = large.filter((l) => {
+      if (l.orientKey !== s.orientKey) return false;
+      l.box.getCenter(lc);
+      if (s.orientKey === '+y' || s.orientKey === '-y') {
+        return Math.abs(center.y - lc.y) < 0.6; // must be on same horizontal level (floor or ceiling)
+      } else if (s.orientKey === '+x' || s.orientKey === '-x') {
+        return Math.abs(center.x - lc.x) < 0.6; // must be on same wall plane
+      } else {
+        return Math.abs(center.z - lc.z) < 0.6; // must be on same wall plane
+      }
+    });
+
+    if (candidates.length === 0) return;
+
+    let best = candidates[0];
     let bestDist = Infinity;
-    large.forEach((l) => {
+    candidates.forEach((l) => {
       const d = l.box.distanceToPoint(center);
       if (d < bestDist) {
         bestDist = d;
@@ -189,18 +232,32 @@ function extractGeometry(geo: THREE.BufferGeometry, triangles: number[]): THREE.
   return out;
 }
 
-function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3): string {
+function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vector3): string {
   const size = box.getSize(new THREE.Vector3());
   const c = box.getCenter(new THREE.Vector3());
   const pc = parentBox.getCenter(new THREE.Vector3());
+  const midY = pc.y;
 
-  if (size.y <= size.x && size.y <= size.z) {
-    return c.y <= pc.y ? 'Lantai_Bawah' : 'Plafon_Atas';
+  // 1. Horizontal surfaces: Floor vs Ceiling
+  const isHorizontal = Math.abs(normal.y) >= 0.7 || (size.y <= 0.35 && (size.x >= 1.0 || size.z >= 1.0));
+  if (isHorizontal) {
+    return c.y < midY ? 'Lantai_Bawah' : 'Plafon_Atas';
   }
-  if (size.x <= size.z) {
-    return c.x <= pc.x ? 'Dinding_Kiri' : 'Dinding_Kanan';
+
+  // 2. Vertical walls: Distinguish Left/Right/Front/Back AND Interior vs Exterior
+  // Vector pointing from wall piece center toward room center:
+  const toRoomX = pc.x - c.x;
+  const toRoomZ = pc.z - c.z;
+  const isInterior = (normal.x * toRoomX + normal.z * toRoomZ) > 0;
+  const suffix = isInterior ? '_Dalam' : '_Luar';
+
+  if (size.x <= size.z || Math.abs(normal.x) >= Math.abs(normal.z)) {
+    const side = c.x <= pc.x ? 'Dinding_Kiri' : 'Dinding_Kanan';
+    return `${side}${suffix}`;
+  } else {
+    const side = c.z <= pc.z ? 'Dinding_Belakang' : 'Dinding_Depan';
+    return `${side}${suffix}`;
   }
-  return c.z <= pc.z ? 'Dinding_Belakang' : 'Dinding_Depan';
 }
 
 /**
@@ -213,14 +270,14 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
   const candidates: THREE.Mesh[] = [];
   root.traverse((child) => {
     if (
-      child instanceof THREE.Mesh &&
-      !(child instanceof THREE.InstancedMesh) &&
+      (child as any).isMesh &&
+      !(child as any).isInstancedMesh &&
       !(child as any).isSkinnedMesh &&
-      child.geometry?.getAttribute('position') &&
-      !Array.isArray(child.material) &&
-      (!child.geometry.groups || child.geometry.groups.length <= 1)
+      (child as THREE.Mesh).geometry?.getAttribute('position') &&
+      !Array.isArray((child as THREE.Mesh).material) &&
+      (!(child as THREE.Mesh).geometry.groups || (child as THREE.Mesh).geometry.groups.length <= 1)
     ) {
-      candidates.push(child);
+      candidates.push(child as THREE.Mesh);
     }
   });
 
@@ -244,9 +301,7 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
     const isRoomSlabMesh = ps.y <= 0.6 && ps.x >= MIN_ROOM_SCALE && ps.z >= MIN_ROOM_SCALE;
     if (!isRoomWallMesh && !isRoomSlabMesh) return; // furniture / counters / cabinets / island → leave untouched!
 
-    // Ignore degenerate (zero-area) sliver triangles: SketchUp exports often contain them and they
-    // stretch a piece's bounding box across the whole room (e.g. a wall reported as 5.45 x 2.50 x 3.81),
-    // which breaks surface labelling and wall/floor/ceiling detection. They are invisible anyway.
+    // Ignore degenerate (zero-area) sliver triangles
     const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3();
     const allTris = Array.from({ length: triCount }, (_, i) => i).filter((t) => {
       va.fromBufferAttribute(pos as THREE.BufferAttribute, getTriangleVertexIndex(geo, t, 0));
@@ -257,9 +312,8 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
     if (allTris.length < 4) return;
 
     // 1) Planar grouping: faces pointing the same direction AND physically connected form one surface.
-    //    This separates left/right walls even when they are joined by corner or top trim strips.
     let pieces = buildPieces(geo, orientationGroups(geo, allTris), mesh.matrixWorld);
-    // 2) Fallback: pure connectivity (e.g. curved/organic surfaces)
+    // 2) Fallback: pure connectivity (e.g. curved surfaces)
     if (pieces.length < 2 || pieces.length > MAX_PIECES) {
       pieces = buildPieces(geo, connectedComponents(geo, allTris), mesh.matrixWorld);
     }
@@ -271,11 +325,16 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
     const baseName = mesh.name || 'Mesh';
     pieces.forEach((piece) => {
       const newGeo = extractGeometry(geo, piece.triangles);
-      const part = new THREE.Mesh(newGeo, mesh.material);
+      // Clone material so each piece gets its own material instance immediately
+      const partMat = Array.isArray(mesh.material)
+        ? mesh.material.map((m) => m.clone())
+        : (mesh.material ? mesh.material.clone() : new THREE.MeshStandardMaterial());
+      const part = new THREE.Mesh(newGeo, partMat);
 
-      let name = `${baseName}__${labelForPiece(piece.box, parentBox)}`;
+      const label = labelForPiece(piece.box, parentBox, piece.normal);
+      let name = `${baseName}__${label}`;
       let n = 2;
-      while (usedNames.has(name)) name = `${baseName}__${labelForPiece(piece.box, parentBox)}_${n++}`;
+      while (usedNames.has(name)) name = `${baseName}__${label}_${n++}`;
       usedNames.add(name);
 
       part.name = name;

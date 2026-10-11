@@ -18,12 +18,27 @@ const ARCHITECTURAL_SURFACES: {
   category: MaterialZone['category'];
   description: string;
 }[] = [
-  { tag: '__Dinding_Belakang', id: 'surface_dinding_belakang', name: 'Dinding Belakang (Back Wall)', category: 'wall', description: 'Seluruh permukaan dinding belakang ruangan.' },
-  { tag: '__Dinding_Depan', id: 'surface_dinding_depan', name: 'Dinding Depan (Front Wall)', category: 'wall', description: 'Seluruh permukaan dinding depan ruangan.' },
-  { tag: '__Dinding_Kiri', id: 'surface_dinding_kiri', name: 'Dinding Kiri (Left Wall)', category: 'wall', description: 'Seluruh permukaan dinding kiri ruangan.' },
-  { tag: '__Dinding_Kanan', id: 'surface_dinding_kanan', name: 'Dinding Kanan (Right Wall)', category: 'wall', description: 'Seluruh permukaan dinding kanan ruangan.' },
+  // Interior Walls (Bagian Dalam Ruangan)
+  { tag: '__Dinding_Kanan_Dalam', id: 'surface_dinding_kanan_dalam', name: 'Dinding Kanan Dalam (Interior Right Wall)', category: 'wall', description: 'Permukaan dinding kanan bagian dalam ruangan.' },
+  { tag: '__Dinding_Kiri_Dalam', id: 'surface_dinding_kiri_dalam', name: 'Dinding Kiri Dalam (Interior Left Wall)', category: 'wall', description: 'Permukaan dinding kiri bagian dalam ruangan.' },
+  { tag: '__Dinding_Depan_Dalam', id: 'surface_dinding_depan_dalam', name: 'Dinding Depan Dalam (Interior Front Wall)', category: 'wall', description: 'Permukaan dinding depan bagian dalam ruangan.' },
+  { tag: '__Dinding_Belakang_Dalam', id: 'surface_dinding_belakang_dalam', name: 'Dinding Belakang Dalam (Interior Back Wall)', category: 'wall', description: 'Permukaan dinding belakang bagian dalam ruangan.' },
+
+  // Exterior Walls (Bagian Luar Bangunan)
+  { tag: '__Dinding_Kanan_Luar', id: 'surface_dinding_kanan_luar', name: 'Dinding Kanan Luar (Exterior Right Wall)', category: 'exterior', description: 'Permukaan dinding kanan bagian luar bangunan.' },
+  { tag: '__Dinding_Kiri_Luar', id: 'surface_dinding_kiri_luar', name: 'Dinding Kiri Luar (Exterior Left Wall)', category: 'exterior', description: 'Permukaan dinding kiri bagian luar bangunan.' },
+  { tag: '__Dinding_Depan_Luar', id: 'surface_dinding_depan_luar', name: 'Dinding Depan Luar (Exterior Front Wall)', category: 'exterior', description: 'Permukaan dinding depan bagian luar bangunan.' },
+  { tag: '__Dinding_Belakang_Luar', id: 'surface_dinding_belakang_luar', name: 'Dinding Belakang Luar (Exterior Back Wall)', category: 'exterior', description: 'Permukaan dinding belakang bagian luar bangunan.' },
+
+  // Floor & Ceiling (Strictly Decoupled)
   { tag: '__Lantai_Bawah', id: 'surface_lantai_bawah', name: 'Lantai Ruangan (Floor)', category: 'floor', description: 'Seluruh permukaan lantai ruangan.' },
   { tag: '__Plafon_Atas', id: 'surface_plafon_atas', name: 'Plafon Ruangan (Ceiling)', category: 'roof', description: 'Seluruh permukaan plafon/atap ruangan.' },
+
+  // Legacy fallback tags (for models that haven't been resplit or old saved configurations)
+  { tag: '__Dinding_Kanan', id: 'surface_dinding_kanan', name: 'Dinding Kanan (Right Wall)', category: 'wall', description: 'Permukaan dinding kanan ruangan.' },
+  { tag: '__Dinding_Kiri', id: 'surface_dinding_kiri', name: 'Dinding Kiri (Left Wall)', category: 'wall', description: 'Permukaan dinding kiri ruangan.' },
+  { tag: '__Dinding_Depan', id: 'surface_dinding_depan', name: 'Dinding Depan (Front Wall)', category: 'wall', description: 'Permukaan dinding depan ruangan.' },
+  { tag: '__Dinding_Belakang', id: 'surface_dinding_belakang', name: 'Dinding Belakang (Back Wall)', category: 'wall', description: 'Permukaan dinding belakang ruangan.' },
 ];
 
 interface HouseModelProps {
@@ -464,8 +479,17 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
     ARCHITECTURAL_SURFACES.forEach((surf) => {
       const matching: string[] = [];
+      const isLegacyTag =
+        surf.tag === '__Dinding_Kanan' ||
+        surf.tag === '__Dinding_Kiri' ||
+        surf.tag === '__Dinding_Depan' ||
+        surf.tag === '__Dinding_Belakang';
+
       sceneClone.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.name && child.name.includes(surf.tag)) {
+        if ((child as any).isMesh && child.name && child.name.includes(surf.tag)) {
+          if (isLegacyTag && (child.name.includes('_Dalam') || child.name.includes('_Luar'))) {
+            return;
+          }
           matching.push(child.name);
         }
       });
@@ -711,6 +735,30 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   // Helper to format friendly display name for any 3D mesh
   const formatMeshDisplayName = (name: string): string => {
     // Specific friendly names for smart-split room surfaces
+    if (name.includes('__Dinding_Kanan_Dalam')) {
+      return 'Dinding Kanan Dalam (Interior Right Wall)';
+    }
+    if (name.includes('__Dinding_Kanan_Luar')) {
+      return 'Dinding Kanan Luar (Exterior Right Wall)';
+    }
+    if (name.includes('__Dinding_Kiri_Dalam')) {
+      return 'Dinding Kiri Dalam (Interior Left Wall)';
+    }
+    if (name.includes('__Dinding_Kiri_Luar')) {
+      return 'Dinding Kiri Luar (Exterior Left Wall)';
+    }
+    if (name.includes('__Dinding_Depan_Dalam')) {
+      return 'Dinding Depan Dalam (Interior Front Wall)';
+    }
+    if (name.includes('__Dinding_Depan_Luar')) {
+      return 'Dinding Depan Luar (Exterior Front Wall)';
+    }
+    if (name.includes('__Dinding_Belakang_Dalam')) {
+      return 'Dinding Belakang Dalam (Interior Back Wall)';
+    }
+    if (name.includes('__Dinding_Belakang_Luar')) {
+      return 'Dinding Belakang Luar (Exterior Back Wall)';
+    }
     if (name.includes('__Dinding_Kanan')) {
       const match = name.match(/__Dinding_Kanan(?:_(\d+))?/);
       return match && match[1] ? `Dinding Kanan #${match[1]}` : 'Dinding Kanan (Right Wall)';
@@ -928,8 +976,17 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       displayName = matchedSurface.name;
       category = matchedSurface.category;
       description = matchedSurface.description;
+      const isLegacy =
+        matchedSurface.tag === '__Dinding_Kanan' ||
+        matchedSurface.tag === '__Dinding_Kiri' ||
+        matchedSurface.tag === '__Dinding_Depan' ||
+        matchedSurface.tag === '__Dinding_Belakang';
+
       sceneClone.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+        if ((child as any).isMesh && child.name && child.name.includes(matchedSurface.tag)) {
+          if (isLegacy && (child.name.includes('_Dalam') || child.name.includes('_Luar'))) {
+            return;
+          }
           targetMeshes.push(child);
         }
       });
@@ -1043,8 +1100,17 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     if (selectedZoneId) {
       const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => s.id === selectedZoneId);
       if (matchedSurface) {
+        const isLegacy =
+          matchedSurface.tag === '__Dinding_Kanan' ||
+          matchedSurface.tag === '__Dinding_Kiri' ||
+          matchedSurface.tag === '__Dinding_Depan' ||
+          matchedSurface.tag === '__Dinding_Belakang';
+
         sceneClone.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+          if ((child as any).isMesh && child.name && child.name.includes(matchedSurface.tag)) {
+            if (isLegacy && (child.name.includes('_Dalam') || child.name.includes('_Luar'))) {
+              return;
+            }
             meshes.push(child);
           }
         });
@@ -1064,8 +1130,17 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     if (selectedMeshName) {
       const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => selectedMeshName.includes(s.tag));
       if (matchedSurface) {
+        const isLegacy =
+          matchedSurface.tag === '__Dinding_Kanan' ||
+          matchedSurface.tag === '__Dinding_Kiri' ||
+          matchedSurface.tag === '__Dinding_Depan' ||
+          matchedSurface.tag === '__Dinding_Belakang';
+
         sceneClone.traverse((child) => {
-          if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+          if ((child as any).isMesh && child.name && child.name.includes(matchedSurface.tag)) {
+            if (isLegacy && (child.name.includes('_Dalam') || child.name.includes('_Luar'))) {
+              return;
+            }
             meshes.push(child);
           }
         });
