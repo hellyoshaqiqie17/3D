@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import {
@@ -68,6 +68,16 @@ export function TextureAdjusterPanel({ currentZone, activeMaterial }: TextureAdj
   const [isCustomTileSize, setIsCustomTileSize] = useState(false);
   const [customW, setCustomW] = useState(currentTileSize[0]);
   const [customH, setCustomH] = useState(currentTileSize[1]);
+
+  useEffect(() => {
+    const isFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
+    const targetSurface = currentSettings.surfaceType || (isFloor ? 'floor' : 'wall');
+    setActiveSurfaceTab(targetSurface);
+    const targetTileSize = currentSettings.tileSizeCm || (isFloor ? [60, 60] : [30, 60]);
+    setCustomW(targetTileSize[0]);
+    setCustomH(targetTileSize[1]);
+    setIsCustomTileSize(false);
+  }, [currentZone.id, currentZone.category]);
 
   const activePresets = activeSurfaceTab === 'floor' ? FLOOR_TILE_PRESETS : WALL_TILE_PRESETS;
   const activeTint = currentSettings.colorTint || customColors[currentZone.id] || '#FFFFFF';

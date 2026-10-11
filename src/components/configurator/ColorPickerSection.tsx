@@ -32,7 +32,12 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
 
   // The zone is in its original native 3D state if no custom hex color is set AND (material is 'original' or unset)
   const isOriginal = !activeCustomColor && (!selectedMatId || selectedMatId === 'original');
-  const activeColor = isOriginal ? '' : (activeCustomColor || (selectedMatId?.startsWith('wall-') ? '#F8F9FA' : ''));
+  const activeColor = isOriginal
+    ? ''
+    : activeCustomColor ||
+      (selectedMatId === 'architectural-color' || selectedMatId?.startsWith('wall-')
+        ? '#F8F9FA'
+        : '');
   const [hexInput, setHexInput] = useState(activeColor || '');
 
   useEffect(() => {
@@ -47,20 +52,20 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
   const handleSelectPreset = (hex: string) => {
     setHexInput(hex);
     setCustomColor(currentZone.id, hex);
-    applyMaterial(currentZone.id, 'wall-pure-white');
+    applyMaterial(currentZone.id, 'architectural-color');
   };
 
   const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     setHexInput(val);
     setCustomColor(currentZone.id, val);
-    applyMaterial(currentZone.id, 'wall-pure-white');
+    applyMaterial(currentZone.id, 'architectural-color');
   };
 
   const handleHexBlur = () => {
     if (/^#[0-9A-F]{6}$/i.test(hexInput)) {
       setCustomColor(currentZone.id, hexInput);
-      applyMaterial(currentZone.id, 'wall-pure-white');
+      applyMaterial(currentZone.id, 'architectural-color');
     }
   };
 
@@ -169,7 +174,7 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
               setHexInput(val);
               if (/^#[0-9A-F]{6}$/i.test(val)) {
                 setCustomColor(currentZone.id, val);
-                applyMaterial(currentZone.id, 'wall-pure-white');
+                applyMaterial(currentZone.id, 'architectural-color');
               }
             }}
             onBlur={handleHexBlur}

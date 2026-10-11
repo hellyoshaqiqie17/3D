@@ -161,40 +161,7 @@ interface ConfiguratorState {
   ) => void;
 }
 
-const DEFAULT_CLIENT_MATERIALS: MaterialOption[] = [
-  {
-    id: 'tile-designer-mosaic',
-    name: 'Designer Checker Mosaic',
-    category: 'bathroom',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-mosaic.jpg',
-    previewThumbnail: '/textures/designer-tile-mosaic.jpg',
-    roughness: 0.2,
-    metalness: 0.05,
-    bumpScale: 0.14,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Imported client design with beveled ceramic mosaic cells and relief grout lines.',
-    tag: 'Client Design',
-    isCustomUpload: true,
-  },
-  {
-    id: 'tile-designer-slate',
-    name: 'Textured Relief Slate',
-    category: 'bathroom',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-slate.jpg',
-    previewThumbnail: '/textures/designer-tile-slate.jpg',
-    roughness: 0.6,
-    metalness: 0.08,
-    bumpScale: 0.22,
-    finish: 'textured',
-    repeat: [4, 4],
-    description: 'Imported client tactile slate paver with cross-hatch micro relief.',
-    tag: 'Client Design',
-    isCustomUpload: true,
-  },
-];
+const DEFAULT_CLIENT_MATERIALS: MaterialOption[] = [];
 
 export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   selectedZoneId: 'wall_ext',

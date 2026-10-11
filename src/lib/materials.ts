@@ -13,6 +13,19 @@ export const ORIGINAL_MATERIAL: MaterialOption = {
   tag: 'Original',
 };
 
+export const SOLID_COLOR_MATERIAL: MaterialOption = {
+  id: 'architectural-color',
+  name: 'Architectural Solid Color',
+  category: 'wall',
+  type: 'color',
+  color: '#FFFFFF',
+  roughness: 0.85,
+  metalness: 0.0,
+  finish: 'matte',
+  description: 'Warna arsitektural solid pilihan desainer.',
+  tag: 'Color',
+};
+
 export const MATERIAL_CATEGORIES: { id: MaterialCategory; label: string; icon: string }[] = [
   { id: 'wall', label: 'Walls', icon: 'Paintbrush' },
   { id: 'floor', label: 'Floors', icon: 'LayoutGrid' },
@@ -22,450 +35,37 @@ export const MATERIAL_CATEGORIES: { id: MaterialCategory; label: string; icon: s
   { id: 'exterior', label: 'Exterior Facade', icon: 'Building' },
 ];
 
+/**
+ * Clean Material Library:
+ * Dummy items and hardcoded color swatches removed as requested.
+ * Colors are chosen via the Architectural Colors palette.
+ * Only Original 3D and user-uploaded custom ceramics/textures are listed.
+ */
 export const MATERIAL_LIBRARY: MaterialOption[] = [
   ORIGINAL_MATERIAL,
-  // --- WALL MATERIALS (COLORS) ---
-  {
-    id: 'wall-pure-white',
-    name: 'Pure Architectural White',
-    category: 'wall',
-    type: 'color',
-    color: '#F8F9FA',
-    roughness: 0.9,
-    metalness: 0.0,
-    finish: 'matte',
-    description: 'Crisp, bright, light-reflective architectural chalk white.',
-    tag: 'Popular',
-  },
-  {
-    id: 'wall-warm-cream',
-    name: 'Warm Scandinavian Cream',
-    category: 'wall',
-    type: 'color',
-    color: '#EDE8DD',
-    roughness: 0.85,
-    metalness: 0.0,
-    finish: 'matte',
-    description: 'Soft warm white with delicate linen undertones.',
-    tag: 'Classic',
-  },
-  {
-    id: 'wall-nordic-beige',
-    name: 'Nordic Sand Beige',
-    category: 'wall',
-    type: 'color',
-    color: '#D8CAB8',
-    roughness: 0.85,
-    metalness: 0.0,
-    finish: 'matte',
-    description: 'Earthy neutral tone inspired by natural stone and dune sands.',
-  },
-  {
-    id: 'wall-concrete-grey',
-    name: 'Mist Grey',
-    category: 'wall',
-    type: 'color',
-    color: '#B0B2B5',
-    roughness: 0.8,
-    metalness: 0.02,
-    finish: 'matte',
-    description: 'Modern understated mid-tone grey with subtle warmth.',
-  },
-  {
-    id: 'wall-charcoal',
-    name: 'Anthracite Charcoal',
-    category: 'wall',
-    type: 'color',
-    color: '#2B2D31',
-    roughness: 0.75,
-    metalness: 0.05,
-    finish: 'matte',
-    description: 'Bold, deep charcoal for dramatic architectural accent walls.',
-    tag: 'Accent',
-  },
-  {
-    id: 'wall-sage-green',
-    name: 'Sage Mist Green',
-    category: 'wall',
-    type: 'color',
-    color: '#8A9A86',
-    roughness: 0.85,
-    metalness: 0.0,
-    finish: 'matte',
-    description: 'Calming organic herbal green with muted grey tones.',
-  },
-  {
-    id: 'wall-terracotta',
-    name: 'Warm Tuscan Clay',
-    category: 'wall',
-    type: 'color',
-    color: '#A95D44',
-    roughness: 0.85,
-    metalness: 0.0,
-    finish: 'matte',
-    description: 'Rich earthy terracotta for Mediterranean accents.',
-  },
-  {
-    id: 'wall-architectural-navy',
-    name: 'Midnight Architectural Blue',
-    category: 'wall',
-    type: 'color',
-    color: '#1E293B',
-    roughness: 0.75,
-    metalness: 0.05,
-    finish: 'matte',
-    description: 'Deep sophisticated navy tailored for luxury interiors.',
-  },
-  {
-    id: 'wall-designer-mosaic',
-    name: 'Designer Checker Wall Tile',
-    category: 'wall',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-mosaic.jpg',
-    previewThumbnail: '/textures/designer-tile-mosaic.jpg',
-    roughness: 0.25,
-    metalness: 0.05,
-    bumpScale: 0.12,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Imported client ceramic mosaic pattern applied as a feature wall.',
-    tag: 'Client Design',
-  },
-  {
-    id: 'wall-designer-slate',
-    name: 'Textured Relief Stone Wall',
-    category: 'wall',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-slate.jpg',
-    previewThumbnail: '/textures/designer-tile-slate.jpg',
-    roughness: 0.6,
-    metalness: 0.08,
-    bumpScale: 0.2,
-    finish: 'textured',
-    repeat: [4, 4],
-    description: 'Imported client slate relief surface with dimensional texture lines.',
-    tag: 'Client Design',
-  },
-
-  // --- FLOOR MATERIALS ---
-  {
-    id: 'floor-oak-natural',
-    name: 'Natural Scandinavian Oak',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'wood-oak',
-    roughness: 0.35,
-    metalness: 0.05,
-    finish: 'satin',
-    repeat: [3, 3],
-    description: 'Engineered prime European oak with warm honey streaks.',
-    tag: 'Bestseller',
-  },
-  {
-    id: 'floor-walnut-dark',
-    name: 'American Dark Walnut',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'wood-walnut',
-    roughness: 0.3,
-    metalness: 0.05,
-    finish: 'satin',
-    repeat: [3, 3],
-    description: 'Rich cocoa-toned timber with expressive organic grain.',
-  },
-  {
-    id: 'floor-herringbone',
-    name: 'Herringbone Parquet Oak',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'wood-herringbone',
-    roughness: 0.35,
-    metalness: 0.05,
-    finish: 'satin',
-    repeat: [4, 4],
-    description: 'Artisanal Parisian parquet pattern in bleached white oak.',
-    tag: 'Luxury',
-  },
-  {
-    id: 'floor-carrara-marble',
-    name: 'Carrara Polished Marble',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'marble-carrara',
-    roughness: 0.15,
-    metalness: 0.1,
-    finish: 'gloss',
-    repeat: [2, 2],
-    description: 'Iconic Italian white marble with soft smoke grey veining.',
-    tag: 'Premium',
-  },
-  {
-    id: 'floor-nero-marble',
-    name: 'Nero Marquina Black Marble',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'marble-nero',
-    roughness: 0.12,
-    metalness: 0.15,
-    finish: 'gloss',
-    repeat: [2, 2],
-    description: 'Deep obsidian black marble laced with delicate calcite veins.',
-  },
-  {
-    id: 'floor-polished-concrete',
-    name: 'Microcement Architectural Concrete',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'concrete-polished',
-    roughness: 0.45,
-    metalness: 0.05,
-    finish: 'matte',
-    repeat: [4, 4],
-    description: 'Seamless industrial polished concrete with aggregate flecks.',
-  },
-  {
-    id: 'tile-marble-white',
-    name: 'Carrara White Marble Tiles',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'marble-carrara',
-    roughness: 0.15,
-    metalness: 0.08,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Ubin marmer putih Carrara mewah dengan serat abu-abu halus dan pantulan elegan.',
-    tag: 'Popular',
-  },
-  {
-    id: 'tile-grey-granite',
-    name: 'Granite Grey Outdoor Paver',
-    category: 'floor',
-    type: 'texture',
-    textureType: 'tile-stone',
-    roughness: 0.58,
-    metalness: 0.04,
-    finish: 'textured',
-    repeat: [4, 4],
-    description: 'Ubin batu granit abu-abu bertekstur non-slip untuk area carport dan teras.',
-    tag: 'Exterior',
-  },
-  {
-    id: 'floor-designer-mosaic',
-    name: 'Ubin Desainer Checker Mozaik',
-    category: 'floor',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-mosaic.jpg',
-    previewThumbnail: '/textures/designer-tile-mosaic.jpg',
-    roughness: 0.2,
-    metalness: 0.05,
-    bumpScale: 0.14,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Ubin mozaik keramik bergradasi gloss dan nat relief 3D karya desainer.',
-    tag: 'Client Design',
-    isCustomUpload: true,
-  },
-  {
-    id: 'floor-designer-slate',
-    name: 'Batu Relief Slate Tekstur Grid',
-    category: 'floor',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-slate.jpg',
-    previewThumbnail: '/textures/designer-tile-slate.jpg',
-    roughness: 0.6,
-    metalness: 0.08,
-    bumpScale: 0.22,
-    finish: 'textured',
-    repeat: [4, 4],
-    description: 'Batu relief warna gelap dengan gurat tekstur 3D timbul.',
-    tag: 'Client Design',
-    isCustomUpload: true,
-  },
-
-  // --- BATHROOM & CERAMIC TILES ---
-  {
-    id: 'tile-white-subway',
-    name: 'Glossy Metro Subway Tile',
-    category: 'bathroom',
-    type: 'texture',
-    textureType: 'tile-subway',
-    roughness: 0.18,
-    metalness: 0.05,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Classic beveled brick subway ceramic with crisp grey grout.',
-    tag: 'Essential',
-  },
-  {
-    id: 'tile-grey-stone',
-    name: 'Basalt Stone Paver Tiles',
-    category: 'bathroom',
-    type: 'texture',
-    textureType: 'tile-stone',
-    roughness: 0.6,
-    metalness: 0.02,
-    finish: 'textured',
-    repeat: [3, 3],
-    description: 'Honed architectural slate with non-slip tactile texture.',
-  },
-  {
-    id: 'tile-travertine-stone',
-    name: 'Roman Ivory Travertine',
-    category: 'bathroom',
-    type: 'texture',
-    textureType: 'tile-travertine',
-    roughness: 0.4,
-    metalness: 0.05,
-    finish: 'satin',
-    repeat: [3, 3],
-    description: 'Natural limestone with authentic horizontal pore banding.',
-    tag: 'Trending',
-  },
-  {
-    id: 'tile-pearl-terrazzo',
-    name: 'Venetian Terrazzo Pearl',
-    category: 'bathroom',
-    type: 'texture',
-    textureType: 'tile-terrazzo',
-    roughness: 0.25,
-    metalness: 0.08,
-    finish: 'satin',
-    repeat: [3, 3],
-    description: 'Composite stone chips suspended in creamy off-white matrix.',
-    tag: 'Artisanal',
-  },
-  {
-    id: 'tile-emerald-glazed',
-    name: 'Emerald Artisan Glazed Tile',
-    category: 'bathroom',
-    type: 'texture',
-    textureType: 'tile-emerald',
-    roughness: 0.15,
-    metalness: 0.1,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Handcrafted Moroccan zellige-style lustrous green glaze.',
-  },
-  {
-    id: 'tile-designer-mosaic',
-    name: 'Designer Checker Ceramic Mosaic',
-    category: 'bathroom',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-mosaic.jpg',
-    previewThumbnail: '/textures/designer-tile-mosaic.jpg',
-    roughness: 0.2,
-    metalness: 0.05,
-    bumpScale: 0.14,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Imported client design with beveled ceramic mosaic cells and relief grout lines.',
-    tag: 'Client Design',
-  },
-  {
-    id: 'tile-designer-slate',
-    name: 'Architectural Textured Relief Slate',
-    category: 'bathroom',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-slate.jpg',
-    previewThumbnail: '/textures/designer-tile-slate.jpg',
-    roughness: 0.6,
-    metalness: 0.08,
-    bumpScale: 0.22,
-    finish: 'textured',
-    repeat: [4, 4],
-    description: 'Imported client tactile slate paver with cross-hatch micro relief.',
-    tag: 'Client Design',
-  },
-
-  // --- ROOFING ---
-  {
-    id: 'roof-zinc-charcoal',
-    name: 'Architectural Standing-Seam Zinc',
-    category: 'roof',
-    type: 'texture',
-    textureType: 'zinc-roof',
-    roughness: 0.4,
-    metalness: 0.5,
-    finish: 'satin',
-    repeat: [3, 3],
-    description: 'Contemporary standing seam titanium zinc with matte sheen.',
-    tag: 'Modern',
-  },
-  {
-    id: 'roof-terracotta-spanish',
-    name: 'Spanish Barrel Terracotta Tile',
-    category: 'roof',
-    type: 'texture',
-    textureType: 'terracotta-roof',
-    roughness: 0.8,
-    metalness: 0.05,
-    finish: 'textured',
-    repeat: [3, 3],
-    description: 'Traditional curved clay roofing with rich earthen warmth.',
-  },
-  {
-    id: 'roof-slate-black',
-    name: 'Natural Charcoal Slate',
-    category: 'roof',
-    type: 'color',
-    color: '#202224',
-    roughness: 0.6,
-    metalness: 0.1,
-    finish: 'matte',
-    description: 'Dark cleft roofing slate with minimalist elegance.',
-  },
-
-  // --- DOORS & FRAMES ---
-  {
-    id: 'door-teak-wood',
-    name: 'Solid Burma Teak Wood',
-    category: 'door',
-    type: 'color',
-    color: '#8A5632',
-    roughness: 0.45,
-    metalness: 0.05,
-    finish: 'satin',
-    description: 'Weather-resistant oiled teak with deep amber glow.',
-  },
-  {
-    id: 'door-black-aluminum',
-    name: 'Anodized Jet Black Aluminum',
-    category: 'door',
-    type: 'color',
-    color: '#1A1A1A',
-    roughness: 0.35,
-    metalness: 0.85,
-    finish: 'brushed',
-    description: 'Sleek architectural powder-coated frame profile.',
-    tag: 'Minimal',
-  },
-  {
-    id: 'door-brushed-bronze',
-    name: 'Architectural Brushed Bronze',
-    category: 'door',
-    type: 'color',
-    color: '#6E553A',
-    roughness: 0.35,
-    metalness: 0.75,
-    finish: 'brushed',
-    description: 'Warm metallic finish with fine hairline brushing.',
-  },
 ];
 
 export function isMaterialForCategory(mat: MaterialOption, category: MaterialCategory): boolean {
+  // Uploaded materials are globally available across surfaces (wall, floor, etc.)
+  if (mat.isCustomUpload) {
+    return true;
+  }
+
   // If explicitly tagged with surfaceType ('wall' | 'floor')
   if (mat.surfaceType) {
     if (mat.surfaceType === 'floor') return category === 'floor';
     if (mat.surfaceType === 'wall') return category === 'wall';
     return mat.surfaceType === category;
   }
+
   // If explicitly categorized
   if (mat.category) {
     if (mat.category === 'floor') return category === 'floor';
     if (mat.category === 'wall') return category === 'wall';
     return mat.category === category;
   }
-  // Heuristic based on title/description for older legacy materials
+
+  // Heuristic based on title/description for legacy materials
   const lowerName = (mat.name || '').toLowerCase();
   const lowerDesc = (mat.description || '').toLowerCase();
   if (lowerName.includes('lantai') || lowerDesc.includes('lantai') || lowerName.includes('floor')) {
@@ -501,6 +101,7 @@ export function getMaterialById(
   customMaterials?: MaterialOption[]
 ): MaterialOption | undefined {
   if (id === 'original') return ORIGINAL_MATERIAL;
+  if (id === 'architectural-color' || id === 'wall-pure-white') return SOLID_COLOR_MATERIAL;
   if (customMaterials && customMaterials.length > 0) {
     const foundCustom = customMaterials.find((mat) => mat.id === id);
     if (foundCustom) return foundCustom;
@@ -515,5 +116,8 @@ export function getMaterialById(
       }
     } catch {}
   }
-  return MATERIAL_LIBRARY.find((mat) => mat.id === id);
+  return (
+    MATERIAL_LIBRARY.find((mat) => mat.id === id) ||
+    (id.startsWith('wall-') || id.startsWith('floor-') ? SOLID_COLOR_MATERIAL : undefined)
+  );
 }

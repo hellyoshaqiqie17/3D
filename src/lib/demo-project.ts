@@ -21,7 +21,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Exterior Walls',
         category: 'wall',
         meshNames: ['Wall_Exterior_Main', 'Wall_Exterior_Accent'],
-        defaultMaterialId: 'wall-pure-white',
+        defaultMaterialId: 'original',
         description: 'Main exterior facade surfaces and entry accent column.',
       },
       {
@@ -29,7 +29,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Interior Walls',
         category: 'wall',
         meshNames: ['Wall_Interior'],
-        defaultMaterialId: 'wall-warm-cream',
+        defaultMaterialId: 'original',
         description: 'Living room partitions and bedroom dividing walls.',
       },
       {
@@ -37,7 +37,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Living Room Flooring',
         category: 'floor',
         meshNames: ['Floor_Living'],
-        defaultMaterialId: 'floor-oak-natural',
+        defaultMaterialId: 'original',
         description: 'Main living room and open kitchen dining floor.',
       },
       {
@@ -45,7 +45,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Bedroom Flooring',
         category: 'floor',
         meshNames: ['Floor_Bedroom'],
-        defaultMaterialId: 'floor-herringbone',
+        defaultMaterialId: 'original',
         description: 'Master bedroom suite floor area.',
       },
       {
@@ -53,7 +53,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Bathroom Floor Tiles',
         category: 'bathroom',
         meshNames: ['Floor_Bathroom'],
-        defaultMaterialId: 'floor-carrara-marble',
+        defaultMaterialId: 'original',
         description: 'Master ensuite bathroom floor tiles.',
       },
       {
@@ -61,7 +61,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Bathroom Wall Tiles',
         category: 'bathroom',
         meshNames: ['Wall_Bathroom'],
-        defaultMaterialId: 'tile-white-subway',
+        defaultMaterialId: 'original',
         description: 'Full height ceramic tiles in bathroom shower zone.',
       },
       {
@@ -69,7 +69,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Floating Roof Canopy',
         category: 'roof',
         meshNames: ['Roof_Main'],
-        defaultMaterialId: 'roof-zinc-charcoal',
+        defaultMaterialId: 'original',
         description: 'Architectural cantilevered roof plane.',
       },
       {
@@ -77,7 +77,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Entrance Door',
         category: 'door',
         meshNames: ['Door_Entrance'],
-        defaultMaterialId: 'door-teak-wood',
+        defaultMaterialId: 'original',
         description: 'Main architectural entry door pivot.',
       },
       {
@@ -85,7 +85,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Outdoor Patio Decking',
         category: 'floor',
         meshNames: ['Deck_Patio'],
-        defaultMaterialId: 'floor-oak-natural',
+        defaultMaterialId: 'original',
         description: 'Sun terrace deck adjacent to living area.',
       },
     ],
@@ -110,7 +110,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Studio Exterior Facade',
         category: 'wall',
         meshNames: ['Wall_Exterior_Main', 'Wall_Exterior_Accent'],
-        defaultMaterialId: 'wall-nordic-beige',
+        defaultMaterialId: 'original',
         description: 'Main insulated perimeter walls and timber slats.',
       },
       {
@@ -118,7 +118,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Studio Main Floor',
         category: 'floor',
         meshNames: ['Floor_Living'],
-        defaultMaterialId: 'floor-polished-concrete',
+        defaultMaterialId: 'original',
         description: 'Seamless continuous microcement studio floor.',
       },
       {
@@ -126,7 +126,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Ensuite Stone Surfaces',
         category: 'bathroom',
         meshNames: ['Floor_Bathroom', 'Wall_Bathroom'],
-        defaultMaterialId: 'tile-travertine-stone',
+        defaultMaterialId: 'original',
         description: 'Honed travertine floor and wet room partitions.',
       },
       {
@@ -134,7 +134,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Flat Parapet Roof',
         category: 'roof',
         meshNames: ['Roof_Main'],
-        defaultMaterialId: 'roof-slate-black',
+        defaultMaterialId: 'original',
         description: 'Minimalist flat roof with concealed drainage.',
       },
       {
@@ -142,7 +142,7 @@ export const DEMO_PROJECTS: Project[] = [
         name: 'Pivot Entrance Door',
         category: 'door',
         meshNames: ['Door_Entrance'],
-        defaultMaterialId: 'door-black-aluminum',
+        defaultMaterialId: 'original',
         description: 'Black anodized architectural entrance door.',
       },
     ],

@@ -27,40 +27,7 @@ export interface LibraryFileRecord {
   publicUrl: string;
 }
 
-export const DEFAULT_CUSTOM_MATERIALS: MaterialOption[] = [
-  {
-    id: 'tile-designer-mosaic',
-    name: 'Designer Checker Wall Tile',
-    category: 'wall',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-mosaic.jpg',
-    previewThumbnail: '/textures/designer-tile-mosaic.jpg',
-    roughness: 0.2,
-    metalness: 0.05,
-    bumpScale: 0.16,
-    finish: 'gloss',
-    repeat: [4, 4],
-    description: 'Keramik motif kotak beveled dengan nat kontras 3D relief.',
-    tag: 'Client Design',
-    isCustomUpload: true,
-  },
-  {
-    id: 'tile-designer-slate',
-    name: 'Textured Relief Stone Wall',
-    category: 'wall',
-    type: 'texture',
-    textureUrl: '/textures/designer-tile-slate.jpg',
-    previewThumbnail: '/textures/designer-tile-slate.jpg',
-    roughness: 0.6,
-    metalness: 0.08,
-    bumpScale: 0.22,
-    finish: 'textured',
-    repeat: [4, 4],
-    description: 'Batu alam relief bertekstur kasar dengan efek tactile timbul.',
-    tag: 'Client Design',
-    isCustomUpload: true,
-  },
-];
+export const DEFAULT_CUSTOM_MATERIALS: MaterialOption[] = [];
 
 export const ADMIN_USER: User = {
   id: 'usr-admin-lead',

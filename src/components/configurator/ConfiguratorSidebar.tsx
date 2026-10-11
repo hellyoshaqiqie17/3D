@@ -63,8 +63,18 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   // Materials available for this category including user-uploaded PBR materials
   const combinedMaterials = useMemo(() => {
     const allCustom = [...customMaterials, ...uploadedMaterials];
-    const categoryCustom = allCustom.filter((m) => isMaterialForCategory(m, activeCategory));
-    const fromLibrary = getMaterialsByCategory(activeCategory);
+    const categoryCustom = allCustom.filter(
+      (m) =>
+        m &&
+        m.id &&
+        m.id !== 'original' &&
+        !m.id.includes('designer-mosaic') &&
+        !m.id.includes('designer-slate') &&
+        isMaterialForCategory(m, activeCategory)
+    );
+    const fromLibrary = getMaterialsByCategory(activeCategory).filter(
+      (m) => m.id !== 'original'
+    );
     const seen = new Set<string>();
     const result: MaterialOption[] = [];
     // Custom materials appear first at the top for instant 1-click access!
@@ -193,9 +203,9 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
             {/* Material Grid Header */}
             <div className="px-4 pt-3 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-secondary">
-                Material Library ({combinedMaterials.length})
+                Pola Keramik &amp; Material ({combinedMaterials.length})
               </span>
-              <span className="text-[10px] text-secondary">PBR Textures & Samples</span>
+              <span className="text-[10px] text-secondary">Koleksi Desain Terupload</span>
             </div>
 
             {/* Material Grid */}

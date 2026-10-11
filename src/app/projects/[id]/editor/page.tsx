@@ -103,7 +103,7 @@ export default function ZoneEditorPage({ params }: EditorPageProps) {
     e.preventDefault();
     if (!newZoneName.trim() || newZoneMeshes.length === 0) return;
 
-    const defaultMat = MATERIAL_LIBRARY.find((m) => m.category === newZoneCategory)?.id || 'wall-pure-white';
+    const defaultMat = 'original';
 
     const newZone: MaterialZone = {
       id: `zone_${Date.now()}`,

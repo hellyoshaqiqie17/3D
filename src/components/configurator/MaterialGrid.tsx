@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { MaterialOption, MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { getMaterialThumbnail } from '@/lib/texture-generator';
-import { Check, Sparkles, RotateCcw } from 'lucide-react';
+import { calculateRepeatFromTileSize } from '@/lib/tile-constants';
+import { Check, Sparkles, RotateCcw, Image as ImageIcon } from 'lucide-react';
 
 interface MaterialGridProps {
   materials: MaterialOption[];
@@ -18,6 +19,7 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
   const setZoneOriginal = useConfiguratorStore((s) => s.setZoneOriginal);
   const customColors = useConfiguratorStore((s) => s.customColors);
 
+  const isFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
   const currentMaterialId = selectedMaterials[currentZone.id] || currentZone.defaultMaterialId;
   const isOriginal = (!currentMaterialId || currentMaterialId === 'original') && !customColors[currentZone.id];
 
@@ -81,9 +83,19 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
           </div>
         </div>
       </button>
+
+      {/* Uploaded Materials */}
       {materials.map((mat) => {
         const isSelected = currentMaterialId === mat.id;
         const thumbnailSrc = thumbnails[mat.id];
+
+        // Sizing logic: Differentiate dimensions between floor and wall
+        const defaultTileSize: [number, number] = isFloor ? [60, 60] : [30, 60];
+        const targetTileSize: [number, number] =
+          mat.tileSizeCm && mat.surfaceType === (isFloor ? 'floor' : 'wall')
+            ? mat.tileSizeCm
+            : defaultTileSize;
+        const targetRepeat = calculateRepeatFromTileSize(targetTileSize);
 
         return (
           <button
@@ -92,11 +104,16 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
               applyMaterial(currentZone.id, mat.id);
               if (mat.type === 'texture') {
                 setZoneTextureSettings(currentZone.id, {
-                  repeat: mat.repeat || [4, 4],
+                  repeat: targetRepeat,
                   bumpScale: mat.bumpScale ?? 0.16,
                   roughness: mat.roughness ?? 0.35,
                   rotation: mat.rotation ?? 0,
                   colorTint: mat.color || '#FFFFFF',
+                  tileSizeCm: targetTileSize,
+                  surfaceType: isFloor ? 'floor' : 'wall',
+                  showGrout: mat.showGrout ?? true,
+                  groutWidthMm: mat.groutWidthMm ?? 2,
+                  groutColor: mat.groutColor || '#8E9297',
                 });
               }
             }}
@@ -153,18 +170,34 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
               </div>
 
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase tracking-wider font-medium text-secondary">
-                  {mat.finish}
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">
+                  {isFloor ? 'Ukuran Lantai' : 'Ukuran Dinding'}
                 </span>
                 <span className="text-secondary/40 text-[10px]">•</span>
-                <span className="text-[10px] text-secondary capitalize">
-                  {mat.type}
+                <span className="text-[10px] font-mono text-secondary">
+                  {targetTileSize[0]}×{targetTileSize[1]} cm
                 </span>
               </div>
             </div>
           </button>
         );
       })}
+
+      {/* Empty State Banner if no uploaded ceramics */}
+      {materials.length === 0 && (
+        <div className="col-span-2 mt-1 p-3.5 bg-surface-50 border border-dashed border-border rounded-xl text-center">
+          <div className="w-8 h-8 rounded-full bg-surface-200 text-secondary mx-auto mb-2 flex items-center justify-center">
+            <ImageIcon className="w-4 h-4" />
+          </div>
+          <p className="text-xs font-semibold text-primary mb-1">
+            Belum Ada Pola Keramik Tersimpan
+          </p>
+          <p className="text-[11px] text-secondary leading-relaxed">
+            Upload gambar motif keramik di menu atas untuk mulai menerapkan tekstur pada{' '}
+            <strong className="text-primary">{isFloor ? 'Lantai' : 'Dinding'}</strong>, atau pilih warna solid di Architectural Colors.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

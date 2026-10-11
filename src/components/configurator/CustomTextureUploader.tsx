@@ -141,57 +141,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     setPatternName('');
   };
 
-  const handleQuickLoadPreset = (
-    url: string,
-    name: string,
-    bump: number,
-    tileSize: [number, number],
-    type: 'wall' | 'floor',
-    finish: 'gloss' | 'textured'
-  ) => {
-    const targetMat = uploadedMaterials.find((m) => m.textureUrl === url);
-    const targetId = targetMat?.id || `designer-${Date.now()}`;
-    const repeat = calculateRepeatFromTileSize(tileSize);
 
-    if (!targetMat) {
-      const newMat: MaterialOption = {
-        id: targetId,
-        name: name,
-        category: type,
-        type: 'texture',
-        textureUrl: url,
-        previewThumbnail: url,
-        roughness: finish === 'gloss' ? 0.2 : 0.6,
-        metalness: 0.06,
-        bumpScale: bump,
-        finish: finish,
-        repeat: repeat,
-        tileSizeCm: tileSize,
-        surfaceType: type,
-        showGrout: true,
-        groutWidthMm: 2,
-        groutColor: '#8E9297',
-        description: `Sampel arsitektur desainer ${tileSize[0]}x${tileSize[1]} cm dengan nat 2 mm.`,
-        tag: 'Client Design',
-        isCustomUpload: true,
-      };
-      addUploadedMaterial(newMat);
-    }
-
-    applyMaterial(currentZone.id, targetId);
-    setZoneTextureSettings(currentZone.id, {
-      repeat: repeat,
-      bumpScale: bump,
-      roughness: finish === 'gloss' ? 0.2 : 0.6,
-      rotation: 0,
-      colorTint: '#FFFFFF',
-      tileSizeCm: tileSize,
-      surfaceType: type,
-      showGrout: true,
-      groutWidthMm: 2,
-      groutColor: '#8E9297',
-    });
-  };
 
   return (
     <div className="border-b border-border bg-white">
@@ -224,77 +174,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       {/* Accordion Content */}
       {isOpen && (
         <div className="p-4 pt-1 border-t border-border/60 bg-surface-50/40 space-y-4">
-          {/* Quick Client Samples */}
-          <div>
-            <span className="text-[10px] font-bold uppercase tracking-wider text-secondary block mb-1.5">
-              Sampel Cepat Desainer:
-            </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() =>
-                  handleQuickLoadPreset(
-                    '/textures/designer-tile-mosaic.jpg',
-                    'Ubin Checker Mozaik 60x60',
-                    0.16,
-                    [60, 60],
-                    'floor',
-                    'gloss'
-                  )
-                }
-                className="flex items-center gap-2 p-2 bg-white rounded-lg border border-border hover:border-primary transition-all text-left shadow-subtle group"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/textures/designer-tile-mosaic.jpg"
-                  alt="Checker Mosaic"
-                  className="w-8 h-8 rounded object-cover border border-border shrink-0"
-                />
-                <div className="min-w-0">
-                  <span className="text-[11px] font-semibold text-primary block truncate group-hover:text-accent">
-                    Mozaik 60x60
-                  </span>
-                  <span className="text-[9px] text-secondary block">Lantai (Nat 2mm)</span>
-                </div>
-              </button>
 
-              <button
-                type="button"
-                onClick={() =>
-                  handleQuickLoadPreset(
-                    '/textures/designer-tile-slate.jpg',
-                    'Batu Relief Slate 60x120',
-                    0.22,
-                    [60, 120],
-                    'wall',
-                    'textured'
-                  )
-                }
-                className="flex items-center gap-2 p-2 bg-white rounded-lg border border-border hover:border-primary transition-all text-left shadow-subtle group"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="/textures/designer-tile-slate.jpg"
-                  alt="Relief Slate"
-                  className="w-8 h-8 rounded object-cover border border-border shrink-0"
-                />
-                <div className="min-w-0">
-                  <span className="text-[11px] font-semibold text-primary block truncate group-hover:text-accent">
-                    Slate 60x120
-                  </span>
-                  <span className="text-[9px] text-secondary block">Dinding (Nat 2mm)</span>
-                </div>
-              </button>
-            </div>
-          </div>
-
-          <div className="relative flex py-1 items-center">
-            <div className="flex-grow border-t border-border"></div>
-            <span className="flex-shrink mx-2 text-[10px] text-secondary uppercase font-medium">
-              atau upload file gambar pola kustom
-            </span>
-            <div className="flex-grow border-t border-border"></div>
-          </div>
 
           {/* Form */}
           <form onSubmit={handleApplyCustom} className="space-y-3.5">

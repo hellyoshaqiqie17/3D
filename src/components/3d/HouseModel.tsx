@@ -7,7 +7,7 @@ import * as THREE from 'three';
 import { MaterialZone, BuildingFloorLevel } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials, restoreZoneOriginalMaterial } from '@/lib/material-applier';
-import { getMaterialById } from '@/lib/materials';
+import { getMaterialById, SOLID_COLOR_MATERIAL } from '@/lib/materials';
 import { splitMergedSurfaces } from '@/lib/mesh-splitter';
 import { calculateRoomBounds, isStructuralShellMesh } from '@/lib/furniture-filter';
 
@@ -557,7 +557,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       const material =
         uploadedMaterials.find((m) => m.id === selectedMatId) ||
         getMaterialById(selectedMatId) ||
-        (customColor ? getMaterialById('wall-pure-white') : undefined);
+        (customColor ? SOLID_COLOR_MATERIAL : undefined);
 
       if (material) {
         applyMaterialToZone(
