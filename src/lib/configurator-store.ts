@@ -20,6 +20,12 @@ interface ConfiguratorState {
   selectedMeshName: string | null;
   isSelectionHighlightVisible: boolean;
 
+  // 3D Scene Loading & Rendering Lifecycle
+  isSceneReady: boolean;
+  sceneLoadingStage: 'idle' | 'downloading' | 'parsing' | 'preparing' | 'rendering' | 'ready';
+  setSceneReady: (ready: boolean) => void;
+  setSceneLoadingStage: (stage: 'idle' | 'downloading' | 'parsing' | 'preparing' | 'rendering' | 'ready') => void;
+
   // Active material selections: zoneId -> materialId
   selectedMaterials: Record<string, string>;
   // Custom user colors: zoneId -> hex code
@@ -174,6 +180,11 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   hoveredMeshName: null,
   selectedMeshName: null,
   isSelectionHighlightVisible: false,
+
+  isSceneReady: false,
+  sceneLoadingStage: 'idle',
+  setSceneReady: (ready) => set({ isSceneReady: ready }),
+  setSceneLoadingStage: (stage) => set({ sceneLoadingStage: stage }),
 
   selectedMaterials: {},
   customColors: {},

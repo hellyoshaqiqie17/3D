@@ -68,6 +68,32 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const setInteriorBounds = useConfiguratorStore((s) => s.setInteriorBounds);
   const isCeilingCut = useConfiguratorStore((s) => s.isCeilingCut);
   const ceilingCutHeight = useConfiguratorStore((s) => s.ceilingCutHeight);
+  const setSceneReady = useConfiguratorStore((s) => s.setSceneReady);
+  const setSceneLoadingStage = useConfiguratorStore((s) => s.setSceneLoadingStage);
+
+  const frameCountRef = useRef(0);
+
+  useEffect(() => {
+    frameCountRef.current = 0;
+    setSceneReady(false);
+    setSceneLoadingStage('preparing');
+    return () => {
+      setSceneReady(false);
+      setSceneLoadingStage('idle');
+    };
+  }, [resolvedModelUrl, setSceneReady, setSceneLoadingStage]);
+
+  useFrame(() => {
+    if (frameCountRef.current < 2) {
+      frameCountRef.current += 1;
+      if (frameCountRef.current === 1) {
+        setSceneLoadingStage('rendering');
+      } else if (frameCountRef.current === 2) {
+        setSceneReady(true);
+        setSceneLoadingStage('ready');
+      }
+    }
+  });
 
   // Deep clone scene so modifications are isolated to this session
   const sceneClone = useMemo(() => {
