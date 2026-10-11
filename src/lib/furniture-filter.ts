@@ -17,7 +17,7 @@ export const ENV_KEYWORDS = [
   'kangaroo', 'pampas', 'evergreen', 'foliage', 'car', 'vehicle'
 ];
 
-// Keywords that are DEFINITELY furniture, appliances, or loose fixtures
+// Keywords that are DEFINITELY furniture, appliances, loose fixtures, curtains, or decor
 export const FURNITURE_KEYWORDS = [
   'fridge', 'kulkas', 'refrigerator', 'freezer',
   'stove', 'kompor', 'cooktop', 'burner',
@@ -35,11 +35,15 @@ export const FURNITURE_KEYWORDS = [
   'bathtub', 'shower', 'vanity', 'mirror', 'cermin',
   'lamp', 'lampu', 'chandelier', 'pendant', 'sconce', 'lantern', 'standing_lamp', 'light', 'spotlight', 'pointlight', 'enscape', 'linear', 'spot', 'point', 'pole', 'rod', 'rail',
   'tv', 'television', 'monitor', 'screen', 'audio', 'speaker',
-  'decor', 'decoration', 'hiasan', 'pajangan', 'accessories', 'sculpture', 'statue', 'art', 'print',
+  'decor', 'decoration', 'hiasan', 'pajangan', 'accessories', 'sculpture', 'statue', 'art', 'print', 'frame', 'framed', 'potato', 'fragrance', 'candle', 'basket', 'cestas', 'bolas',
   'pot', 'plant', 'tanaman', 'flower', 'bunga', 'vase', 'vas', 'cactus', 'potted',
-  'carpet', 'karpet', 'rug', 'curtain', 'gorden', 'blind', 'drape',
+  'carpet', 'karpet', 'rug',
+  // Curtains, drapery, window treatments, blinds, shades, fabric panels
+  'curtain', 'gorden', 'blind', 'drape', 'drapery', 'valance', 'pleat', 'pleats', 'shutter', 'louver', 'slat', 'vitrase', 'vitrage', 'hordeng', 'korden', 'curtains', 'gordyn', 'kordeng', 'shade', 'shades', 'roller',
+  // Specific curtain / drapery component IDs from SketchUp models
+  'group36', '346', '1227364', '1058147', '1023226', '1040408', '968424', '988213', '1058173', '1041326', '991426',
   'pillow', 'bantal', 'cushion', 'blanket', 'selimut',
-  'picture', 'frame', 'bingkai', 'lukisan', 'painting',
+  'picture', 'bingkai', 'lukisan', 'painting',
   'plate', 'piring', 'bowl', 'mangkok', 'glass', 'gelas', 'cup', 'cangkir',
   'pan', 'panci', 'pot_cook', 'wajan', 'knife', 'pisau', 'spoon', 'sendok', 'fork', 'garpu',
   'bottle', 'botol', 'book', 'buku', 'magazine',
@@ -124,15 +128,21 @@ export function isStructuralShellMesh(
   roofElevationY?: number
 ): boolean {
   // 1. Explicit furniture / appliance / kitchen fixture keyword: ALWAYS HIDE
-  // Match whole name tokens across self name, parent names, and userData
-  const allNames = [
+  // Match whole name tokens across self, all parent ancestors up to scene root, and userData
+  const namesList: string[] = [
     mesh.name || '',
     (mesh.userData as any)?.name || '',
     (mesh.userData as any)?.splitFrom || '',
     (mesh.userData as any)?.originalName || '',
-    mesh.parent?.name || '',
-    mesh.parent?.parent?.name || '',
-  ].join(' ');
+  ];
+
+  let curr: THREE.Object3D | null = mesh.parent;
+  while (curr) {
+    if (curr.name) namesList.push(curr.name);
+    curr = curr.parent;
+  }
+
+  const allNames = namesList.join(' ');
 
   const tokens = new Set(
     allNames
@@ -189,11 +199,13 @@ export function isStructuralShellMesh(
   // 4. Room Wall (Dinding):
   // Full-height or room-scale structural wall slab:
   // - Height >= 60% of room height (or >= 1.8m)
-  // - Length >= 0.80m
+  // - Length >= minWallSpan (at least 1.20m, or >= 30% of room dimension)
+  //   (curtain panels, valances, fabric folds are < 1.0m wide)
   // - Thickness <= 0.40m
+  const minWallSpan = Math.min(1.20, Math.min(bounds.roomWidth, bounds.roomDepth) * 0.30);
   const isRoomWall =
     (size.y >= bounds.roomHeight * 0.60 || size.y >= 1.8) &&
-    (size.x >= 0.80 || size.z >= 0.80) &&
+    (size.x >= minWallSpan || size.z >= minWallSpan) &&
     Math.min(size.x, size.z) <= 0.40;
 
   if (isRoomWall) return true;
