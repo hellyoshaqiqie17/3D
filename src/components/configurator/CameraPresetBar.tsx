@@ -182,8 +182,8 @@ export function CameraPresetBar() {
               <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-secondary">
                 Mode Kontrol 3D
               </p>
-              <div className={`grid ${isFurniture ? 'grid-cols-2' : 'grid-cols-3'} gap-1`}>
-                {/* 1. Orbit / Turntable */}
+              <div className="grid grid-cols-2 gap-1">
+                {/* 1. Orbit */}
                 <button
                   type="button"
                   onClick={() => {
@@ -192,14 +192,14 @@ export function CameraPresetBar() {
                   }}
                   title="CAD Orbit: Seret untuk memutar objek 3D"
                   className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
-                    !isLookAround360 && !isWalkMode
+                    !isLookAround360
                       ? 'bg-primary text-white border-primary shadow-subtle'
                       : 'bg-white text-secondary border-border hover:border-primary/40 hover:text-primary'
                   }`}
                 >
                   <Orbit className="w-4 h-4" />
                   <span className="text-[10px] font-semibold leading-tight">CAD Orbit</span>
-                  <span className={`text-[8px] leading-tight ${!isLookAround360 && !isWalkMode ? 'text-white/80' : 'text-secondary'}`}>
+                  <span className={`text-[8px] leading-tight ${!isLookAround360 ? 'text-white/80' : 'text-secondary'}`}>
                     Putar objek
                   </span>
                 </button>
@@ -223,49 +223,26 @@ export function CameraPresetBar() {
                     </span>
                   </button>
                 ) : (
-                  <>
-                    {/* 2. Look Around 360 */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setWalkMode(false);
-                        setLookAround360(true);
-                      }}
-                      title="Kamera diam di 1 titik, seret mouse menoleh 360°"
-                      className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
-                        isLookAround360
-                          ? 'bg-amber-500 text-white border-amber-600 shadow-subtle'
-                          : 'bg-white text-secondary border-border hover:border-amber-400 hover:text-primary'
-                      }`}
-                    >
-                      <Compass className="w-4 h-4" />
-                      <span className="text-[10px] font-semibold leading-tight">Menoleh 360°</span>
-                      <span className={`text-[8px] leading-tight ${isLookAround360 ? 'text-white/85' : 'text-secondary'}`}>
-                        Diam di titik
-                      </span>
-                    </button>
-
-                    {/* 3. Blender Walk Mode */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLookAround360(false);
-                        toggleWalkMode();
-                      }}
-                      title="Blender Walk Mode: Jalan di dalam ruangan dengan W A S D dan mouse look"
-                      className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
-                        isWalkMode
-                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-subtle'
-                          : 'bg-white text-secondary border-border hover:border-indigo-400 hover:text-primary'
-                      }`}
-                    >
-                      <Footprints className="w-4 h-4" />
-                      <span className="text-[10px] font-semibold leading-tight">Jalan (Blender)</span>
-                      <span className={`text-[8px] leading-tight ${isWalkMode ? 'text-white/85' : 'text-secondary'}`}>
-                        WASD Walk
-                      </span>
-                    </button>
-                  </>
+                  /* 2. Look Around 360 */
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWalkMode(false);
+                      setLookAround360(true);
+                    }}
+                    title="Kamera diam di 1 titik, seret mouse menoleh 360°"
+                    className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
+                      isLookAround360
+                        ? 'bg-amber-500 text-white border-amber-600 shadow-subtle'
+                        : 'bg-white text-secondary border-border hover:border-amber-400 hover:text-primary'
+                    }`}
+                  >
+                    <Compass className="w-4 h-4" />
+                    <span className="text-[10px] font-semibold leading-tight">Menoleh 360°</span>
+                    <span className={`text-[8px] leading-tight ${isLookAround360 ? 'text-white/85' : 'text-secondary'}`}>
+                      Diam di titik
+                    </span>
+                  </button>
                 )}
               </div>
             </div>
@@ -416,7 +393,7 @@ export function CameraPresetBar() {
               </span>
             ) : (
               <span className="truncate">
-                <strong>Klik 2×</strong> di lantai untuk langsung masuk • <strong>Scroll</strong> maju untuk tembus dinding • <strong>Seret</strong> untuk memutar
+                <strong>WASD</strong> untuk jalan • <strong>Klik 2×</strong> lantai untuk masuk • <strong>Scroll</strong> tembus dinding • <strong>Seret</strong> memutar
               </span>
             )}
             <button
@@ -546,7 +523,7 @@ export function CameraPresetBar() {
               <li className="flex gap-2.5">
                 <Footprints className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
                 <span>
-                  <strong>Mode Jalan (Blender Walk):</strong> Aktifkan di panel kiri atas. Berjalan bebas menggunakan tombol <strong>W A S D</strong> dan geser mouse untuk menoleh. Tahan Shift untuk lari.
+                  <strong>Navigasi Jalan (WASD):</strong> Langsung gunakan tombol <strong>W A S D</strong> atau tombol panah kapan saja untuk berjalan di dalam ruangan tanpa perlu mengaktifkan tombol. Tahan Shift untuk lari, Q/E untuk naik-turun.
                 </span>
               </li>
               <li className="flex gap-2.5">
