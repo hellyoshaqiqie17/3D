@@ -242,10 +242,10 @@ export function SkpLibraryView() {
         <div>
           <h2 className="text-lg font-bold text-primary flex items-center gap-2">
             <Layers className="w-5 h-5 text-primary" />
-            <span>SKP File Library & Batch Upload</span>
+            <span>3D Model Library & Batch Upload</span>
           </h2>
           <p className="text-xs text-secondary mt-0.5">
-            Unggah banyak file SketchUp (.skp) sekaligus ke cloud storage dan gunakan langsung pada 3D Configurator.
+            Unggah banyak file model 3D sekaligus ke cloud storage dan gunakan langsung pada 3D Configurator.
           </p>
         </div>
 
@@ -454,7 +454,7 @@ export function SkpLibraryView() {
         )}
       </div>
 
-      {/* SKP File Library Explorer */}
+      {/* 3D Model Library Explorer */}
       <div className="bg-white rounded-2xl border border-border p-6 shadow-subtle space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>

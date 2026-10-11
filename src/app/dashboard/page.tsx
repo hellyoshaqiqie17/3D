@@ -297,7 +297,7 @@ export default function DashboardPage() {
             }`}
           >
             <UploadCloud className="w-4 h-4" />
-            <span>SKP File Library</span>
+            <span>3D Model Library</span>
           </button>
 
           <button
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                     className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium text-secondary hover:text-primary bg-white hover:bg-surface-50 border border-border rounded-xl transition-colors shadow-subtle"
                   >
                     <UploadCloud className="w-3.5 h-3.5" />
-                    <span>SKP File Library</span>
+                    <span>3D Model Library</span>
                   </button>
 
                   <Link

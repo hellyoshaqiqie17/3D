@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { ProjectConfiguration } from '@/types';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -12,7 +15,13 @@ export async function GET(req: NextRequest) {
     }
 
     const configs = await db.getConfigurations(projectId);
-    return NextResponse.json(configs);
+    return NextResponse.json(configs, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    });
   } catch (error: any) {
     console.error('Failed to get configurations:', error);
     return NextResponse.json({ error: 'Failed to retrieve configurations' }, { status: 500 });

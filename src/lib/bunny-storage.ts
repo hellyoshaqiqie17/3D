@@ -121,6 +121,7 @@ export class BunnyStorageService {
     return fetch(url, {
       method: 'GET',
       headers,
+      cache: 'no-store',
     });
   }
 

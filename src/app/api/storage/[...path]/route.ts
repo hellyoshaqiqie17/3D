@@ -5,6 +5,8 @@ interface RouteContext {
   params: Promise<{ path: string[] }>;
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { path: pathSegments } = await context.params;
@@ -44,7 +46,11 @@ export async function GET(req: NextRequest, context: RouteContext) {
     headers.set('Content-Type', contentType);
     headers.set('Access-Control-Allow-Origin', '*');
     headers.set('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
-    headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    if (lower.endsWith('.json')) {
+      headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    } else {
+      headers.set('Cache-Control', 'public, max-age=31536000, immutable');
+    }
 
     const contentLength = bunnyRes.headers.get('content-length');
     if (contentLength) headers.set('Content-Length', contentLength);

@@ -9,7 +9,9 @@ export async function POST(req: NextRequest) {
     const ext = path.extname(originalName).toLowerCase();
     const baseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const timestamp = Date.now();
-    const safeFilename = `${baseName}_${timestamp}${ext}`;
+    const userIdCookie = req.cookies.get('hc_user_id')?.value;
+    const prefix = userIdCookie ? `${userIdCookie}__USER__` : '';
+    const safeFilename = `${prefix}${baseName}_${timestamp}${ext}`;
 
     const isSkp = ext === '.skp';
     const targetFolder = body.targetFolder || (isSkp ? 'temp' : 'models');

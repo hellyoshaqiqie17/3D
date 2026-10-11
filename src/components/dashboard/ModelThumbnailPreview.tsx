@@ -32,8 +32,8 @@ export function ModelThumbnailPreview({ project, className = '' }: ModelThumbnai
     setIsCapturing(true);
     const loader = new GLTFLoader();
     const resolvedModelUrl =
-      project.modelUrl.startsWith('/uploads/') && process.env.NEXT_PUBLIC_VPS_URL
-        ? `${process.env.NEXT_PUBLIC_VPS_URL.replace(/\/$/, '')}${project.modelUrl}`
+      project.modelUrl.startsWith('/uploads/')
+        ? `/api/storage${project.modelUrl}`
         : project.modelUrl;
     loader.load(
       resolvedModelUrl,

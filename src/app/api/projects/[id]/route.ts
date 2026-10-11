@@ -5,6 +5,9 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest, context: RouteContext) {
   try {
     const { id } = await context.params;
@@ -15,7 +18,13 @@ export async function GET(req: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
-    return NextResponse.json(project);
+    return NextResponse.json(project, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    });
   } catch (error: any) {
     console.error('Failed to get project:', error);
     return NextResponse.json({ error: 'Failed to retrieve project' }, { status: 500 });

@@ -11,6 +11,21 @@ const PROJECTS_FILE = path.join(DATA_DIR, 'projects.json');
 const CONFIGS_FILE = path.join(DATA_DIR, 'configurations.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const MATERIALS_FILE = path.join(DATA_DIR, 'materials.json');
+const LIBRARY_FILES_FILE = path.join(DATA_DIR, 'library_files.json');
+
+export interface LibraryFileRecord {
+  id: string;
+  userId: string;
+  name: string;
+  filename: string;
+  storagePath: string;
+  size: number;
+  sizeMB: string;
+  updatedAt: string;
+  isConverted: boolean;
+  glbUrl?: string;
+  publicUrl: string;
+}
 
 export const DEFAULT_CUSTOM_MATERIALS: MaterialOption[] = [
   {
@@ -91,55 +106,27 @@ function ensureDataDir() {
   }
 
   if (!fs.existsSync(PROJECTS_FILE)) {
-    const bundledProjects = path.join(process.cwd(), 'data', 'projects.json');
-    if (fs.existsSync(bundledProjects)) {
-      try {
-        fs.copyFileSync(bundledProjects, PROJECTS_FILE);
-      } catch {
-        fs.writeFileSync(PROJECTS_FILE, JSON.stringify([], null, 2), 'utf-8');
-      }
-    } else {
+    try {
       fs.writeFileSync(PROJECTS_FILE, JSON.stringify([], null, 2), 'utf-8');
-    }
+    } catch {}
   }
 
   if (!fs.existsSync(CONFIGS_FILE)) {
-    const bundledConfigs = path.join(process.cwd(), 'data', 'configurations.json');
-    if (fs.existsSync(bundledConfigs)) {
-      try {
-        fs.copyFileSync(bundledConfigs, CONFIGS_FILE);
-      } catch {
-        fs.writeFileSync(CONFIGS_FILE, JSON.stringify([], null, 2), 'utf-8');
-      }
-    } else {
+    try {
       fs.writeFileSync(CONFIGS_FILE, JSON.stringify([], null, 2), 'utf-8');
-    }
+    } catch {}
   }
 
   if (!fs.existsSync(USERS_FILE)) {
-    const bundledUsers = path.join(process.cwd(), 'data', 'users.json');
-    if (fs.existsSync(bundledUsers)) {
-      try {
-        fs.copyFileSync(bundledUsers, USERS_FILE);
-      } catch {
-        fs.writeFileSync(USERS_FILE, JSON.stringify([ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER], null, 2), 'utf-8');
-      }
-    } else {
+    try {
       fs.writeFileSync(USERS_FILE, JSON.stringify([ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER], null, 2), 'utf-8');
-    }
+    } catch {}
   }
 
   if (!fs.existsSync(MATERIALS_FILE)) {
-    const bundledMaterials = path.join(process.cwd(), 'data', 'materials.json');
-    if (fs.existsSync(bundledMaterials)) {
-      try {
-        fs.copyFileSync(bundledMaterials, MATERIALS_FILE);
-      } catch {
-        fs.writeFileSync(MATERIALS_FILE, JSON.stringify(DEFAULT_CUSTOM_MATERIALS, null, 2), 'utf-8');
-      }
-    } else {
+    try {
       fs.writeFileSync(MATERIALS_FILE, JSON.stringify(DEFAULT_CUSTOM_MATERIALS, null, 2), 'utf-8');
-    }
+    } catch {}
   }
 }
 
@@ -153,22 +140,12 @@ export function extractBunnyStoragePath(urlOrPath?: string): string | null {
   return null;
 }
 
-// In-memory cache for fast lookups
-let cachedProjects: Project[] | null = null;
-let cachedConfigs: ProjectConfiguration[] | null = null;
-let cachedUsers: User[] | null = null;
-let cachedMaterials: MaterialOption[] | null = null;
-
+// Single Source of Truth: Bunny Storage Cloud with local disk fallback (Serverless safe, no stale cross-instance memory cache)
 async function readProjects(): Promise<Project[]> {
-  if (cachedProjects !== null) {
-    return cachedProjects;
-  }
-
-  // 1. Try fetching from Bunny Storage Cloud
+  // 1. Always fetch fresh from Bunny Storage Cloud
   try {
     const cloudProjects = await bunnyStorage.readJson<Project[]>('data/projects.json');
     if (cloudProjects !== null && Array.isArray(cloudProjects)) {
-      cachedProjects = cloudProjects;
       try {
         ensureDataDir();
         fs.writeFileSync(PROJECTS_FILE, JSON.stringify(cloudProjects, null, 2), 'utf-8');
@@ -179,15 +156,13 @@ async function readProjects(): Promise<Project[]> {
     console.warn('[DB] Failed reading projects from Bunny Storage:', err);
   }
 
-  // 2. Fallback to local disk file
+  // 2. Fallback to local disk file if cloud temporarily unreachable
   ensureDataDir();
   try {
     if (fs.existsSync(PROJECTS_FILE)) {
       const raw = fs.readFileSync(PROJECTS_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        cachedProjects = parsed;
-        bunnyStorage.writeJson('data/projects.json', parsed).catch(() => {});
         return parsed;
       }
     }
@@ -195,13 +170,11 @@ async function readProjects(): Promise<Project[]> {
     console.error('Failed to read projects database:', err);
   }
 
-  // 3. Fallback: Clean empty state (no default projects)
-  cachedProjects = [];
   return [];
 }
 
 async function writeProjects(projects: Project[]): Promise<void> {
-  cachedProjects = projects;
+  // 1. Write to local disk cache
   try {
     ensureDataDir();
     const tempFile = `${PROJECTS_FILE}.tmp`;
@@ -209,6 +182,7 @@ async function writeProjects(projects: Project[]): Promise<void> {
     fs.renameSync(tempFile, PROJECTS_FILE);
   } catch {}
 
+  // 2. Persist immediately to Bunny Storage Cloud
   try {
     await bunnyStorage.writeJson('data/projects.json', projects);
   } catch (err) {
@@ -217,19 +191,18 @@ async function writeProjects(projects: Project[]): Promise<void> {
 }
 
 async function readConfigs(): Promise<ProjectConfiguration[]> {
-  if (cachedConfigs !== null) return cachedConfigs;
-
   try {
     const cloudConfigs = await bunnyStorage.readJson<ProjectConfiguration[]>('data/configurations.json');
     if (cloudConfigs !== null && Array.isArray(cloudConfigs)) {
-      cachedConfigs = cloudConfigs;
       try {
         ensureDataDir();
         fs.writeFileSync(CONFIGS_FILE, JSON.stringify(cloudConfigs, null, 2), 'utf-8');
       } catch {}
       return cloudConfigs;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[DB] Failed reading configs from Bunny Storage:', err);
+  }
 
   ensureDataDir();
   try {
@@ -237,8 +210,6 @@ async function readConfigs(): Promise<ProjectConfiguration[]> {
       const raw = fs.readFileSync(CONFIGS_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        cachedConfigs = parsed;
-        bunnyStorage.writeJson('data/configurations.json', parsed).catch(() => {});
         return parsed;
       }
     }
@@ -248,7 +219,6 @@ async function readConfigs(): Promise<ProjectConfiguration[]> {
 }
 
 async function writeConfigs(configs: ProjectConfiguration[]): Promise<void> {
-  cachedConfigs = configs;
   try {
     ensureDataDir();
     const tempFile = `${CONFIGS_FILE}.tmp`;
@@ -264,15 +234,18 @@ async function writeConfigs(configs: ProjectConfiguration[]): Promise<void> {
 }
 
 async function readUsers(): Promise<User[]> {
-  if (cachedUsers !== null) return cachedUsers;
-
   try {
     const cloudUsers = await bunnyStorage.readJson<User[]>('data/users.json');
     if (cloudUsers !== null && Array.isArray(cloudUsers) && cloudUsers.length > 0) {
-      cachedUsers = cloudUsers;
+      try {
+        ensureDataDir();
+        fs.writeFileSync(USERS_FILE, JSON.stringify(cloudUsers, null, 2), 'utf-8');
+      } catch {}
       return cloudUsers;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[DB] Failed reading users from Bunny Storage:', err);
+  }
 
   ensureDataDir();
   try {
@@ -280,21 +253,17 @@ async function readUsers(): Promise<User[]> {
       const raw = fs.readFileSync(USERS_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedUsers = parsed;
-        bunnyStorage.writeJson('data/users.json', parsed).catch(() => {});
         return parsed;
       }
     }
   } catch (err) {}
 
   const defaults = [ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER];
-  cachedUsers = defaults;
   bunnyStorage.writeJson('data/users.json', defaults).catch(() => {});
   return defaults;
 }
 
 async function writeUsers(users: User[]): Promise<void> {
-  cachedUsers = users;
   try {
     ensureDataDir();
     const tempFile = `${USERS_FILE}.tmp`;
@@ -310,15 +279,18 @@ async function writeUsers(users: User[]): Promise<void> {
 }
 
 async function readMaterials(): Promise<MaterialOption[]> {
-  if (cachedMaterials !== null) return cachedMaterials;
-
   try {
     const cloudMaterials = await bunnyStorage.readJson<MaterialOption[]>('data/materials.json');
     if (cloudMaterials !== null && Array.isArray(cloudMaterials) && cloudMaterials.length > 0) {
-      cachedMaterials = cloudMaterials;
+      try {
+        ensureDataDir();
+        fs.writeFileSync(MATERIALS_FILE, JSON.stringify(cloudMaterials, null, 2), 'utf-8');
+      } catch {}
       return cloudMaterials;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[DB] Failed reading materials from Bunny Storage:', err);
+  }
 
   ensureDataDir();
   try {
@@ -326,20 +298,15 @@ async function readMaterials(): Promise<MaterialOption[]> {
       const raw = fs.readFileSync(MATERIALS_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedMaterials = parsed;
-        bunnyStorage.writeJson('data/materials.json', parsed).catch(() => {});
         return parsed;
       }
     }
   } catch (err) {}
 
-  cachedMaterials = DEFAULT_CUSTOM_MATERIALS;
-  bunnyStorage.writeJson('data/materials.json', DEFAULT_CUSTOM_MATERIALS).catch(() => {});
   return DEFAULT_CUSTOM_MATERIALS;
 }
 
 async function writeMaterials(materials: MaterialOption[]): Promise<void> {
-  cachedMaterials = materials;
   try {
     ensureDataDir();
     const tempFile = `${MATERIALS_FILE}.tmp`;

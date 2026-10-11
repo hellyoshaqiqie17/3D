@@ -18,8 +18,8 @@ interface HouseModelProps {
 
 export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const resolvedModelUrl =
-    modelUrl.startsWith('/uploads/') && process.env.NEXT_PUBLIC_VPS_URL
-      ? `${process.env.NEXT_PUBLIC_VPS_URL.replace(/\/$/, '')}${modelUrl}`
+    modelUrl.startsWith('/uploads/')
+      ? `/api/storage${modelUrl}`
       : modelUrl;
   const gltf = useGLTF(resolvedModelUrl);
   const modelRef = useRef<THREE.Group>(null);

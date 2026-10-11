@@ -14,6 +14,9 @@ function parseCookieUser(raw: string): User | null {
   }
 }
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -38,7 +41,13 @@ export async function GET(req: NextRequest) {
     }
 
     const projects = await db.getProjectsByUser(requestedUserId || undefined);
-    return NextResponse.json(projects);
+    return NextResponse.json(projects, {
+      headers: {
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        Pragma: 'no-cache',
+        Expires: '0',
+      },
+    });
   } catch (error: any) {
     console.error('Failed to get projects:', error);
     return NextResponse.json({ error: 'Failed to retrieve projects' }, { status: 500 });

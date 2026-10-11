@@ -17,7 +17,7 @@ export interface SkpFileRecord {
   publicUrl: string;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const [libFiles, modelFiles, tempFiles] = await Promise.all([
       bunnyStorage.listFiles('uploads/skp_library'),
@@ -41,19 +41,27 @@ export async function GET() {
 
     const seenFilenames = new Set<string>();
     const records: SkpFileRecord[] = [];
+    const userIdCookie = req.cookies.get('hc_user_id')?.value;
 
     for (const { item, folder } of candidateSkpItems) {
       const lower = item.ObjectName.toLowerCase();
       if (!lower.endsWith('.skp') && !lower.endsWith('.glb')) continue;
+
+      if (item.ObjectName.includes('__USER__')) {
+        if (userIdCookie && !item.ObjectName.startsWith(`${userIdCookie}__USER__`)) continue;
+      } else {
+        if (userIdCookie && userIdCookie !== 'usr-admin-lead') continue;
+      }
 
       const storagePath = `${folder}/${item.ObjectName}`;
       if (seenFilenames.has(item.ObjectName)) continue;
       seenFilenames.add(item.ObjectName);
 
       const ext = path.extname(item.ObjectName);
-      const rawBase = path.basename(item.ObjectName, ext);
-      // Clean name: e.g. "RUANG_TAMU_1791644314148" -> "RUANG TAMU"
+      let rawBase = path.basename(item.ObjectName, ext);
+      
       const cleanName = rawBase
+        .replace(/^.*__USER__/, '')
         .replace(/_\d{10,}$/, '')
         .replace(/[-_]/g, ' ')
         .trim();
