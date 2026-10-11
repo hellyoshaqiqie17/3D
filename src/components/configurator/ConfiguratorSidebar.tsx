@@ -30,6 +30,8 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const floorEnabled = useConfiguratorStore((s) => s.floorEnabled);
   const isFurnitureHidden = useConfiguratorStore((s) => s.isFurnitureHidden);
   const toggleFurnitureHidden = useConfiguratorStore((s) => s.toggleFurnitureHidden);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
 
   const customMaterials = useMaterialsStore((s) => s.customMaterials);
   const fetchCustomMaterials = useMaterialsStore((s) => s.fetchCustomMaterials);
@@ -42,10 +44,19 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
 
   // Available categories based on the current project's zones, plus 'floor'
   const availableCategories = useMemo(() => {
+    if (isFurniture) {
+      const set = new Set(zones.map((z) => z.category));
+      set.add('floor');
+      // Remove any architectural room categories
+      set.delete('roof');
+      set.delete('door');
+      set.delete('bathroom');
+      return Array.from(set);
+    }
     const set = new Set(zones.map((z) => z.category));
     set.add('floor');
     return Array.from(set);
-  }, [zones]);
+  }, [zones, isFurniture]);
 
   // Zones in current active category
   const categoryZones = useMemo(() => {
@@ -120,8 +131,8 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
       {/* Category Tabs */}
       <CategorySelector availableCategories={availableCategories} />
 
-      {/* Bare Room Mode Indicator */}
-      {isFurnitureHidden && (
+      {/* Bare Room Mode Indicator (Architecture only) */}
+      {isFurnitureHidden && !isFurniture && (
         <div className="mx-3 my-2 p-2 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between text-[11px] text-amber-900 shadow-subtle shrink-0">
           <div className="flex items-center gap-1.5 font-medium">
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
@@ -176,7 +187,13 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
               <div className="flex items-center justify-between mb-1">
                 <h3 className="text-sm font-semibold text-primary">{currentZone.name}</h3>
                 <span className="px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide bg-surface-100 text-secondary rounded">
-                  {currentZone.category}
+                  {isFurniture
+                    ? currentZone.category === 'floor'
+                      ? 'Permukaan Meja'
+                      : currentZone.category === 'wall'
+                      ? 'Rangka & Kaki'
+                      : 'Elemen Meja'
+                    : currentZone.category}
                 </span>
               </div>
               {currentZone.description && (
@@ -203,9 +220,11 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
             {/* Material Grid Header */}
             <div className="px-4 pt-3 flex items-center justify-between">
               <span className="text-xs font-semibold uppercase tracking-wider text-secondary">
-                Pola Keramik &amp; Material ({combinedMaterials.length})
+                {isFurniture ? 'Pola & Motif Material' : 'Pola Keramik & Material'} ({combinedMaterials.length})
               </span>
-              <span className="text-[10px] text-secondary">Koleksi Desain Terupload</span>
+              <span className="text-[10px] text-secondary">
+                {isFurniture ? 'Koleksi Tekstur Terupload' : 'Koleksi Desain Terupload'}
+              </span>
             </div>
 
             {/* Material Grid */}
@@ -230,7 +249,10 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
                     <p className="text-[11px] text-secondary mt-0.5 leading-normal">
                       {isOriginal
                         ? 'Tekstur dan material bawaan asli dari file 3D CAD / SketchUp.'
-                        : appliedMaterial.description || 'Architectural grade surface treatment.'}
+                        : appliedMaterial.description ||
+                          (isFurniture
+                            ? 'Custom furniture grade surface treatment.'
+                            : 'Architectural grade surface treatment.')}
                     </p>
                   </div>
                 </div>
@@ -258,8 +280,8 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
               </div>
             )}
 
-            {/* Optional Procedural Floor Overlay Accordion (only in floor category) */}
-            {activeCategory === 'floor' && (
+            {/* Optional Procedural Floor Overlay Accordion (only in floor category for architecture) */}
+            {activeCategory === 'floor' && !isFurniture && (
               <div className="m-4 border border-border rounded-xl bg-surface-50 overflow-hidden">
                 <button
                   type="button"
@@ -287,11 +309,13 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
               </div>
             )}
           </>
-        ) : activeCategory === 'floor' ? (
+        ) : activeCategory === 'floor' && !isFurniture ? (
           <FloorTileCustomizer />
         ) : (
           <div className="p-8 text-center text-secondary text-xs">
-            Select a material category or click on the 3D model surface to customize.
+            {isFurniture
+              ? 'Pilih bagian meja atau klik permukaan 3D meja untuk kustomisasi.'
+              : 'Select a material category or click on the 3D model surface to customize.'}
           </div>
         )}
       </div>
@@ -301,7 +325,11 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
         <div className="flex items-center gap-1.5">
           <Info className="w-3.5 h-3.5 text-secondary" />
           <span className="truncate max-w-[200px]">
-            {hoveredMeshName ? `Hover: ${hoveredMeshName}` : 'Click any 3D surface to select'}
+            {hoveredMeshName
+              ? `Hover: ${hoveredMeshName}`
+              : isFurniture
+              ? 'Klik permukaan 3D meja untuk memilih'
+              : 'Click any 3D surface to select'}
           </span>
         </div>
         <span className="font-mono text-[10px]">PBR 60FPS</span>

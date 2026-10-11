@@ -119,8 +119,11 @@ export function ProceduralFloor() {
   const floorOffsetX = useConfiguratorStore((s) => s.floorOffsetX);
   const floorOffsetZ = useConfiguratorStore((s) => s.floorOffsetZ);
 
-  // If disabled by user or viewing purely original CAD geometry without additions
-  if (!floorEnabled || isOriginalMode) {
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
+
+  // If disabled by user, viewing purely original CAD geometry, or viewing furniture/table
+  if (!floorEnabled || isOriginalMode || isFurniture) {
     return null;
   }
 

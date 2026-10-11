@@ -502,7 +502,9 @@ export function CameraPresetBar() {
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Compass className="w-5 h-5 text-indigo-600" />
-                <h3 className="text-sm font-semibold text-primary">Navigasi 3D ala Blender & AutoCAD</h3>
+                <h3 className="text-sm font-semibold text-primary">
+                  {isFurniture ? 'Panduan Navigasi & Kustomisasi Meja 3D' : 'Navigasi 3D ala Blender & AutoCAD'}
+                </h3>
               </div>
               <button
                 type="button"
@@ -513,44 +515,79 @@ export function CameraPresetBar() {
               </button>
             </div>
 
-            <ol className="space-y-2.5 text-xs text-primary">
-              <li className="flex gap-2.5">
-                <DoorOpen className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Masuk ke Ruangan:</strong> Klik tombol hijau <em>Masuk Ruangan</em> di bawah untuk langsung berdiri di dalam ruangan dengan lensa lebar interior.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <Footprints className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Navigasi Jalan (WASD):</strong> Langsung gunakan tombol <strong>W A S D</strong> atau tombol panah kapan saja untuk berjalan di dalam ruangan tanpa perlu mengaktifkan tombol. Tahan Shift untuk lari, Q/E untuk naik-turun.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <Move className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <span>
-                  <strong>Teleport Klik 2×:</strong> Klik 2× pada titik lantai atau perabot mana saja untuk langsung meluncur ke titik tersebut.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <ZoomIn className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <span>
-                  <strong>Continuous Zoom:</strong> Scroll mouse maju terus menerus akan menembus dinding masuk ke dalam ruangan tanpa macet.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <Grid className="w-4 h-4 text-accent shrink-0 mt-0.5" />
-                <span>
-                  <strong>AutoCAD ViewCube:</strong> Gunakan kubus di pojok kanan atas untuk langsung melihat tampak Atas, Depan, Kanan, atau Isometrik.
-                </span>
-              </li>
-              <li className="flex gap-2.5">
-                <Layers className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                <span>
-                  <strong>Buka Atap (Dollhouse View):</strong> Pilih <em>Dari Atas</em> untuk memotong plafon dan melihat tata letak seluruh perabot dari atas.
-                </span>
-              </li>
-            </ol>
+            {isFurniture ? (
+              <ol className="space-y-2.5 text-xs text-primary">
+                <li className="flex gap-2.5">
+                  <Orbit className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Putar Meja (Orbit 360°):</strong> Klik dan seret mouse untuk memutar meja dari berbagai sudut pandang.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <Compass className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Putar Otomatis (Turntable):</strong> Aktifkan tombol <em>Putar 360°</em> di Alat Tampilan untuk memutar meja otomatis secara continuous (mode presentasi).
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <ZoomIn className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Zoom & Geser (Pan):</strong> Scroll mouse untuk melihat detail tekstur meja. Klik kanan atau Shift+klik kiri untuk menggeser posisi meja.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <MousePointerClick className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Kustomisasi Material & Tekstur:</strong> Klik langsung pada daun meja, ambalan bawah, atau kaki meja untuk mengganti marmer, granit, keramik, kayu, atau warna cat.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <Grid className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>AutoCAD ViewCube:</strong> Gunakan kubus navigasi di pojok kanan atas untuk langsung melihat tampak Depan, Atas, atau Samping meja secara presisi.
+                  </span>
+                </li>
+              </ol>
+            ) : (
+              <ol className="space-y-2.5 text-xs text-primary">
+                <li className="flex gap-2.5">
+                  <DoorOpen className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Masuk ke Ruangan:</strong> Klik tombol hijau <em>Masuk Ruangan</em> di bawah untuk langsung berdiri di dalam ruangan dengan lensa lebar interior.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <Footprints className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Navigasi Jalan (WASD):</strong> Langsung gunakan tombol <strong>W A S D</strong> atau tombol panah kapan saja untuk berjalan di dalam ruangan tanpa perlu mengaktifkan tombol. Tahan Shift untuk lari, Q/E untuk naik-turun.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <Move className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Teleport Klik 2×:</strong> Klik 2× pada titik lantai atau perabot mana saja untuk langsung meluncur ke titik tersebut.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <ZoomIn className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Continuous Zoom:</strong> Scroll mouse maju terus menerus akan menembus dinding masuk ke dalam ruangan tanpa macet.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <Grid className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+                  <span>
+                    <strong>AutoCAD ViewCube:</strong> Gunakan kubus di pojok kanan atas untuk langsung melihat tampak Atas, Depan, Kanan, atau Isometrik.
+                  </span>
+                </li>
+                <li className="flex gap-2.5">
+                  <Layers className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Buka Atap (Dollhouse View):</strong> Pilih <em>Dari Atas</em> untuk memotong plafon dan melihat tata letak seluruh perabot dari atas.
+                  </span>
+                </li>
+              </ol>
+            )}
 
             <button
               type="button"

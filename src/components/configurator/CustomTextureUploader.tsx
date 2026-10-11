@@ -40,6 +40,8 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const applyMaterial = useConfiguratorStore((s) => s.applyMaterial);
   const setZoneTextureSettings = useConfiguratorStore((s) => s.setZoneTextureSettings);
   const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
 
   const [isOpen, setIsOpen] = useState(false);
   const [patternName, setPatternName] = useState('');
@@ -50,7 +52,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const [bumpDepth, setBumpDepth] = useState(0.16);
   const [surfaceFinish, setSurfaceFinish] = useState<'gloss' | 'satin' | 'textured'>('gloss');
 
-  // Surface Type: Wall (Dinding) vs Floor (Lantai)
+  // Surface Type: Wall (Dinding / Rangka) vs Floor (Lantai / Daun Meja)
   const isDefaultFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
   const [surfaceType, setSurfaceType] = useState<'wall' | 'floor'>(isDefaultFloor ? 'floor' : 'wall');
 
@@ -63,8 +65,8 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const [customHeightCm, setCustomHeightCm] = useState(60);
 
   // Nat Keramik (Grout Joint) Controls
-  const [showGrout, setShowGrout] = useState(true);
-  const [groutWidthMm, setGroutWidthMm] = useState(2);
+  const [showGrout, setShowGrout] = useState(!isFurniture);
+  const [groutWidthMm, setGroutWidthMm] = useState(isFurniture ? 1 : 2);
   const [groutColor, setGroutColor] = useState('#8E9297');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -249,8 +251,16 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
         showGrout: showGrout,
         groutWidthMm: showGrout ? groutWidthMm : 0,
         groutColor: groutColor,
-        description: `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
-        tag: surfaceType === 'floor' ? 'Keramik Lantai' : 'Keramik Dinding',
+        description: isFurniture
+          ? `Motif material ${surfaceType === 'floor' ? 'permukaan meja' : 'rangka/kaki'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm${showGrout ? ` dengan garis sambungan ${groutWidthMm} mm` : ' tanpa garis sambungan'}.`
+          : `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
+        tag: isFurniture
+          ? surfaceType === 'floor'
+            ? 'Permukaan Meja'
+            : 'Rangka & Kaki'
+          : surfaceType === 'floor'
+          ? 'Keramik Lantai'
+          : 'Keramik Dinding',
         isCustomUpload: true,
       };
 
@@ -305,10 +315,14 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
           </div>
           <div>
             <span className="text-xs font-semibold text-primary block">
-              Upload Pola Keramik &amp; Nat (Design Pattern)
+              {isFurniture
+                ? 'Upload Motif / Tekstur Meja (Design Pattern)'
+                : 'Upload Pola Keramik & Nat (Design Pattern)'}
             </span>
             <span className="text-[10px] text-secondary">
-              Pilih ukuran dinding/lantai presisi &amp; nat pembatas konstruksi
+              {isFurniture
+                ? 'Pilih ukuran motif presisi untuk permukaan meja & rangka'
+                : 'Pilih ukuran dinding/lantai presisi & nat pembatas konstruksi'}
             </span>
           </div>
         </div>
@@ -373,7 +387,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                     Pilih atau seret gambar pola (PNG / JPG / WebP)
                   </span>
                   <span className="text-[10px] text-secondary mt-0.5">
-                    Mendukung foto keramik, marmer, granit &amp; ubin
+                    {isFurniture
+                      ? 'Mendukung foto marmer, granit, serat kayu, corak & warna'
+                      : 'Mendukung foto keramik, marmer, granit & ubin'}
                   </span>
                 </div>
               )}
@@ -389,17 +405,21 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                   <input
                     type="text"
                     required
-                    placeholder="Contoh: Keramik Granit Calacatta Gold"
+                    placeholder={
+                      isFurniture
+                        ? 'Contoh: Granit Calacatta Gold / Kayu Jati Solid'
+                        : 'Contoh: Keramik Granit Calacatta Gold'
+                    }
                     value={patternName}
                     onChange={(e) => setPatternName(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-white text-primary focus:outline-none focus:border-primary"
                   />
                 </div>
 
-                {/* 2. Pilihan Target Permukaan: Dinding vs Lantai */}
+                {/* 2. Pilihan Target Permukaan */}
                 <div>
                   <span className="text-[11px] font-semibold text-secondary block mb-1">
-                    1. Tipe Bidang Permukaan
+                    {isFurniture ? '1. Bagian Meja' : '1. Tipe Bidang Permukaan'}
                   </span>
                   <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-xl">
                     <button
@@ -416,7 +436,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                       }`}
                     >
                       <Layers className="w-3.5 h-3.5 text-primary" />
-                      <span>Dinding (Wall)</span>
+                      <span>{isFurniture ? 'Rangka & Kaki' : 'Dinding (Wall)'}</span>
                     </button>
                     <button
                       type="button"
@@ -432,7 +452,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                       }`}
                     >
                       <Grid className="w-3.5 h-3.5 text-primary" />
-                      <span>Lantai (Floor)</span>
+                      <span>{isFurniture ? 'Permukaan / Daun Meja' : 'Lantai (Floor)'}</span>
                     </button>
                   </div>
                 </div>
@@ -441,7 +461,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                 <div>
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[11px] font-semibold text-secondary">
-                      2. Ukuran Keramik ({surfaceType === 'floor' ? 'Ukuran Lantai' : 'Ukuran Dinding'})
+                      {isFurniture
+                        ? `2. Ukuran Motif (${surfaceType === 'floor' ? 'Permukaan Meja' : 'Rangka & Kaki'})`
+                        : `2. Ukuran Keramik (${surfaceType === 'floor' ? 'Ukuran Lantai' : 'Ukuran Dinding'})`}
                     </span>
                     <span className="text-[10px] font-mono font-bold text-primary px-1.5 py-0.5 bg-primary/10 rounded">
                       {effectiveTileSize[0]} × {effectiveTileSize[1]} cm
@@ -521,9 +543,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                       📐 Skala Realistis 1:1:
                     </p>
                     <p>
-                      Pada dinding/lantai 100×100 cm: akan tampil{' '}
-                      <strong>{(100 / effectiveTileSize[0]).toFixed(effectiveTileSize[0] === 100 ? 0 : 1)}</strong> ubin mendatar ×{' '}
-                      <strong>{(100 / effectiveTileSize[1]).toFixed(effectiveTileSize[1] === 100 ? 0 : 1)}</strong> ubin meninggi.
+                      {isFurniture ? 'Pada bidang 100×100 cm: akan tampil ' : 'Pada dinding/lantai 100×100 cm: akan tampil '}
+                      <strong>{(100 / effectiveTileSize[0]).toFixed(effectiveTileSize[0] === 100 ? 0 : 1)}</strong> {isFurniture ? 'motif mendatar × ' : 'ubin mendatar × '}
+                      <strong>{(100 / effectiveTileSize[1]).toFixed(effectiveTileSize[1] === 100 ? 0 : 1)}</strong> {isFurniture ? 'motif meninggi.' : 'ubin meninggi.'}
                     </p>
                   </div>
                 </div>
@@ -533,10 +555,12 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[11px] font-semibold text-primary block">
-                        3. Nat Keramik (Pembatas Ubin)
+                        {isFurniture ? '3. Garis Sambungan Pola (Seam)' : '3. Nat Keramik (Pembatas Ubin)'}
                       </span>
                       <span className="text-[9px] text-secondary block">
-                        Garis pembatas nat semen antar ubin keramik
+                        {isFurniture
+                          ? 'Garis sambungan atau nat antar pola motif meja'
+                          : 'Garis pembatas nat semen antar ubin keramik'}
                       </span>
                     </div>
 
@@ -562,7 +586,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                       {/* Grout Width */}
                       <div>
                         <div className="flex items-center justify-between text-[10px] mb-1">
-                          <span className="text-secondary font-medium">Lebar Nat:</span>
+                          <span className="text-secondary font-medium">{isFurniture ? 'Lebar Sambungan:' : 'Lebar Nat:'}</span>
                           <span className="font-mono font-bold text-primary">{groutWidthMm} mm</span>
                         </div>
                         <div className="grid grid-cols-5 gap-1">
@@ -586,7 +610,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                       {/* Grout Color */}
                       <div>
                         <span className="text-[10px] text-secondary font-medium block mb-1">
-                          Warna Nat Semen:
+                          {isFurniture ? 'Warna Sambungan / Nat:' : 'Warna Nat Semen:'}
                         </span>
                         <div className="flex items-center gap-1.5 flex-wrap">
                           {GROUT_COLOR_PRESETS.map((gc) => (
@@ -691,7 +715,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                     <>
                       <Sparkles className="w-3.5 h-3.5" />
                       <span>
-                        Terapkan Keramik {effectiveTileSize[0]}×{effectiveTileSize[1]} cm ke 3D {currentZone.name}
+                        {isFurniture
+                          ? `Terapkan Motif ${effectiveTileSize[0]}×${effectiveTileSize[1]} cm ke ${currentZone.name}`
+                          : `Terapkan Keramik ${effectiveTileSize[0]}×${effectiveTileSize[1]} cm ke 3D ${currentZone.name}`}
                       </span>
                     </>
                   )}

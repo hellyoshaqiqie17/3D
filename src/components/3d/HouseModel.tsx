@@ -78,6 +78,10 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
   const setDetectedFloors = useConfiguratorStore((s) => s.setDetectedFloors);
   const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture =
+    modelType === 'furniture' ||
+    Boolean(modelUrl && /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(modelUrl));
   const [roofElevationY, setRoofElevationY] = useState<number>(2.80);
   const setHouseBounds = useConfiguratorStore((s) => s.setHouseBounds);
   const setInteriorBounds = useConfiguratorStore((s) => s.setInteriorBounds);
@@ -479,7 +483,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
   // Automatically discover and register architectural surface zones across all split pieces
   useEffect(() => {
-    if (!sceneClone) return;
+    if (!sceneClone || isFurniture) return;
 
     ARCHITECTURAL_SURFACES.forEach((surf) => {
       const matching: string[] = [];
@@ -738,6 +742,33 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
   // Helper to format friendly display name for any 3D mesh
   const formatMeshDisplayName = (name: string): string => {
+    if (!name) return isFurniture ? 'Elemen Meja' : 'Bidang 3D';
+
+    const lower = name.toLowerCase();
+    const instMatch = name.match(/__inst(\d+)/);
+    const instSuffix = instMatch ? ` #${instMatch[1]}` : '';
+    const cleanName = name.replace(/__inst\d+/, '');
+
+    // Furniture / Table Mode: Never use room-related words like "Ruangan", "Bangunan", "Lantai", etc.
+    if (isFurniture) {
+      if (lower.includes('top') || lower.includes('surface') || lower.includes('daun') || lower.includes('papan') || lower.includes('kaca') || lower.includes('glass')) {
+        return `Top Table / Daun Meja${instSuffix}`;
+      }
+      if (lower.includes('shelf') || lower.includes('ambalan') || lower.includes('bottom') || lower.includes('bawah')) {
+        return `Ambalan Meja Bawah${instSuffix}`;
+      }
+      if (lower.includes('leg') || lower.includes('kaki') || lower.includes('frame') || lower.includes('rangka')) {
+        return `Rangka & Kaki Meja${instSuffix}`;
+      }
+      if (cleanName.startsWith('Group#')) {
+        return `Bagian #${cleanName.replace('Group#', '')}${instSuffix}`;
+      }
+      if (cleanName.startsWith('Component_') || cleanName.startsWith('Component#')) {
+        return `Komponen #${cleanName.replace(/^Component[_#]/, '')}${instSuffix}`;
+      }
+      return `${cleanName.replace(/_/g, ' ')}${instSuffix}`;
+    }
+
     // Specific friendly names for smart-split room surfaces
     if (name.includes('__Dinding_Kanan_Dalam')) {
       return 'Dinding Kanan Dalam (Interior Right Wall)';
@@ -788,11 +819,6 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       return match && match[1] ? `Plafon Ruangan #${match[1]}` : 'Plafon Ruangan (Ceiling)';
     }
 
-    const lower = name.toLowerCase();
-    const instMatch = name.match(/__inst(\d+)/);
-    const instSuffix = instMatch ? ` #${instMatch[1]}` : '';
-    const cleanName = name.replace(/__inst\d+/, '');
-
     if (name.includes('Group#1_2') || name === 'Group#1') {
       return `Lantai Carport & Garasi${instSuffix}`;
     }
@@ -837,6 +863,40 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     const size = new THREE.Vector3();
     box.getSize(size);
     const lower = (mesh.name || '').toLowerCase();
+
+    // Dedicated Furniture / Table Mode: clean, professional furniture terminology
+    if (isFurniture) {
+      // Flat horizontal surfaces (tabletop, top surface, or bottom shelf)
+      if (size.y <= 0.6 && (size.x >= 0.15 || size.z >= 0.15)) {
+        if (box.min.y >= 0.25) {
+          return {
+            category: 'floor',
+            name: `Top Table / Daun Meja (${formatMeshDisplayName(mesh.name)})`,
+            description: 'Permukaan atas meja untuk kustomisasi marmer, granit, keramik, kaca, atau kayu.',
+          };
+        }
+        return {
+          category: 'floor',
+          name: `Ambalan Meja Bawah (${formatMeshDisplayName(mesh.name)})`,
+          description: 'Permukaan ambalan bawah meja untuk kustomisasi marmer, keramik, kaca, atau kayu.',
+        };
+      }
+
+      // Vertical frame, legs, or structure
+      if (size.y > 0.15 && (size.y >= size.x * 0.4 || size.y >= size.z * 0.4)) {
+        return {
+          category: 'wall',
+          name: `Rangka & Kaki Meja (${formatMeshDisplayName(mesh.name)})`,
+          description: 'Struktur rangka atau kaki meja untuk kustomisasi warna cat, besi, atau kayu.',
+        };
+      }
+
+      return {
+        category: 'exterior',
+        name: `Elemen Meja (${formatMeshDisplayName(mesh.name)})`,
+        description: 'Bagian elemen meja terpilih untuk kustomisasi material.',
+      };
+    }
 
     // 1. Keyword-based matching
     if (

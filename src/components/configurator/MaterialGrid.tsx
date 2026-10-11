@@ -18,6 +18,8 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
   const setZoneTextureSettings = useConfiguratorStore((s) => s.setZoneTextureSettings);
   const setZoneOriginal = useConfiguratorStore((s) => s.setZoneOriginal);
   const customColors = useConfiguratorStore((s) => s.customColors);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
 
   const isFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
   const currentMaterialId = selectedMaterials[currentZone.id] || currentZone.defaultMaterialId;
@@ -171,7 +173,7 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
 
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-700">
-                  {isFloor ? 'Ukuran Lantai' : 'Ukuran Dinding'}
+                  {isFurniture ? 'Ukuran Motif/Pola' : isFloor ? 'Ukuran Lantai' : 'Ukuran Dinding'}
                 </span>
                 <span className="text-secondary/40 text-[10px]">•</span>
                 <span className="text-[10px] font-mono text-secondary">
@@ -190,11 +192,20 @@ export function MaterialGrid({ materials, currentZone }: MaterialGridProps) {
             <ImageIcon className="w-4 h-4" />
           </div>
           <p className="text-xs font-semibold text-primary mb-1">
-            Belum Ada Pola Keramik Tersimpan
+            {isFurniture ? 'Belum Ada Pola Material Tersimpan' : 'Belum Ada Pola Keramik Tersimpan'}
           </p>
           <p className="text-[11px] text-secondary leading-relaxed">
-            Upload gambar motif keramik di menu atas untuk mulai menerapkan tekstur pada{' '}
-            <strong className="text-primary">{isFloor ? 'Lantai' : 'Dinding'}</strong>, atau pilih warna solid di Architectural Colors.
+            {isFurniture ? (
+              <>
+                Upload gambar motif / corak di menu atas untuk mulai menerapkan tekstur pada{' '}
+                <strong className="text-primary">Permukaan Meja</strong>, atau pilih warna solid di Color Swatch.
+              </>
+            ) : (
+              <>
+                Upload gambar motif keramik di menu atas untuk mulai menerapkan tekstur pada{' '}
+                <strong className="text-primary">{isFloor ? 'Lantai' : 'Dinding'}</strong>, atau pilih warna solid di Architectural Colors.
+              </>
+            )}
           </p>
         </div>
       )}

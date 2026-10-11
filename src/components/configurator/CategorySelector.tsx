@@ -29,10 +29,25 @@ interface CategorySelectorProps {
 export function CategorySelector({ availableCategories }: CategorySelectorProps) {
   const activeCategory = useConfiguratorStore((s) => s.activeCategory);
   const setActiveCategory = useConfiguratorStore((s) => s.setActiveCategory);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
 
-  const categories = availableCategories
+  const FURNITURE_LABELS: Record<string, string> = {
+    floor: 'Permukaan Meja',
+    wall: 'Rangka & Kaki',
+    exterior: 'Aksen & Detail',
+  };
+
+  const categories = (availableCategories
     ? MATERIAL_CATEGORIES.filter((c) => availableCategories.includes(c.id))
-    : MATERIAL_CATEGORIES;
+    : MATERIAL_CATEGORIES
+  ).filter((c) => {
+    if (isFurniture) {
+      // In furniture/table mode, hide room-specific categories (roof, door, bathroom)
+      return c.id === 'floor' || c.id === 'wall' || c.id === 'exterior';
+    }
+    return true;
+  });
 
   return (
     <div className="w-full border-b border-border bg-white px-3 pt-3">
@@ -40,6 +55,7 @@ export function CategorySelector({ availableCategories }: CategorySelectorProps)
         {categories.map((cat) => {
           const Icon = (ICON_MAP[cat.icon] || Paintbrush) as React.ComponentType<{ className?: string }>;
           const isActive = activeCategory === cat.id;
+          const displayLabel = isFurniture && FURNITURE_LABELS[cat.id] ? FURNITURE_LABELS[cat.id] : cat.label;
 
           return (
             <button
@@ -52,7 +68,7 @@ export function CategorySelector({ availableCategories }: CategorySelectorProps)
               }`}
             >
               <Icon className="w-3.5 h-3.5" />
-              <span>{cat.label}</span>
+              <span>{displayLabel}</span>
             </button>
           );
         })}
