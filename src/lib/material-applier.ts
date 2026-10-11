@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { MaterialOption, MaterialZone, ZoneTextureSettings } from '@/types';
 import { getProceduralTexture } from './texture-generator';
+import { calculateRepeatFromTileSize } from './tile-constants';
+import { getTileTextureWithGrout } from './grout-generator';
 
 // Map of mesh uuid -> original material backup (so we can restore if needed)
 export const originalMaterialMap = new WeakMap<THREE.Mesh, THREE.Material | THREE.Material[]>();
@@ -280,16 +282,49 @@ export function applyMaterialToZone(
 
     if (material.type === 'texture' && material.textureUrl) {
       // Custom uploaded texture URL (e.g. client imported PNG/JPG)
-      const repeat = settings?.repeat || material.repeat || [4, 4];
-      const rotation = settings?.rotation ?? material.rotation ?? 0;
-      const texture = getLoadedTexture(material.textureUrl, repeat, rotation);
+      const tileSizeCm: [number, number] | undefined =
+        settings?.tileSizeCm || material.tileSizeCm;
 
-      const bumpScale = settings?.bumpScale ?? material.bumpScale ?? 0.12;
+      let rx: number;
+      let ry: number;
+
+      if (tileSizeCm) {
+        const [repX, repY] = calculateRepeatFromTileSize(tileSizeCm);
+        rx = repX;
+        ry = repY;
+      } else {
+        const repeat = settings?.repeat || material.repeat || [4, 4];
+        [rx, ry] = worldRepeat(repeat);
+      }
+
+      const rotation = settings?.rotation ?? material.rotation ?? 0;
+      const showGrout = settings?.showGrout ?? material.showGrout ?? true;
+      const groutWidthMm = settings?.groutWidthMm ?? material.groutWidthMm ?? 2;
+      const groutColor = settings?.groutColor || material.groutColor || '#8E9297';
+      const effectiveTileSize = tileSizeCm || [60, 60];
+
+      const { map, bumpMap } = getTileTextureWithGrout({
+        url: material.textureUrl,
+        tileSizeCm: effectiveTileSize,
+        groutWidthMm: showGrout ? groutWidthMm : 0,
+        groutColor: groutColor,
+        showGrout: showGrout,
+      });
+
+      map.repeat.set(rx, ry);
+      map.rotation = rotation;
+      map.channel = WORLD_UV_CHANNEL;
+
+      bumpMap.repeat.set(rx, ry);
+      bumpMap.rotation = rotation;
+      bumpMap.channel = WORLD_UV_CHANNEL;
+
+      const bumpScale = settings?.bumpScale ?? material.bumpScale ?? 0.14;
       const roughness = settings?.roughness ?? material.roughness ?? 0.35;
 
       newMat = new THREE.MeshStandardMaterial({
-        map: texture,
-        bumpMap: texture, // Gives tactile 3D relief so grout lines and textures pop out in 3D!
+        map: map,
+        bumpMap: bumpMap, // 3D tactile relief indenting the nat grout line into the surface!
         bumpScale: bumpScale,
         color: new THREE.Color(effectiveColorHex),
         roughness: roughness,

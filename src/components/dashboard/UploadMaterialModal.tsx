@@ -14,7 +14,17 @@ import {
   Info,
   CheckCircle2,
   AlertCircle,
+  Layers,
+  Grid,
+  Check,
 } from 'lucide-react';
+import {
+  FLOOR_TILE_PRESETS,
+  WALL_TILE_PRESETS,
+  GROUT_COLOR_PRESETS,
+  GROUT_WIDTH_PRESETS,
+  calculateRepeatFromTileSize,
+} from '@/lib/tile-constants';
 
 interface UploadMaterialModalProps {
   isOpen: boolean;
@@ -123,6 +133,16 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // Surface Type & Physical Tile Size (from user's specification)
+  const [surfaceType, setSurfaceType] = useState<'wall' | 'floor'>('wall');
+  const [tileSize, setTileSize] = useState<[number, number]>([30, 60]);
+  const [isCustomTileSize, setIsCustomTileSize] = useState(false);
+  const [customW, setCustomW] = useState(60);
+  const [customH, setCustomH] = useState(60);
+  const [showGrout, setShowGrout] = useState(true);
+  const [groutWidthMm, setGroutWidthMm] = useState(2);
+  const [groutColor, setGroutColor] = useState('#8E9297');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -269,14 +289,17 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
 
       setUploadProgressText(`Menyimpan ${uploadedResults.length} material ke pustaka...`);
 
-      // 2. Build MaterialOption records (Universal - bebas diaplikasikan di mana saja)
+      const effectiveTileSize: [number, number] = isCustomTileSize ? [customW, customH] : tileSize;
+      const physicalRepeat = calculateRepeatFromTileSize(effectiveTileSize);
+
+      // 2. Build MaterialOption records with physical tile sizing and nat keramik
       const newMaterialsToSave: MaterialOption[] = uploadedResults.map((uploaded, index) => {
         const assignedName = uploaded.cleanName.trim() || `Material Tekstur ${index + 1}`;
 
         return {
           id: `custom_mat_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
           name: assignedName,
-          category: 'wall', // Base fallback, universally accessible in 3D Configurator sidebar
+          category: surfaceType === 'floor' ? 'floor' : 'wall',
           type: 'texture',
           color: '#FFFFFF',
           textureUrl: uploaded.url,
@@ -285,9 +308,14 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
           metalness: 0.04,
           bumpScale: 0.16,
           rotation: 0,
-          repeat: [4, 4],
+          repeat: physicalRepeat,
+          tileSizeCm: effectiveTileSize,
+          surfaceType: surfaceType,
+          showGrout: showGrout,
+          groutWidthMm: showGrout ? groutWidthMm : 0,
+          groutColor: groutColor,
           finish: 'gloss',
-          description: `Tekstur PBR kustom: ${assignedName}`,
+          description: `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
           tag: 'Custom PBR',
           isCustomUpload: true,
         };
@@ -474,16 +502,166 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                   </div>
                 ))}
               </div>
+
+              {/* Tile Specification & Nat Keramik Settings */}
+              <div className="p-3.5 bg-surface-50 border border-border rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold text-primary">
+                    Spesifikasi Ukuran Keramik &amp; Nat (Konstruksi)
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.5 bg-white border border-border rounded">
+                    {isCustomTileSize ? `${customW} × ${customH} cm` : `${tileSize[0]} × ${tileSize[1]} cm`}
+                  </span>
+                </div>
+
+                {/* Surface Type Switcher */}
+                <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-lg">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSurfaceType('wall');
+                      setIsCustomTileSize(false);
+                      setTileSize([30, 60]);
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      surfaceType === 'wall'
+                        ? 'bg-white text-primary shadow-subtle'
+                        : 'text-secondary hover:text-primary'
+                    }`}
+                  >
+                    <Layers className="w-3.5 h-3.5 text-primary" />
+                    <span>Dinding (Wall)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSurfaceType('floor');
+                      setIsCustomTileSize(false);
+                      setTileSize([60, 60]);
+                    }}
+                    className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                      surfaceType === 'floor'
+                        ? 'bg-white text-primary shadow-subtle'
+                        : 'text-secondary hover:text-primary'
+                    }`}
+                  >
+                    <Grid className="w-3.5 h-3.5 text-primary" />
+                    <span>Lantai (Floor)</span>
+                  </button>
+                </div>
+
+                {/* Preset Sizes */}
+                <div className="space-y-1">
+                  <span className="text-[10px] text-secondary font-medium block">
+                    Pilih Ukuran Standar ({surfaceType === 'floor' ? 'Ukuran Lantai' : 'Ukuran Dinding'}):
+                  </span>
+                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
+                    {(surfaceType === 'floor' ? FLOOR_TILE_PRESETS : WALL_TILE_PRESETS).map((p) => {
+                      const isSel = !isCustomTileSize && tileSize[0] === p.widthCm && tileSize[1] === p.heightCm;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => {
+                            setTileSize([p.widthCm, p.heightCm]);
+                            setIsCustomTileSize(false);
+                          }}
+                          className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
+                            isSel
+                              ? 'bg-primary text-white border-primary shadow-subtle'
+                              : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
+                          }`}
+                        >
+                          {p.widthCm}×{p.heightCm}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomTileSize(true)}
+                      className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
+                        isCustomTileSize
+                          ? 'bg-primary text-white border-primary shadow-subtle'
+                          : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
+                      }`}
+                    >
+                      Kustom...
+                    </button>
+                  </div>
+                </div>
+
+                {/* Custom Size */}
+                {isCustomTileSize && (
+                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-border">
+                    <div className="flex-1">
+                      <label className="text-[9px] text-secondary block">Lebar (cm)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="300"
+                        value={customW}
+                        onChange={(e) => setCustomW(Math.max(5, parseInt(e.target.value) || 60))}
+                        className="w-full px-2 py-1 text-xs border border-border rounded"
+                      />
+                    </div>
+                    <span className="text-secondary text-xs pt-3">×</span>
+                    <div className="flex-1">
+                      <label className="text-[9px] text-secondary block">Tinggi (cm)</label>
+                      <input
+                        type="number"
+                        min="5"
+                        max="300"
+                        value={customH}
+                        onChange={(e) => setCustomH(Math.max(5, parseInt(e.target.value) || 60))}
+                        className="w-full px-2 py-1 text-xs border border-border rounded"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Nat Keramik Controls */}
+                <div className="border-t border-border pt-2 flex items-center justify-between">
+                  <div>
+                    <span className="text-[11px] font-semibold text-primary block">
+                      Nat Keramik (Pembatas Ubin)
+                    </span>
+                    <span className="text-[10px] text-secondary block">
+                      Lebar nat: {showGrout ? `${groutWidthMm} mm` : 'Nonaktif'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {GROUT_WIDTH_PRESETS.filter((gp) => gp.valueMm > 0).map((gp) => (
+                      <button
+                        key={gp.valueMm}
+                        type="button"
+                        onClick={() => {
+                          setGroutWidthMm(gp.valueMm);
+                          setShowGrout(true);
+                        }}
+                        className={`px-2 py-0.5 text-[10px] font-medium rounded border ${
+                          showGrout && groutWidthMm === gp.valueMm
+                            ? 'bg-primary text-white border-primary'
+                            : 'bg-white text-secondary border-border'
+                        }`}
+                      >
+                        {gp.valueMm}mm
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Information Tip */}
+              <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-amber-900 text-[11px]">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="leading-relaxed">
+                  <strong>Langsung Siap Pakai:</strong> Seluruh file yang diupload akan otomatis muncul di panel material sidebar 3D dengan ukuran fisik keramik dan nat pembatas presisi skala 1:1.
+                </div>
+              </div>
             </div>
           )}
-
-          {/* Information Tip */}
-          <div className="p-3 bg-amber-50/70 border border-amber-200/60 rounded-xl flex items-start gap-2.5 text-amber-900 text-[11px]">
-            <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-            <div className="leading-relaxed">
-              <strong>Langsung Siap Pakai:</strong> Seluruh file yang diupload akan otomatis muncul di panel material sidebar 3D. Di sidebar, Anda bebas memilih dinding, lantai, atau bagian mana pun yang ingin diganti, serta mengatur ukuran nat (tiling), rotasi, dan kilap secara real-time.
-            </div>
-          </div>
         </form>
 
         {/* Footer */}

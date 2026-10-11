@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import {
@@ -8,11 +8,19 @@ import {
   Sparkles,
   Check,
   Image as ImageIcon,
-  Plus,
   Sliders,
   ChevronDown,
   ChevronUp,
+  Layers,
+  Grid,
 } from 'lucide-react';
+import {
+  FLOOR_TILE_PRESETS,
+  WALL_TILE_PRESETS,
+  GROUT_COLOR_PRESETS,
+  GROUT_WIDTH_PRESETS,
+  calculateRepeatFromTileSize,
+} from '@/lib/tile-constants';
 
 interface CustomTextureUploaderProps {
   currentZone: MaterialZone;
@@ -28,9 +36,38 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const [patternName, setPatternName] = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [bumpDepth, setBumpDepth] = useState(0.16);
-  const [tileRepeat, setTileRepeat] = useState(4);
   const [surfaceFinish, setSurfaceFinish] = useState<'gloss' | 'satin' | 'textured'>('gloss');
+
+  // Surface Type: Wall (Dinding) vs Floor (Lantai)
+  const isDefaultFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
+  const [surfaceType, setSurfaceType] = useState<'wall' | 'floor'>(isDefaultFloor ? 'floor' : 'wall');
+
+  // Tile dimensions in cm
+  const [selectedTileSize, setSelectedTileSize] = useState<[number, number]>(
+    isDefaultFloor ? [60, 60] : [30, 60]
+  );
+  const [isCustomTileSize, setIsCustomTileSize] = useState(false);
+  const [customWidthCm, setCustomWidthCm] = useState(60);
+  const [customHeightCm, setCustomHeightCm] = useState(60);
+
+  // Nat Keramik (Grout Joint) Controls
+  const [showGrout, setShowGrout] = useState(true);
+  const [groutWidthMm, setGroutWidthMm] = useState(2);
+  const [groutColor, setGroutColor] = useState('#8E9297');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Sync default surface type when currentZone changes
+  useEffect(() => {
+    const isFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
+    setSurfaceType(isFloor ? 'floor' : 'wall');
+    setSelectedTileSize(isFloor ? [60, 60] : [30, 60]);
+  }, [currentZone.id, currentZone.category]);
+
+  const activePresets = surfaceType === 'floor' ? FLOOR_TILE_PRESETS : WALL_TILE_PRESETS;
+  const effectiveTileSize: [number, number] = isCustomTileSize
+    ? [customWidthCm, customHeightCm]
+    : selectedTileSize;
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -59,11 +96,13 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     e.preventDefault();
     if (!previewUrl) return;
 
+    const repeat = calculateRepeatFromTileSize(effectiveTileSize);
     const newId = `custom-texture-${Date.now()}`;
+
     const newMaterial: MaterialOption = {
       id: newId,
-      name: patternName.trim() || 'Custom Client Design',
-      category: currentZone.category,
+      name: patternName.trim() || `Keramik ${surfaceType === 'floor' ? 'Lantai' : 'Dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]}`,
+      category: surfaceType === 'floor' ? 'floor' : 'wall',
       type: 'texture',
       textureUrl: previewUrl,
       previewThumbnail: previewUrl,
@@ -71,20 +110,30 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       metalness: 0.05,
       bumpScale: bumpDepth,
       finish: surfaceFinish,
-      repeat: [tileRepeat, tileRepeat],
-      description: 'Client designer custom imported pattern with 3D tactile relief.',
-      tag: 'Imported',
+      repeat: repeat,
+      tileSizeCm: effectiveTileSize,
+      surfaceType: surfaceType,
+      showGrout: showGrout,
+      groutWidthMm: showGrout ? groutWidthMm : 0,
+      groutColor: groutColor,
+      description: `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
+      tag: 'Custom Tile',
       isCustomUpload: true,
     };
 
     addUploadedMaterial(newMaterial);
     applyMaterial(currentZone.id, newId);
     setZoneTextureSettings(currentZone.id, {
-      repeat: [tileRepeat, tileRepeat],
+      repeat: repeat,
       bumpScale: bumpDepth,
       roughness: newMaterial.roughness,
       rotation: 0,
       colorTint: '#FFFFFF',
+      tileSizeCm: effectiveTileSize,
+      surfaceType: surfaceType,
+      showGrout: showGrout,
+      groutWidthMm: showGrout ? groutWidthMm : 0,
+      groutColor: groutColor,
     });
 
     setIsOpen(false);
@@ -96,17 +145,19 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     url: string,
     name: string,
     bump: number,
-    repeat: number,
+    tileSize: [number, number],
+    type: 'wall' | 'floor',
     finish: 'gloss' | 'textured'
   ) => {
     const targetMat = uploadedMaterials.find((m) => m.textureUrl === url);
     const targetId = targetMat?.id || `designer-${Date.now()}`;
+    const repeat = calculateRepeatFromTileSize(tileSize);
 
     if (!targetMat) {
       const newMat: MaterialOption = {
         id: targetId,
         name: name,
-        category: currentZone.category,
+        category: type,
         type: 'texture',
         textureUrl: url,
         previewThumbnail: url,
@@ -114,8 +165,13 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
         metalness: 0.06,
         bumpScale: bump,
         finish: finish,
-        repeat: [repeat, repeat],
-        description: 'Client designer pattern with 3D tactile relief.',
+        repeat: repeat,
+        tileSizeCm: tileSize,
+        surfaceType: type,
+        showGrout: true,
+        groutWidthMm: 2,
+        groutColor: '#8E9297',
+        description: `Sampel arsitektur desainer ${tileSize[0]}x${tileSize[1]} cm dengan nat 2 mm.`,
         tag: 'Client Design',
         isCustomUpload: true,
       };
@@ -124,11 +180,16 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
 
     applyMaterial(currentZone.id, targetId);
     setZoneTextureSettings(currentZone.id, {
-      repeat: [repeat, repeat],
+      repeat: repeat,
       bumpScale: bump,
       roughness: finish === 'gloss' ? 0.2 : 0.6,
       rotation: 0,
       colorTint: '#FFFFFF',
+      tileSizeCm: tileSize,
+      surfaceType: type,
+      showGrout: true,
+      groutWidthMm: 2,
+      groutColor: '#8E9297',
     });
   };
 
@@ -136,6 +197,7 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     <div className="border-b border-border bg-white">
       {/* Accordion Toggle Header */}
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-surface-50 transition-colors"
       >
@@ -145,10 +207,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
           </div>
           <div>
             <span className="text-xs font-semibold text-primary block">
-              Import Designer Pattern (PNG/JPG)
+              Upload Pola Keramik &amp; Nat (Design Pattern)
             </span>
             <span className="text-[10px] text-secondary">
-              Turn client image into 3D tactile tiles or wall finish
+              Pilih ukuran dinding/lantai presisi &amp; nat pembatas konstruksi
             </span>
           </div>
         </div>
@@ -162,10 +224,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       {/* Accordion Content */}
       {isOpen && (
         <div className="p-4 pt-1 border-t border-border/60 bg-surface-50/40 space-y-4">
-          {/* Quick Client Samples Provided by User */}
+          {/* Quick Client Samples */}
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-secondary block mb-1.5">
-              Quick Client Samples:
+              Sampel Cepat Desainer:
             </span>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -173,9 +235,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                 onClick={() =>
                   handleQuickLoadPreset(
                     '/textures/designer-tile-mosaic.jpg',
-                    'Designer Checker Mosaic',
+                    'Ubin Checker Mozaik 60x60',
                     0.16,
-                    4,
+                    [60, 60],
+                    'floor',
                     'gloss'
                   )
                 }
@@ -189,9 +252,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                 />
                 <div className="min-w-0">
                   <span className="text-[11px] font-semibold text-primary block truncate group-hover:text-accent">
-                    Checker Mosaic
+                    Mozaik 60x60
                   </span>
-                  <span className="text-[9px] text-secondary block">Sample 1</span>
+                  <span className="text-[9px] text-secondary block">Lantai (Nat 2mm)</span>
                 </div>
               </button>
 
@@ -200,9 +263,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                 onClick={() =>
                   handleQuickLoadPreset(
                     '/textures/designer-tile-slate.jpg',
-                    'Tactile Relief Slate',
+                    'Batu Relief Slate 60x120',
                     0.22,
-                    4,
+                    [60, 120],
+                    'wall',
                     'textured'
                   )
                 }
@@ -216,9 +280,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                 />
                 <div className="min-w-0">
                   <span className="text-[11px] font-semibold text-primary block truncate group-hover:text-accent">
-                    Relief Slate Grid
+                    Slate 60x120
                   </span>
-                  <span className="text-[9px] text-secondary block">Sample 2</span>
+                  <span className="text-[9px] text-secondary block">Dinding (Nat 2mm)</span>
                 </div>
               </button>
             </div>
@@ -227,13 +291,13 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
           <div className="relative flex py-1 items-center">
             <div className="flex-grow border-t border-border"></div>
             <span className="flex-shrink mx-2 text-[10px] text-secondary uppercase font-medium">
-              or upload custom file
+              atau upload file gambar pola kustom
             </span>
             <div className="flex-grow border-t border-border"></div>
           </div>
 
           {/* Form */}
-          <form onSubmit={handleApplyCustom} className="space-y-3">
+          <form onSubmit={handleApplyCustom} className="space-y-3.5">
             {/* Drag & Drop Area */}
             <div
               onDragOver={(e) => e.preventDefault()}
@@ -263,10 +327,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                   />
                   <div className="text-left min-w-0">
                     <span className="text-xs font-semibold text-primary block truncate">
-                      {patternName || 'Texture Ready'}
+                      {patternName || 'Pola Gambar Siap'}
                     </span>
                     <span className="text-[10px] text-secondary block">
-                      Click to choose different image
+                      Klik untuk ganti gambar lain
                     </span>
                   </div>
                 </div>
@@ -274,10 +338,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                 <div className="flex flex-col items-center py-2">
                   <ImageIcon className="w-5 h-5 text-secondary mb-1" />
                   <span className="text-xs font-medium text-primary">
-                    Drop PNG or JPG client tile pattern
+                    Pilih atau seret gambar pola (PNG / JPG / WebP)
                   </span>
                   <span className="text-[10px] text-secondary mt-0.5">
-                    Supports high-res seamless tile textures
+                    Mendukung foto keramik, marmer, granit &amp; ubin
                   </span>
                 </div>
               )}
@@ -285,99 +349,302 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
 
             {previewUrl && (
               <>
+                {/* 1. Nama Desain Pola */}
                 <div>
                   <label className="text-[11px] font-medium text-secondary block mb-1">
-                    Design Title
+                    Nama Pola / Material
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Master Suite Artisan Mosaic"
+                    placeholder="Contoh: Keramik Granit Calacatta Gold"
                     value={patternName}
                     onChange={(e) => setPatternName(e.target.value)}
                     className="w-full px-3 py-1.5 text-xs rounded-lg border border-border bg-white text-primary focus:outline-none focus:border-primary"
                   />
                 </div>
 
-                {/* 3D Depth / Relief Slider */}
+                {/* 2. Pilihan Target Permukaan: Dinding vs Lantai */}
                 <div>
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="font-medium text-secondary">3D Tactile Relief Depth</span>
-                    <span className="font-mono text-primary font-semibold">
-                      {(bumpDepth * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  <input
-                    type="range"
-                    min="0.0"
-                    max="0.35"
-                    step="0.01"
-                    value={bumpDepth}
-                    onChange={(e) => setBumpDepth(parseFloat(e.target.value))}
-                    className="w-full h-1.5 bg-surface-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                  />
-                  <div className="flex justify-between text-[9px] text-secondary mt-0.5">
-                    <span>Flat (0%)</span>
-                    <span>Standard Relief (15%)</span>
-                    <span>Deep 3D (35%)</span>
-                  </div>
-                </div>
-
-                {/* Tile Scale / Repeat */}
-                <div>
-                  <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="font-medium text-secondary">Pattern Repeat / Scale</span>
-                    <span className="font-mono text-primary font-semibold">
-                      {tileRepeat}x{tileRepeat}
-                    </span>
-                  </div>
-                  <div className="grid grid-cols-4 gap-1.5">
-                    {[1, 2, 4, 8].map((rep) => (
-                      <button
-                        key={rep}
-                        type="button"
-                        onClick={() => setTileRepeat(rep)}
-                        className={`py-1 text-xs font-mono font-medium rounded border transition-colors ${
-                          tileRepeat === rep
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-white text-secondary border-border hover:border-surface-400'
-                        }`}
-                      >
-                        {rep}x{rep}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Surface Finish */}
-                <div>
-                  <span className="text-[11px] font-medium text-secondary block mb-1">
-                    Surface Finish
+                  <span className="text-[11px] font-semibold text-secondary block mb-1">
+                    1. Tipe Bidang Permukaan
                   </span>
-                  <div className="grid grid-cols-3 gap-1.5 text-xs">
-                    {(['gloss', 'satin', 'textured'] as const).map((finish) => (
-                      <button
-                        key={finish}
-                        type="button"
-                        onClick={() => setSurfaceFinish(finish)}
-                        className={`py-1 capitalize font-medium rounded border transition-colors ${
-                          surfaceFinish === finish
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-white text-secondary border-border hover:border-surface-400'
-                        }`}
-                      >
-                        {finish}
-                      </button>
-                    ))}
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSurfaceType('wall');
+                        setIsCustomTileSize(false);
+                        setSelectedTileSize([30, 60]);
+                      }}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                        surfaceType === 'wall'
+                          ? 'bg-white text-primary shadow-subtle'
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5 text-primary" />
+                      <span>Dinding (Wall)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSurfaceType('floor');
+                        setIsCustomTileSize(false);
+                        setSelectedTileSize([60, 60]);
+                      }}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                        surfaceType === 'floor'
+                          ? 'bg-white text-primary shadow-subtle'
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <Grid className="w-3.5 h-3.5 text-primary" />
+                      <span>Lantai (Floor)</span>
+                    </button>
                   </div>
                 </div>
 
+                {/* 3. Pilihan Ukuran Keramik / Ubin Standar sesuai Lampiran */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-[11px] font-semibold text-secondary">
+                      2. Ukuran Keramik ({surfaceType === 'floor' ? 'Ukuran Lantai' : 'Ukuran Dinding'})
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-primary px-1.5 py-0.5 bg-primary/10 rounded">
+                      {effectiveTileSize[0]} × {effectiveTileSize[1]} cm
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-1 mb-1.5">
+                    {activePresets.map((preset) => {
+                      const isSelected =
+                        !isCustomTileSize &&
+                        selectedTileSize[0] === preset.widthCm &&
+                        selectedTileSize[1] === preset.heightCm;
+                      return (
+                        <button
+                          key={preset.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedTileSize([preset.widthCm, preset.heightCm]);
+                            setIsCustomTileSize(false);
+                          }}
+                          className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
+                            isSelected
+                              ? 'bg-primary text-white border-primary shadow-subtle'
+                              : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
+                          }`}
+                        >
+                          {preset.widthCm}×{preset.heightCm}
+                        </button>
+                      );
+                    })}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomTileSize(true)}
+                      className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
+                        isCustomTileSize
+                          ? 'bg-primary text-white border-primary shadow-subtle'
+                          : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
+                      }`}
+                    >
+                      Kustom...
+                    </button>
+                  </div>
+
+                  {/* Custom Size Input */}
+                  {isCustomTileSize && (
+                    <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-border">
+                      <div className="flex-1">
+                        <label className="text-[9px] text-secondary block">Lebar (cm)</label>
+                        <input
+                          type="number"
+                          min="5"
+                          max="300"
+                          value={customWidthCm}
+                          onChange={(e) => setCustomWidthCm(Math.max(5, parseInt(e.target.value) || 60))}
+                          className="w-full px-2 py-1 text-xs border border-border rounded"
+                        />
+                      </div>
+                      <span className="text-secondary text-xs pt-3">×</span>
+                      <div className="flex-1">
+                        <label className="text-[9px] text-secondary block">Tinggi (cm)</label>
+                        <input
+                          type="number"
+                          min="5"
+                          max="300"
+                          value={customHeightCm}
+                          onChange={(e) => setCustomHeightCm(Math.max(5, parseInt(e.target.value) || 60))}
+                          className="w-full px-2 py-1 text-xs border border-border rounded"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Real-world scale indicator */}
+                  <div className="p-2 bg-emerald-50 border border-emerald-200/60 rounded-lg text-[10px] text-emerald-800 leading-tight space-y-0.5 mt-1">
+                    <p className="font-semibold">
+                      📐 Skala Realistis 1:1:
+                    </p>
+                    <p>
+                      Pada dinding/lantai 100×100 cm: akan tampil{' '}
+                      <strong>{(100 / effectiveTileSize[0]).toFixed(effectiveTileSize[0] === 100 ? 0 : 1)}</strong> ubin mendatar ×{' '}
+                      <strong>{(100 / effectiveTileSize[1]).toFixed(effectiveTileSize[1] === 100 ? 0 : 1)}</strong> ubin meninggi.
+                    </p>
+                  </div>
+                </div>
+
+                {/* 4. Nat Keramik (Grout Joint) Controls */}
+                <div className="border-t border-border pt-2.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[11px] font-semibold text-primary block">
+                        3. Nat Keramik (Pembatas Ubin)
+                      </span>
+                      <span className="text-[9px] text-secondary block">
+                        Garis pembatas nat semen antar ubin keramik
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={showGrout}
+                      onClick={() => setShowGrout(!showGrout)}
+                      className={`relative inline-flex h-5 w-9 shrink-0 rounded-full transition-colors ${
+                        showGrout ? 'bg-emerald-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                          showGrout ? 'translate-x-[18px]' : 'translate-x-0.5'
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {showGrout && (
+                    <div className="p-2.5 bg-white rounded-xl border border-border space-y-2">
+                      {/* Grout Width */}
+                      <div>
+                        <div className="flex items-center justify-between text-[10px] mb-1">
+                          <span className="text-secondary font-medium">Lebar Nat:</span>
+                          <span className="font-mono font-bold text-primary">{groutWidthMm} mm</span>
+                        </div>
+                        <div className="grid grid-cols-5 gap-1">
+                          {GROUT_WIDTH_PRESETS.filter((p) => p.valueMm > 0).map((gp) => (
+                            <button
+                              key={gp.valueMm}
+                              type="button"
+                              onClick={() => setGroutWidthMm(gp.valueMm)}
+                              className={`py-1 text-[10px] font-medium rounded border transition-colors ${
+                                groutWidthMm === gp.valueMm
+                                  ? 'bg-primary text-white border-primary'
+                                  : 'bg-surface-50 text-secondary border-border hover:border-primary/50'
+                              }`}
+                            >
+                              {gp.valueMm} mm
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Grout Color */}
+                      <div>
+                        <span className="text-[10px] text-secondary font-medium block mb-1">
+                          Warna Nat Semen:
+                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {GROUT_COLOR_PRESETS.map((gc) => (
+                            <button
+                              key={gc.hex}
+                              type="button"
+                              onClick={() => setGroutColor(gc.hex)}
+                              title={gc.name}
+                              className={`w-6 h-6 rounded-md border flex items-center justify-center transition-all ${
+                                groutColor.toLowerCase() === gc.hex.toLowerCase()
+                                  ? 'ring-2 ring-primary scale-110'
+                                  : 'border-border'
+                              }`}
+                              style={{ backgroundColor: gc.hex }}
+                            >
+                              {groutColor.toLowerCase() === gc.hex.toLowerCase() && (
+                                <Check
+                                  className={`w-3 h-3 stroke-[3] ${
+                                    ['#EAEAEA', '#D7CEB2'].includes(gc.hex) ? 'text-black' : 'text-white'
+                                  }`}
+                                />
+                              )}
+                            </button>
+                          ))}
+
+                          <input
+                            type="color"
+                            value={groutColor}
+                            onChange={(e) => setGroutColor(e.target.value)}
+                            title="Pilih warna nat kustom"
+                            className="w-6 h-6 rounded-md border border-border cursor-pointer p-0 bg-transparent"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 5. 3D Tactile Relief Depth & Surface Sheen */}
+                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border">
+                  <div>
+                    <span className="text-[10px] font-semibold text-secondary block mb-1">
+                      Kedalaman 3D
+                    </span>
+                    <input
+                      type="range"
+                      min="0.0"
+                      max="0.30"
+                      step="0.02"
+                      value={bumpDepth}
+                      onChange={(e) => setBumpDepth(parseFloat(e.target.value))}
+                      className="w-full h-1.5 bg-surface-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                    />
+                    <span className="text-[9px] text-secondary font-mono">
+                      {(bumpDepth * 100).toFixed(0)}% Timbul
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-semibold text-secondary block mb-1">
+                      Kilau Permukaan
+                    </span>
+                    <div className="grid grid-cols-3 gap-0.5 text-[10px]">
+                      {(['gloss', 'satin', 'textured'] as const).map((finish) => (
+                        <button
+                          key={finish}
+                          type="button"
+                          onClick={() => setSurfaceFinish(finish)}
+                          className={`py-1 capitalize font-medium rounded border transition-colors ${
+                            surfaceFinish === finish
+                              ? 'bg-primary text-white border-primary'
+                              : 'bg-white text-secondary border-border'
+                          }`}
+                        >
+                          {finish === 'gloss' ? 'Kilap' : finish === 'satin' ? 'Satin' : 'Kasar'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Apply Button */}
                 <button
                   type="submit"
                   className="w-full py-2.5 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-colors flex items-center justify-center gap-1.5"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Apply Pattern to 3D {currentZone.name}</span>
+                  <span>
+                    Terapkan Keramik {effectiveTileSize[0]}×{effectiveTileSize[1]} cm ke 3D {currentZone.name}
+                  </span>
                 </button>
               </>
             )}

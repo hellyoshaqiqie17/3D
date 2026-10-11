@@ -34,6 +34,11 @@ export interface ZoneTextureSettings {
   rotation: number;
   roughness: number;
   colorTint?: string;
+  tileSizeCm?: [number, number]; // [widthCm, heightCm] e.g. [60, 60], [100, 100], [60, 120]
+  surfaceType?: 'wall' | 'floor';
+  showGrout?: boolean; // Tampilkan nat keramik pembatas
+  groutWidthMm?: number; // Lebar nat pembatas dalam mm (1..8 mm)
+  groutColor?: string; // Warna nat (e.g. '#8E9297')
 }
 
 export interface MaterialOption {
@@ -50,6 +55,11 @@ export interface MaterialOption {
   metalness: number;
   finish: FinishType;
   repeat?: [number, number];
+  tileSizeCm?: [number, number]; // Physical tile size in cm [width, height]
+  surfaceType?: 'wall' | 'floor';
+  showGrout?: boolean;
+  groutWidthMm?: number;
+  groutColor?: string;
   description?: string;
   tag?: string;
   previewThumbnail?: string;
