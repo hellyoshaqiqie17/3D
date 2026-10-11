@@ -244,7 +244,17 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
     const isRoomSlabMesh = ps.y <= 0.6 && ps.x >= MIN_ROOM_SCALE && ps.z >= MIN_ROOM_SCALE;
     if (!isRoomWallMesh && !isRoomSlabMesh) return; // furniture / counters / cabinets / island → leave untouched!
 
-    const allTris = Array.from({ length: triCount }, (_, i) => i);
+    // Ignore degenerate (zero-area) sliver triangles: SketchUp exports often contain them and they
+    // stretch a piece's bounding box across the whole room (e.g. a wall reported as 5.45 x 2.50 x 3.81),
+    // which breaks surface labelling and wall/floor/ceiling detection. They are invisible anyway.
+    const va = new THREE.Vector3(), vb = new THREE.Vector3(), vc = new THREE.Vector3();
+    const allTris = Array.from({ length: triCount }, (_, i) => i).filter((t) => {
+      va.fromBufferAttribute(pos as THREE.BufferAttribute, getTriangleVertexIndex(geo, t, 0));
+      vb.fromBufferAttribute(pos as THREE.BufferAttribute, getTriangleVertexIndex(geo, t, 1));
+      vc.fromBufferAttribute(pos as THREE.BufferAttribute, getTriangleVertexIndex(geo, t, 2));
+      return vb.sub(va).cross(vc.sub(va)).lengthSq() > 1e-12;
+    });
+    if (allTris.length < 4) return;
 
     // 1) Planar grouping: faces pointing the same direction AND physically connected form one surface.
     //    This separates left/right walls even when they are joined by corner or top trim strips.

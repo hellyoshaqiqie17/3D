@@ -825,7 +825,15 @@ function MeshSelectionBox({ target }: { target: THREE.Object3D | null }) {
 
   useFrame(() => {
     if (helper && target) {
-      helper.update();
+      // Hide the outline when the selected object (or any ancestor) is hidden, e.g. by Bare Room mode
+      let visible = true;
+      let node: THREE.Object3D | null = target;
+      while (node) {
+        if (!node.visible) { visible = false; break; }
+        node = node.parent;
+      }
+      helper.visible = visible;
+      if (visible) helper.update();
     }
   });
 

@@ -121,14 +121,22 @@ export function isStructuralShellMesh(
   bounds: RoomStructuralBounds,
   roofElevationY?: number
 ): boolean {
-  const name = (mesh.name || '').toLowerCase();
-  const splitFrom = ((mesh.userData as any)?.splitFrom || '').toLowerCase();
-  const originalName = ((mesh.userData as any)?.originalName || '').toLowerCase();
-  const fullName = `${name} ${splitFrom} ${originalName}`;
-
   // 1. Explicit furniture / appliance / kitchen fixture keyword: ALWAYS HIDE
+  // Match whole name tokens (not raw substrings): substring matching made 'pan' match "Dinding_dePAN",
+  // 'man' match "germany", etc. Tokens are split on non-alphanumerics and camelCase boundaries.
+  const tokens = new Set(
+    `${mesh.name || ''} ${(mesh.userData as any)?.splitFrom || ''} ${(mesh.userData as any)?.originalName || ''}`
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean)
+  );
   for (const keyword of FURNITURE_KEYWORDS) {
-    if (fullName.includes(keyword)) {
+    const parts = keyword.split('_');
+    const matched = parts.length > 1
+      ? parts.every((p) => tokens.has(p))
+      : tokens.has(keyword) || tokens.has(`${keyword}s`);
+    if (matched) {
       return false;
     }
   }
@@ -137,7 +145,9 @@ export function isStructuralShellMesh(
   const size = box.getSize(new THREE.Vector3());
 
   // Tiny props / decor / tableware: ALWAYS HIDE
-  if (size.x * size.y * size.z < 0.005) {
+  // NOTE: Do NOT use volume here — SketchUp wall/floor/ceiling faces are zero-thickness planes
+  // (e.g. 0.00 x 2.50 x 4.01) whose volume is 0 even though they are huge surfaces.
+  if (Math.max(size.x, size.y, size.z) < 0.30) {
     return false;
   }
 
