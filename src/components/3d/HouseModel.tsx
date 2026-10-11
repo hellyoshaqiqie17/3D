@@ -322,9 +322,14 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     return set;
   }, [zones]);
 
+  // Combined zones for material categorization and structural shell classification
+  const combinedZones = useMemo(() => {
+    return [...zones, ...dynamicZones];
+  }, [zones, dynamicZones]);
+
   // Memoize room architectural bounds for structural shell classification
   const roomBounds = useMemo(() => {
-    if (!sceneClone) return { groundY: 0, ceilingY: 3, roomHeight: 3, roomWidth: 5, roomDepth: 5 };
+    if (!sceneClone) return { minX: -2.5, maxX: 2.5, minZ: -2.5, maxZ: 2.5, groundY: 0, ceilingY: 3, roomHeight: 3, roomWidth: 5, roomDepth: 5 };
     return calculateRoomBounds(sceneClone);
   }, [sceneClone]);
 
@@ -415,7 +420,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         // Bare Room Mode: Hide all loose furniture, appliances (kulkas, kompor, oven), cabinets, island & decor
         // Only keep pure Wall, Floor, and Plafon/Roof
         if (isFurnitureHidden) {
-          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY);
+          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY, combinedZones);
           if (!isStructural) {
             child.visible = false;
             return;
@@ -448,6 +453,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     roofElevationY,
     roofMeshSet,
     roomBounds,
+    combinedZones,
   ]);
 
   // Dynamic Architectural Section Cut / Ceiling Slice Effect (Dollhouse view)
