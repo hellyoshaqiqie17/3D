@@ -24,6 +24,7 @@ import {
   GROUT_WIDTH_PRESETS,
   calculateRepeatFromTileSize,
 } from '@/lib/tile-constants';
+import { optimizeTextureImage } from '@/lib/image-optimizer';
 
 interface CustomTextureUploaderProps {
   currentZone: MaterialZone;
@@ -112,24 +113,69 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     try {
       let permanentUrl = previewUrl;
 
-      // 1. Upload to CDN via /api/materials/upload if a physical File was selected
+      // 1. Upload to CDN via /api/materials/upload with optimization & direct signed upload fallback
       if (selectedFile) {
-        const formData = new FormData();
-        formData.append('file', selectedFile);
+        let cdnUrl: string | undefined;
 
-        const uploadRes = await fetch('/api/materials/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        try {
+          const optimizedFile = await optimizeTextureImage(selectedFile);
+          const formData = new FormData();
+          formData.append('file', optimizedFile);
 
-        if (!uploadRes.ok) {
-          throw new Error('Gagal mengunggah file pola keramik ke server CDN');
+          const uploadRes = await fetch('/api/materials/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            cdnUrl = uploadData.url || uploadData.uploaded?.[0]?.url;
+          } else {
+            console.warn('[CustomTextureUploader] Standard upload status:', uploadRes.status);
+          }
+        } catch (apiErr) {
+          console.warn('[CustomTextureUploader] API upload failed, attempting fallback direct sign upload:', apiErr);
         }
 
-        const uploadData = await uploadRes.json();
-        const cdnUrl = uploadData.url || uploadData.uploaded?.[0]?.url;
+        // Direct Signed Upload Fallback to Bunny Storage if API returned error or payload exceeded
+        if (!cdnUrl) {
+          try {
+            const optimizedFile = await optimizeTextureImage(selectedFile);
+            const signRes = await fetch('/api/upload/direct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: optimizedFile.name,
+                targetFolder: 'textures',
+              }),
+            });
+
+            if (signRes.ok) {
+              const signData = await signRes.json();
+              const directUploadRes = await fetch(signData.uploadUrl, {
+                method: 'PUT',
+                headers: {
+                  AccessKey: signData.accessKey,
+                  'Content-Type': optimizedFile.type || 'image/jpeg',
+                },
+                body: optimizedFile,
+              });
+
+              if (directUploadRes.ok) {
+                cdnUrl = signData.publicUrl;
+              }
+            }
+          } catch (directErr) {
+            console.warn('[CustomTextureUploader] Direct upload fallback failed:', directErr);
+          }
+        }
+
         if (cdnUrl) {
           permanentUrl = cdnUrl;
+        } else {
+          // If offline or storage unreachable, fallback to previewUrl so the user can still use the texture in 3D!
+          console.info('[CustomTextureUploader] Using local preview URL as material texture fallback');
+          permanentUrl = previewUrl;
         }
       }
 
@@ -161,7 +207,11 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       };
 
       // 2. Persist to server database & localStorage
-      await useMaterialsStore.getState().addCustomMaterial(newMaterial);
+      try {
+        await useMaterialsStore.getState().addCustomMaterial(newMaterial);
+      } catch (storeErr) {
+        console.warn('[CustomTextureUploader] Could not save material to server database:', storeErr);
+      }
 
       // 3. Register in in-memory configuratorStore and immediately apply to active 3D zone
       addUploadedMaterial(newMaterial);

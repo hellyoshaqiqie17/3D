@@ -281,30 +281,68 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         // Client-side image optimization
         const optimizedFile = await optimizeTextureFile(item.file);
 
-        const formData = new FormData();
-        formData.append('file', optimizedFile);
+        let textureUrl: string | undefined;
+        let filename = '';
 
-        const uploadRes = await fetch('/api/materials/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        try {
+          const formData = new FormData();
+          formData.append('file', optimizedFile);
 
-        if (!uploadRes.ok) {
-          const errText = await uploadRes.text();
-          throw new Error(`Gagal mengunggah "${item.name}": ${errText || uploadRes.statusText}`);
+          const uploadRes = await fetch('/api/materials/upload', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            textureUrl = uploadData.url || uploadData.uploaded?.[0]?.url;
+            filename = uploadData.filename || uploadData.uploaded?.[0]?.filename || '';
+          }
+        } catch (apiErr) {
+          console.warn('[UploadMaterialModal] API upload failed, trying direct:', apiErr);
         }
 
-        const uploadData = await uploadRes.json();
-        const textureUrl = uploadData.url || uploadData.uploaded?.[0]?.url;
+        // Direct signed upload fallback
+        if (!textureUrl) {
+          try {
+            const signRes = await fetch('/api/upload/direct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                filename: optimizedFile.name,
+                targetFolder: 'textures',
+              }),
+            });
+
+            if (signRes.ok) {
+              const signData = await signRes.json();
+              const directUploadRes = await fetch(signData.uploadUrl, {
+                method: 'PUT',
+                headers: {
+                  AccessKey: signData.accessKey,
+                  'Content-Type': optimizedFile.type || 'image/jpeg',
+                },
+                body: optimizedFile,
+              });
+
+              if (directUploadRes.ok) {
+                textureUrl = signData.publicUrl;
+                filename = signData.safeFilename || optimizedFile.name;
+              }
+            }
+          } catch (directErr) {
+            console.warn('[UploadMaterialModal] Direct upload failed:', directErr);
+          }
+        }
 
         if (!textureUrl) {
-          throw new Error(`URL tekstur tidak valid untuk "${item.name}"`);
+          throw new Error(`Gagal mengunggah "${item.name}" ke CDN`);
         }
 
         uploadedResults.push({
           url: textureUrl,
-          filename: uploadData.filename || uploadData.uploaded?.[0]?.filename || '',
-          cleanName: item.name || uploadData.cleanName,
+          filename: filename || '',
+          cleanName: item.name || filename,
         });
       }
 
