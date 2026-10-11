@@ -261,11 +261,56 @@ function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vec
 }
 
 /**
+ * Ensures that every mesh in the scene has a guaranteed unique name and an independent material instance.
+ *
+ * Why: SketchUp components and copied groups export multiple meshes with the EXACT same name
+ * (e.g. multiple meshes named "Group#2", "Component#1", etc.) and shared material instances.
+ * If mesh names are duplicated, targeting a clicked surface (such as a table's lower shelf)
+ * will inadvertently recolor all other meshes with that same name (such as the table's upper surface),
+ * or other rooms with identically-named components.
+ */
+export function ensureUniqueSceneMeshes(root: THREE.Object3D): void {
+  const seenNames = new Set<string>();
+
+  root.traverse((child) => {
+    if ((child as any).isMesh) {
+      const mesh = child as THREE.Mesh;
+      let baseName = mesh.name || `Mesh_${mesh.id}`;
+
+      if (seenNames.has(baseName)) {
+        let n = 2;
+        let uniqueName = `${baseName}__inst${n}`;
+        while (seenNames.has(uniqueName)) {
+          n++;
+          uniqueName = `${baseName}__inst${n}`;
+        }
+        mesh.name = uniqueName;
+        seenNames.add(uniqueName);
+      } else {
+        mesh.name = baseName;
+        seenNames.add(baseName);
+      }
+
+      // Guarantee each mesh has its own independent material instance so property
+      // mutations on one mesh never bleed into another mesh
+      if (mesh.material) {
+        mesh.material = Array.isArray(mesh.material)
+          ? mesh.material.map((m) => m.clone())
+          : mesh.material.clone();
+      }
+    }
+  });
+}
+
+/**
  * Split merged room-scale meshes in-place. Returns the number of meshes that were split.
  * Must be called BEFORE materials are cloned/backed up so each new piece gets its own material instance.
  */
 export function splitMergedSurfaces(root: THREE.Object3D): number {
   root.updateMatrixWorld(true);
+
+  // Guarantee all meshes have unique names and independent cloned materials
+  ensureUniqueSceneMeshes(root);
 
   const candidates: THREE.Mesh[] = [];
   root.traverse((child) => {

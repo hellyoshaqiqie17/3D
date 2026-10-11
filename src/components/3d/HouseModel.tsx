@@ -8,7 +8,7 @@ import { MaterialZone, BuildingFloorLevel } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials, restoreZoneOriginalMaterial } from '@/lib/material-applier';
 import { getMaterialById, SOLID_COLOR_MATERIAL } from '@/lib/materials';
-import { splitMergedSurfaces } from '@/lib/mesh-splitter';
+import { splitMergedSurfaces, ensureUniqueSceneMeshes } from '@/lib/mesh-splitter';
 import { calculateRoomBounds, isStructuralShellMesh } from '@/lib/furniture-filter';
 
 const ARCHITECTURAL_SURFACES: {
@@ -114,7 +114,11 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const sceneClone = useMemo(() => {
     const clone = gltf.scene.clone(true);
 
-    // Split room-scale merged surfaces (e.g. SketchUp material-merged walls) into individual surfaces
+    // 1. Ensure all meshes have unique names and cloned material instances so duplicated SketchUp
+    // components (like table tiers, duplicated chairs/walls) never bleed into each other
+    ensureUniqueSceneMeshes(clone);
+
+    // 2. Split room-scale merged surfaces (e.g. SketchUp material-merged walls) into individual surfaces
     // so left wall, right wall, front wall, back wall can be independently selected and customized
     splitMergedSurfaces(clone);
 
@@ -785,37 +789,41 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     }
 
     const lower = name.toLowerCase();
+    const instMatch = name.match(/__inst(\d+)/);
+    const instSuffix = instMatch ? ` #${instMatch[1]}` : '';
+    const cleanName = name.replace(/__inst\d+/, '');
+
     if (name.includes('Group#1_2') || name === 'Group#1') {
-      return 'Lantai Carport & Garasi';
+      return `Lantai Carport & Garasi${instSuffix}`;
     }
     if (name.includes('Group#150')) {
-      return 'Lantai Teras Depan';
+      return `Lantai Teras Depan${instSuffix}`;
     }
     if (name.includes('Component_343384') || name === 'Group#95') {
-      return 'Area Jalan Aspal (Site)';
+      return `Area Jalan Aspal (Site)${instSuffix}`;
     }
     if (lower.includes('floor') || lower.includes('lantai')) {
-      return `Lantai (${name.replace(/_/g, ' ')})`;
+      return `Lantai (${cleanName.replace(/_/g, ' ')}${instSuffix})`;
     }
     if (lower.includes('wall') || lower.includes('dinding')) {
-      return `Dinding (${name.replace(/_/g, ' ')})`;
+      return `Dinding (${cleanName.replace(/_/g, ' ')}${instSuffix})`;
     }
     if (lower.includes('roof') || lower.includes('atap') || lower.includes('dak') || lower.includes('plafon')) {
-      return `Atap / Plafon (${name.replace(/_/g, ' ')})`;
+      return `Atap / Plafon (${cleanName.replace(/_/g, ' ')}${instSuffix})`;
     }
     if (lower.includes('door') || lower.includes('pintu')) {
-      return `Pintu (${name.replace(/_/g, ' ')})`;
+      return `Pintu (${cleanName.replace(/_/g, ' ')}${instSuffix})`;
     }
     if (lower.includes('window') || lower.includes('jendela')) {
-      return `Jendela (${name.replace(/_/g, ' ')})`;
+      return `Jendela (${cleanName.replace(/_/g, ' ')}${instSuffix})`;
     }
-    if (name.startsWith('Group#')) {
-      return `Bidang Ruangan (${name})`;
+    if (cleanName.startsWith('Group#')) {
+      return `Bidang (${cleanName}${instSuffix})`;
     }
-    if (name.startsWith('Component_') || name.startsWith('Component#')) {
-      return `Bidang Bangunan (${name.replace(/^Component[_#]/, '#')})`;
+    if (cleanName.startsWith('Component_') || cleanName.startsWith('Component#')) {
+      return `Elemen (${cleanName.replace(/^Component[_#]/, '#')}${instSuffix})`;
     }
-    return `Bidang 3D (${name.replace(/_/g, ' ')})`;
+    return `Bidang 3D (${cleanName.replace(/_/g, ' ')}${instSuffix})`;
   };
 
   // Intelligently detect category, friendly name, and description from mesh geometry & names
@@ -885,14 +893,22 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     }
 
     // 2. Geometry-based matching (handles SketchUp Component_... & Group#... unclassified meshes)
-    // Flat horizontal surface (floors, decks, terraces)
-    const isFlatHorizontal = size.y <= 0.6 && (size.x >= 0.5 || size.z >= 0.5);
+    // Flat horizontal surface (floors, decks, terraces, tabletops, shelves, counters)
+    const isFlatHorizontal = size.y <= 0.6 && (size.x >= 0.25 || size.z >= 0.25);
     if (isFlatHorizontal) {
       if (box.min.y >= roofElevationY - 0.25) {
         return {
           category: 'roof',
           name: `Atap & Dak (${formatMeshDisplayName(mesh.name)})`,
           description: 'Bidang dak atap / plafon atas.',
+        };
+      }
+      // If elevated above ground floor level (e.g. table surface, shelf, ambalan, counter):
+      if (box.min.y >= 0.15 && box.max.y <= 1.50) {
+        return {
+          category: 'floor',
+          name: `Permukaan Meja / Ambalan (${formatMeshDisplayName(mesh.name)})`,
+          description: 'Bidang permukaan meja / ambalan terpilih untuk kustomisasi marmer, granit, keramik, atau kayu.',
         };
       }
       return {
