@@ -28,6 +28,8 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
   const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
   const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
   const floorEnabled = useConfiguratorStore((s) => s.floorEnabled);
+  const isFurnitureHidden = useConfiguratorStore((s) => s.isFurnitureHidden);
+  const toggleFurnitureHidden = useConfiguratorStore((s) => s.toggleFurnitureHidden);
 
   const customMaterials = useMaterialsStore((s) => s.customMaterials);
   const fetchCustomMaterials = useMaterialsStore((s) => s.fetchCustomMaterials);
@@ -118,6 +120,23 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
 
       {/* Category Tabs */}
       <CategorySelector availableCategories={availableCategories} />
+
+      {/* Bare Room Mode Indicator */}
+      {isFurnitureHidden && (
+        <div className="mx-3 my-2 p-2 bg-amber-50 border border-amber-200/80 rounded-xl flex items-center justify-between text-[11px] text-amber-900 shadow-subtle shrink-0">
+          <div className="flex items-center gap-1.5 font-medium">
+            <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+            <span>Mode Ruang Kosong (Bare Room)</span>
+          </div>
+          <button
+            type="button"
+            onClick={toggleFurnitureHidden}
+            className="text-[10px] text-amber-700 hover:text-amber-900 font-semibold underline"
+          >
+            Tampilkan Perabot
+          </button>
+        </div>
+      )}
 
       {/* Zone Switcher (if multiple zones exist in this category) */}
       {categoryZones.length > 1 && (

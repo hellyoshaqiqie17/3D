@@ -9,6 +9,7 @@ import { useConfiguratorStore } from '@/lib/configurator-store';
 import { applyMaterialToZone, backupOriginalMaterials, restoreOriginalMaterials, restoreZoneOriginalMaterial } from '@/lib/material-applier';
 import { getMaterialById } from '@/lib/materials';
 import { splitMergedSurfaces } from '@/lib/mesh-splitter';
+import { calculateRoomBounds, isStructuralShellMesh } from '@/lib/furniture-filter';
 
 interface HouseModelProps {
   modelUrl: string;
@@ -40,6 +41,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const addDynamicZone = useConfiguratorStore((s) => s.addDynamicZone);
   const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
+  const isFurnitureHidden = useConfiguratorStore((s) => s.isFurnitureHidden);
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
   const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
   const setDetectedFloors = useConfiguratorStore((s) => s.setDetectedFloors);
@@ -320,7 +322,13 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     return set;
   }, [zones]);
 
-  // Dynamic Roof & Environment Visibility Effect (Dollhouse view & Hide Trees)
+  // Memoize room architectural bounds for structural shell classification
+  const roomBounds = useMemo(() => {
+    if (!sceneClone) return { groundY: 0, ceilingY: 3, roomHeight: 3, roomWidth: 5, roomDepth: 5 };
+    return calculateRoomBounds(sceneClone);
+  }, [sceneClone]);
+
+  // Dynamic Roof & Environment Visibility Effect (Dollhouse view & Hide Trees & Bare Room)
   useEffect(() => {
     if (!sceneClone) return;
 
@@ -404,6 +412,16 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           return;
         }
 
+        // Bare Room Mode: Hide all loose furniture, appliances (kulkas, kompor, oven), cabinets, island & decor
+        // Only keep pure Wall, Floor, and Plafon/Roof
+        if (isFurnitureHidden) {
+          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY);
+          if (!isStructural) {
+            child.visible = false;
+            return;
+          }
+        }
+
         // Check if belonging to a floor level that is toggled off (e.g. Lantai 2, Lantai 3)
         let floorHidden = false;
         if (detectedFloors.length > 1) {
@@ -423,11 +441,13 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   }, [
     sceneClone,
     isRoofHidden,
+    isFurnitureHidden,
     isEnvironmentHidden,
     hiddenFloors,
     detectedFloors,
     roofElevationY,
     roofMeshSet,
+    roomBounds,
   ]);
 
   // Dynamic Architectural Section Cut / Ceiling Slice Effect (Dollhouse view)

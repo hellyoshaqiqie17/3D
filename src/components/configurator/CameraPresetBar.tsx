@@ -87,6 +87,8 @@ export function CameraPresetBar() {
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const setRoofHidden = useConfiguratorStore((s) => s.setRoofHidden);
   const toggleRoofHidden = useConfiguratorStore((s) => s.toggleRoofHidden);
+  const isFurnitureHidden = useConfiguratorStore((s) => s.isFurnitureHidden);
+  const toggleFurnitureHidden = useConfiguratorStore((s) => s.toggleFurnitureHidden);
   const isCeilingCut = useConfiguratorStore((s) => s.isCeilingCut);
   const setCeilingCut = useConfiguratorStore((s) => s.setCeilingCut);
   const toggleCeilingCut = useConfiguratorStore((s) => s.toggleCeilingCut);
@@ -260,6 +262,16 @@ export function CameraPresetBar() {
                   setCeilingCut(next);
                 }}
               />
+              <SwitchRow
+                label="Sembunyikan Perabot & Furnitur"
+                description={
+                  isFurnitureHidden
+                    ? 'Mode Kosong aktif – hanya dinding, lantai & plafon'
+                    : 'Sembunyikan kulkas, kabinet, meja & elektronik'
+                }
+                checked={isFurnitureHidden}
+                onChange={toggleFurnitureHidden}
+              />
               {detectedFloors
                 .filter((f) => f.levelNumber > 1)
                 .slice()
@@ -408,6 +420,25 @@ export function CameraPresetBar() {
           >
             <DoorOpen className="w-3.5 h-3.5" />
             <span>Masuk Ruangan</span>
+          </button>
+
+          {/* Quick Bare Room Toggle */}
+          <button
+            type="button"
+            onClick={toggleFurnitureHidden}
+            title={
+              isFurnitureHidden
+                ? 'Tampilkan kembali seluruh perabot & kulkas'
+                : 'Sembunyikan seluruh perabot & kulkas (Mode Ruang Kosong: Hanya dinding, lantai & plafon)'
+            }
+            className={`flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-semibold shadow-subtle transition-all whitespace-nowrap shrink-0 hover:scale-[1.02] ${
+              isFurnitureHidden
+                ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                : 'bg-white hover:bg-surface-100 text-secondary hover:text-primary border border-border/80'
+            }`}
+          >
+            <Sofa className="w-3.5 h-3.5" />
+            <span>{isFurnitureHidden ? 'Ruang Kosong' : 'Hide Perabot'}</span>
           </button>
 
           <div className="h-4 w-px bg-border/80 mx-1 shrink-0" />

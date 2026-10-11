@@ -37,6 +37,8 @@ export function PresentationOverlay({ project }: PresentationOverlayProps) {
   const setCameraPreset = useConfiguratorStore((s) => s.setCameraPreset);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const toggleRoofHidden = useConfiguratorStore((s) => s.toggleRoofHidden);
+  const isFurnitureHidden = useConfiguratorStore((s) => s.isFurnitureHidden);
+  const toggleFurnitureHidden = useConfiguratorStore((s) => s.toggleFurnitureHidden);
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
   const toggleEnvironmentHidden = useConfiguratorStore((s) => s.toggleEnvironmentHidden);
   const isLookAround360 = useConfiguratorStore((s) => s.isLookAround360);
@@ -163,6 +165,23 @@ export function PresentationOverlay({ project }: PresentationOverlayProps) {
             >
               {isRoofHidden ? <Home className="w-3.5 h-3.5" /> : <Layers className="w-3.5 h-3.5" />}
               <span>{isRoofHidden ? 'Atap Terbuka' : 'Buka Atap'}</span>
+            </button>
+
+            <button
+              onClick={toggleFurnitureHidden}
+              title={
+                isFurnitureHidden
+                  ? 'Tampilkan kembali seluruh perabot & elektronik'
+                  : 'Sembunyikan seluruh perabot & kulkas (Mode Ruang Kosong: Hanya dinding, lantai & plafon)'
+              }
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all border ${
+                isFurnitureHidden
+                  ? 'bg-amber-500 text-white border-amber-600 shadow-subtle'
+                  : 'text-secondary hover:text-primary hover:bg-surface-100 border-border/80'
+              }`}
+            >
+              <Sofa className="w-3.5 h-3.5" />
+              <span>{isFurnitureHidden ? 'Ruang Kosong' : 'Hide Perabot'}</span>
             </button>
 
             <button

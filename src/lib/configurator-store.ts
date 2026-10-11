@@ -34,6 +34,7 @@ interface ConfiguratorState {
 
   // Architectural Perspective & Interior Visibility
   isRoofHidden: boolean;
+  isFurnitureHidden: boolean; // Sembunyikan perabot & elektronik (Bare Room mode)
   isEnvironmentHidden: boolean;
   cameraFov: number; // 50 for exterior, 75 for interior wide-angle
   cameraMode: 'orbit' | 'interior' | 'walk';
@@ -104,6 +105,8 @@ interface ConfiguratorState {
   // Perspective & Interior Visibility Actions
   toggleRoofHidden: () => void;
   setRoofHidden: (val: boolean) => void;
+  toggleFurnitureHidden: () => void;
+  setFurnitureHidden: (val: boolean) => void;
   toggleEnvironmentHidden: () => void;
   setEnvironmentHidden: (val: boolean) => void;
 
@@ -213,6 +216,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   // Architectural Perspective & Visibility Defaults
   isRoofHidden: false,
+  isFurnitureHidden: false,
   isEnvironmentHidden: false,
   cameraFov: 50,
   cameraMode: 'orbit',
@@ -413,6 +417,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
       return { isRoofHidden: next, isCeilingCut: next };
     }),
   setRoofHidden: (val) => set({ isRoofHidden: val, isCeilingCut: val }),
+  toggleFurnitureHidden: () => set((state) => ({ isFurnitureHidden: !state.isFurnitureHidden })),
+  setFurnitureHidden: (val) => set({ isFurnitureHidden: val }),
   toggleEnvironmentHidden: () => set((state) => ({ isEnvironmentHidden: !state.isEnvironmentHidden })),
   setEnvironmentHidden: (val) => set({ isEnvironmentHidden: val }),
 
@@ -508,6 +514,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
       floorSizeScale: 1.15,
       floorElevation: 0.02,
       isRoofHidden: false,
+      isFurnitureHidden: false,
       isEnvironmentHidden: false,
       hiddenFloors: [],
       cameraFov: 50,
