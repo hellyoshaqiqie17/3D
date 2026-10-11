@@ -34,6 +34,7 @@ import {
   LogOut,
   User as UserIcon,
   UploadCloud,
+  KeyRound,
 } from 'lucide-react';
 
 export default function DashboardPage() {
@@ -257,6 +258,15 @@ export default function DashboardPage() {
                     <span>View Public Landing Page</span>
                   </Link>
 
+                  <Link
+                    href="/dashboard/change-password"
+                    onClick={() => setShowUserMenu(false)}
+                    className="w-full text-left px-3 py-2 text-xs font-medium text-secondary hover:text-primary hover:bg-surface-50 rounded-xl flex items-center gap-2 transition-colors"
+                  >
+                    <KeyRound className="w-3.5 h-3.5 text-accent-warm" />
+                    <span>Ubah Kata Sandi</span>
+                  </Link>
+
                   <button
                     onClick={async () => {
                       setShowUserMenu(false);
@@ -314,6 +324,14 @@ export default function DashboardPage() {
             <Palette className="w-4 h-4" />
             <span>PBR Material Library</span>
           </button>
+
+          <Link
+            href="/dashboard/change-password"
+            className="w-full flex items-center gap-2.5 px-3.5 py-2 text-xs font-medium rounded-xl text-secondary hover:text-primary hover:bg-surface-100 transition-all mt-1"
+          >
+            <KeyRound className="w-4 h-4 text-accent-warm" />
+            <span>Ubah Kata Sandi</span>
+          </Link>
 
           <div className="my-3 border-t border-border" />
 

@@ -12,6 +12,7 @@ const CONFIGS_FILE = path.join(DATA_DIR, 'configurations.json');
 const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const MATERIALS_FILE = path.join(DATA_DIR, 'materials.json');
 const LIBRARY_FILES_FILE = path.join(DATA_DIR, 'library_files.json');
+const PASSWORDS_FILE = path.join(DATA_DIR, 'passwords.json');
 
 export interface LibraryFileRecord {
   id: string;
@@ -93,6 +94,16 @@ function ensureDataDir() {
   if (!fs.existsSync(MATERIALS_FILE)) {
     try {
       fs.writeFileSync(MATERIALS_FILE, JSON.stringify(DEFAULT_CUSTOM_MATERIALS, null, 2), 'utf-8');
+    } catch {}
+  }
+
+  if (!fs.existsSync(PASSWORDS_FILE)) {
+    try {
+      fs.writeFileSync(
+        PASSWORDS_FILE,
+        JSON.stringify({ admin: 'admin123', 'admin@mitramegahinterior.com': 'admin123' }, null, 2),
+        'utf-8'
+      );
     } catch {}
   }
 }
@@ -482,6 +493,76 @@ export const db = {
 
     await writeUsers([newUser, ...users]);
     return newUser;
+  },
+
+  async getPasswordForUser(identifier: string): Promise<string> {
+    const normalized = identifier.toLowerCase().trim();
+    try {
+      const cloud = await bunnyStorage.readJson<Record<string, string>>('data/passwords.json');
+      if (cloud && typeof cloud === 'object') {
+        if (cloud[normalized]) return cloud[normalized];
+        if (normalized === 'admin' || normalized.startsWith('admin@') || normalized === 'usr-admin-lead') {
+          if (cloud['admin']) return cloud['admin'];
+        }
+      }
+    } catch {}
+
+    ensureDataDir();
+    try {
+      if (fs.existsSync(PASSWORDS_FILE)) {
+        const raw = fs.readFileSync(PASSWORDS_FILE, 'utf-8');
+        const parsed = JSON.parse(raw);
+        if (parsed[normalized]) return parsed[normalized];
+        if (normalized === 'admin' || normalized.startsWith('admin@') || normalized === 'usr-admin-lead') {
+          if (parsed['admin']) return parsed['admin'];
+        }
+      } else {
+        const cloudMap = await bunnyStorage.readJson<Record<string, string>>('data/passwords.json');
+        if (cloudMap) {
+          try {
+            fs.writeFileSync(PASSWORDS_FILE, JSON.stringify(cloudMap, null, 2), 'utf-8');
+          } catch {}
+          if (cloudMap[normalized]) return cloudMap[normalized];
+          if (normalized === 'admin' || normalized.startsWith('admin@') || normalized === 'usr-admin-lead') {
+            if (cloudMap['admin']) return cloudMap['admin'];
+          }
+        }
+      }
+    } catch {}
+
+    return 'admin123';
+  },
+
+  async setPasswordForUser(identifier: string, newPassword: string): Promise<boolean> {
+    const normalized = identifier.toLowerCase().trim();
+    let currentMap: Record<string, string> = { admin: 'admin123' };
+    ensureDataDir();
+    try {
+      if (fs.existsSync(PASSWORDS_FILE)) {
+        currentMap = JSON.parse(fs.readFileSync(PASSWORDS_FILE, 'utf-8'));
+      }
+    } catch {}
+
+    currentMap[normalized] = newPassword;
+    if (normalized === 'admin' || normalized === 'usr-admin-lead' || normalized.startsWith('admin@')) {
+      currentMap['admin'] = newPassword;
+      currentMap['usr-admin-lead'] = newPassword;
+      currentMap['admin@mitramegahinterior.com'] = newPassword;
+    }
+
+    try {
+      fs.writeFileSync(PASSWORDS_FILE, JSON.stringify(currentMap, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Failed to write passwords file:', e);
+    }
+
+    try {
+      await bunnyStorage.writeJson('data/passwords.json', currentMap);
+    } catch (e) {
+      console.warn('Failed to sync passwords to Bunny Storage:', e);
+    }
+
+    return true;
   },
 
   async getCustomMaterials(): Promise<MaterialOption[]> {
