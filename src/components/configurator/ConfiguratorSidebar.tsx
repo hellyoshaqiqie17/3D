@@ -59,17 +59,6 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     return categoryZones[0] || foundExplicit || zones[0];
   }, [categoryZones, selectedZoneId, zones, activeCategory]);
 
-  // Keep 3D selection box in sync with current zone
-  useEffect(() => {
-    if (currentZone) {
-      if (selectedZoneId !== currentZone.id) {
-        selectZone(currentZone.id);
-      }
-      if (currentZone.meshNames && currentZone.meshNames.length > 0) {
-        setSelectedMesh(currentZone.meshNames[0]);
-      }
-    }
-  }, [currentZone, selectedZoneId, selectZone, setSelectedMesh]);
 
   // Materials available for this category including user-uploaded PBR materials
   const combinedMaterials = useMemo(() => {

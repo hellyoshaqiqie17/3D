@@ -58,6 +58,8 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const isFurnitureHidden = useConfiguratorStore((s) => s.isFurnitureHidden);
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
+  const isSelectionHighlightVisible = useConfiguratorStore((s) => s.isSelectionHighlightVisible);
+  const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
   const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
   const setDetectedFloors = useConfiguratorStore((s) => s.setDetectedFloors);
   const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
@@ -884,7 +886,12 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     const hit = getValidHit(e);
-    if (!hit) return;
+    if (!hit) {
+      setSelectionHighlightVisible(false);
+      return;
+    }
+
+    setSelectionHighlightVisible(true);
 
     const { surfaceId, displayName, category, description, targetMeshes } = getSurfaceMeshesAndInfo(hit.mesh);
     const targetMeshNames = targetMeshes.map((m) => m.name).filter(Boolean);
@@ -973,16 +980,18 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         fillOpacity={0.02}
         lineOpacity={0.32}
         isHover={true}
-        excludeMeshes={selectedMeshes}
+        excludeMeshes={isSelectionHighlightVisible ? selectedMeshes : undefined}
       />
-      {/* Active selection bounding box (biru samar-samar elegan, jelas tapi tidak menyilaukan) */}
-      <SurfaceHighlightBox
-        meshes={selectedMeshes}
-        color={0x3b82f6}
-        fillOpacity={0.045}
-        lineOpacity={0.50}
-        isHover={false}
-      />
+      {/* Active selection bounding box (hanya muncul saat diklik langsung) */}
+      {isSelectionHighlightVisible && (
+        <SurfaceHighlightBox
+          meshes={selectedMeshes}
+          color={0x3b82f6}
+          fillOpacity={0.045}
+          lineOpacity={0.50}
+          isHover={false}
+        />
+      )}
     </group>
   );
 }

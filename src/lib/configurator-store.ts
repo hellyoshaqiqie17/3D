@@ -18,6 +18,7 @@ interface ConfiguratorState {
   activeCategory: MaterialCategory;
   hoveredMeshName: string | null;
   selectedMeshName: string | null;
+  isSelectionHighlightVisible: boolean;
 
   // Active material selections: zoneId -> materialId
   selectedMaterials: Record<string, string>;
@@ -90,6 +91,7 @@ interface ConfiguratorState {
   setCustomColor: (zoneId: string, color: string) => void;
   setHoveredMesh: (name: string | null) => void;
   setSelectedMesh: (name: string | null) => void;
+  setSelectionHighlightVisible: (visible: boolean) => void;
   setCameraPreset: (presetId: string) => void;
   togglePresentationMode: () => void;
   setPresentationMode: (val: boolean) => void;
@@ -199,6 +201,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   activeCategory: 'wall',
   hoveredMeshName: null,
   selectedMeshName: null,
+  isSelectionHighlightVisible: false,
 
   selectedMaterials: {},
   customColors: {},
@@ -273,6 +276,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setZoneTextureSettings: (zoneId, partial) =>
     set((state) => ({
       isOriginalMode: false,
+      isSelectionHighlightVisible: false,
       zoneTextureSettings: {
         ...state.zoneTextureSettings,
         [zoneId]: {
@@ -291,6 +295,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setZoneTint: (zoneId, color) =>
     set((state) => ({
       isOriginalMode: false,
+      isSelectionHighlightVisible: false,
       zoneTextureSettings: {
         ...state.zoneTextureSettings,
         [zoneId]: {
@@ -314,11 +319,11 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   // Floor Actions
   setFloorEnabled: (val) => set({ floorEnabled: val }),
-  setFloorTextureUrl: (url) => set({ floorTextureUrl: url, isOriginalMode: false }),
-  setFloorPresetId: (id) => set({ floorPresetId: id, floorTextureUrl: null, isOriginalMode: false }),
+  setFloorTextureUrl: (url) => set({ floorTextureUrl: url, isOriginalMode: false, isSelectionHighlightVisible: false }),
+  setFloorPresetId: (id) => set({ floorPresetId: id, floorTextureUrl: null, isOriginalMode: false, isSelectionHighlightVisible: false }),
   setFloorTileRepeat: (repeat) => set({ floorTileRepeat: repeat }),
   setFloorRoughness: (roughness) => set({ floorRoughness: roughness }),
-  setFloorColor: (color) => set({ floorColor: color, isOriginalMode: false }),
+  setFloorColor: (color) => set({ floorColor: color, isOriginalMode: false, isSelectionHighlightVisible: false }),
   setFloorSizeScale: (scale) => set({ floorSizeScale: scale }),
   setFloorElevation: (elevation) => set({ floorElevation: elevation }),
   setDetectedFootprint: (fp) =>
@@ -336,6 +341,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   applyMaterial: (zoneId, materialId) =>
     set((state) => ({
       isOriginalMode: false, // Automatically switch back from original mode when applying a material
+      isSelectionHighlightVisible: false, // Disappear blue box upon applying material so user sees pure result
       selectedMaterials: {
         ...state.selectedMaterials,
         [zoneId]: materialId,
@@ -357,6 +363,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
       }
       return {
         isOriginalMode: false,
+        isSelectionHighlightVisible: false, // Disappear blue box upon applying color so user sees pure result
         customColors: nextCustomColors,
         zoneTextureSettings: {
           ...state.zoneTextureSettings,
@@ -381,6 +388,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
       const nextZoneTextureSettings = { ...state.zoneTextureSettings };
       delete nextZoneTextureSettings[zoneId];
       return {
+        isSelectionHighlightVisible: false,
         customColors: nextCustomColors,
         selectedMaterials: nextSelectedMaterials,
         zoneTextureSettings: nextZoneTextureSettings,
@@ -389,6 +397,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   setHoveredMesh: (name) => set({ hoveredMeshName: name }),
   setSelectedMesh: (name) => set({ selectedMeshName: name }),
+  setSelectionHighlightVisible: (visible) => set({ isSelectionHighlightVisible: visible }),
 
   setCameraPreset: (presetId) =>
     set((state) => ({ activeCameraPreset: presetId, cameraPresetVersion: state.cameraPresetVersion + 1 })),

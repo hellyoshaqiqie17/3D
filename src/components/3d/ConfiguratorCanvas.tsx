@@ -81,6 +81,7 @@ export function ConfiguratorCanvas({
 }: ConfiguratorCanvasProps) {
   const isOriginalMode = useConfiguratorStore((s) => s.isOriginalMode);
   const toggleOriginalMode = useConfiguratorStore((s) => s.toggleOriginalMode);
+  const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
 
   return (
     <div className={`relative ${className} overflow-hidden select-none bg-[#F7F7F5]`}>
@@ -111,6 +112,9 @@ export function ConfiguratorCanvas({
           shadows
           dpr={[1, 2]}
           camera={{ position: [12, 8, 14], fov: 50, near: 0.03, far: 2000 }}
+          onPointerMissed={() => {
+            setSelectionHighlightVisible(false);
+          }}
           onCreated={({ gl }) => {
             gl.domElement.id = 'configurator-3d-webgl-canvas';
             if (typeof window !== 'undefined') {

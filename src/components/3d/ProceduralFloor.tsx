@@ -35,6 +35,7 @@ export function ProceduralFloor() {
   const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
   const selectZone = useConfiguratorStore((s) => s.selectZone);
   const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
+  const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
 
   const [customTexture, setCustomTexture] = useState<THREE.Texture | null>(null);
 
@@ -159,6 +160,7 @@ export function ProceduralFloor() {
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     setActiveCategory('floor');
+    setSelectionHighlightVisible(true);
     const floorZone = dynamicZones.find((z) => z.category === 'floor' || z.id === 'surface_lantai_bawah');
     if (floorZone) {
       selectZone(floorZone.id);
