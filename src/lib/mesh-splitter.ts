@@ -237,8 +237,12 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
 
     const parentBox = new THREE.Box3().setFromObject(mesh);
     const ps = parentBox.getSize(new THREE.Vector3());
-    const largeAxes = [ps.x, ps.y, ps.z].filter((d) => d >= MIN_ROOM_SCALE).length;
-    if (largeAxes < 2) return; // furniture / decor → leave untouched
+    // Only true room-scale architectural enclosures should be split into walls & ceilings:
+    // 1) Vertical room walls: height >= 1.8m and length >= 2.0m
+    // 2) Horizontal room slabs: thin slab <= 0.6m covering >= 2.0m on both X and Z
+    const isRoomWallMesh = ps.y >= 1.8 && (ps.x >= MIN_ROOM_SCALE || ps.z >= MIN_ROOM_SCALE);
+    const isRoomSlabMesh = ps.y <= 0.6 && ps.x >= MIN_ROOM_SCALE && ps.z >= MIN_ROOM_SCALE;
+    if (!isRoomWallMesh && !isRoomSlabMesh) return; // furniture / counters / cabinets / island → leave untouched!
 
     const allTris = Array.from({ length: triCount }, (_, i) => i);
 

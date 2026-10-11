@@ -146,63 +146,36 @@ export function isStructuralShellMesh(
     : bounds.ceilingY;
 
   // 2. Room Floor Slab (Lantai):
-  // Sits flat at ground level and covers significant room footprint
+  // Sits flat at ground level and covers majority of room footprint
   const isRoomFloor =
     box.min.y <= bounds.groundY + 0.25 &&
-    box.max.y <= bounds.groundY + 0.40 &&
-    size.y <= 0.35 &&
-    size.x >= bounds.roomWidth * 0.45 &&
-    size.z >= bounds.roomDepth * 0.45;
+    size.y <= 0.45 &&
+    size.x >= bounds.roomWidth * 0.55 &&
+    size.z >= bounds.roomDepth * 0.55;
 
   if (isRoomFloor) return true;
 
   // 3. Room Ceiling / Plafon Slab:
-  // Sits flat near the top ceiling elevation and covers significant room footprint
+  // Sits flat near top ceiling elevation and covers majority of room footprint
   const isRoomCeiling =
-    box.max.y >= effectiveCeilingY - 0.35 &&
-    box.min.y >= effectiveCeilingY - 0.60 &&
-    size.y <= 0.50 &&
-    size.x >= bounds.roomWidth * 0.45 &&
-    size.z >= bounds.roomDepth * 0.45;
+    box.max.y >= bounds.ceilingY - 0.35 &&
+    size.y <= 0.60 &&
+    size.x >= bounds.roomWidth * 0.55 &&
+    size.z >= bounds.roomDepth * 0.55;
 
   if (isRoomCeiling) return true;
 
-  // 4. Interior Partition Wall (Full-height room divider):
-  // Spans nearly full room height, touches ground and ceiling, and is thin
-  const isFullHeightWall =
-    size.y >= bounds.roomHeight * 0.65 &&
-    box.min.y <= bounds.groundY + 0.35 &&
-    box.max.y >= effectiveCeilingY - 0.35 &&
+  // 4. Room Wall (Dinding):
+  // Full-height or room-scale structural wall slab:
+  // - Height >= 60% of room height (or >= 1.8m)
+  // - Length >= 0.80m
+  // - Thickness <= 0.40m
+  const isRoomWall =
+    (size.y >= bounds.roomHeight * 0.60 || size.y >= 1.8) &&
     (size.x >= 0.80 || size.z >= 0.80) &&
-    Math.min(size.x, size.z) <= 0.25;
+    Math.min(size.x, size.z) <= 0.40;
 
-  if (isFullHeightWall) return true;
-
-  // 5. Perimeter Envelope Walls (Dinding Keliling Ruangan):
-  // Crucial: A real wall surface along the perimeter has thickness <= 0.20m (20 cm).
-  // In contrast, kitchen counters have depth 0.60m-0.70m, upper cabinets 0.35m,
-  // refrigerators 0.75m-0.85m, and islands sit in the middle of the room.
-  const nearBoundaryZ =
-    Math.abs(box.min.z - bounds.minZ) <= 0.25 ||
-    Math.abs(box.max.z - bounds.maxZ) <= 0.25;
-
-  const nearBoundaryX =
-    Math.abs(box.min.x - bounds.minX) <= 0.25 ||
-    Math.abs(box.max.x - bounds.maxX) <= 0.25;
-
-  // Perimeter wall along North/South (Back or Front Wall):
-  // - Flat in Z (thickness <= 0.20m)
-  // - Spans in X (width >= 0.40m) and height (size.y >= 0.30m)
-  if (nearBoundaryZ && size.z <= 0.20 && size.x >= 0.40 && size.y >= 0.30) {
-    return true;
-  }
-
-  // Perimeter wall along East/West (Left or Right Wall):
-  // - Flat in X (thickness <= 0.20m)
-  // - Spans in Z (length >= 0.40m) and height (size.y >= 0.30m)
-  if (nearBoundaryX && size.x <= 0.20 && size.z >= 0.40 && size.y >= 0.30) {
-    return true;
-  }
+  if (isRoomWall) return true;
 
   // Everything else inside the room (island, counter, cabinets, kulkas, sink, etc.) -> HIDE
   return false;
