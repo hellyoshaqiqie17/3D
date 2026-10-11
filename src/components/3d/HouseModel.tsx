@@ -420,7 +420,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         // Bare Room Mode: Hide all loose furniture, appliances (kulkas, kompor, oven), cabinets, island & decor
         // Only keep pure Wall, Floor, and Plafon/Roof
         if (isFurnitureHidden) {
-          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY, combinedZones);
+          const isStructural = isStructuralShellMesh(child, roomBounds, roofElevationY);
           if (!isStructural) {
             child.visible = false;
             return;
