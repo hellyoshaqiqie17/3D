@@ -966,19 +966,21 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         onPointerOut={handlePointerOut}
         onClick={handleClick}
       />
-      {/* Interactive real-time hover highlight on cursor move (sky-blue) */}
+      {/* Interactive real-time hover highlight on cursor move (samar-samar, lembut) */}
       <SurfaceHighlightBox
         meshes={hoveredMeshes}
-        color={0x38bdf8}
-        fillOpacity={0.08}
+        color={0x60a5fa}
+        fillOpacity={0.02}
+        lineOpacity={0.32}
         isHover={true}
         excludeMeshes={selectedMeshes}
       />
-      {/* Active selection bounding box (solid blueprint blue) */}
+      {/* Active selection bounding box (biru samar-samar elegan, jelas tapi tidak menyilaukan) */}
       <SurfaceHighlightBox
         meshes={selectedMeshes}
-        color={0x2563eb}
-        fillOpacity={0.14}
+        color={0x3b82f6}
+        fillOpacity={0.045}
+        lineOpacity={0.50}
         isHover={false}
       />
     </group>
@@ -988,17 +990,20 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 /**
  * 3D wireframe bounding box with translucent fill that smoothly envelops single meshes
  * or entire architectural surface groups (e.g. all pieces of Back Wall or Floor).
+ * Styled subtly (samar-samar) so it guides the user gracefully without overpowering textures.
  */
 function SurfaceHighlightBox({
   meshes,
   color,
   fillOpacity,
+  lineOpacity = 0.50,
   isHover,
   excludeMeshes,
 }: {
   meshes: THREE.Object3D[];
   color: number;
   fillOpacity: number;
+  lineOpacity?: number;
   isHover?: boolean;
   excludeMeshes?: THREE.Object3D[];
 }) {
@@ -1021,9 +1026,9 @@ function SurfaceHighlightBox({
     const mat = h.material as THREE.LineBasicMaterial;
     mat.depthTest = false;
     mat.transparent = true;
-    mat.opacity = isHover ? 0.9 : 0.98;
+    mat.opacity = lineOpacity;
     return h;
-  }, [shouldRender, color, isHover]);
+  }, [shouldRender, color, lineOpacity]);
 
   useFrame(() => {
     if (!helper || !shouldRender) return;
@@ -1052,8 +1057,8 @@ function SurfaceHighlightBox({
     helper.visible = isValid;
 
     if (isValid) {
-      // Expand slightly to avoid z-fighting with the geometry
-      unionBox.expandByScalar(0.015);
+      // Expand subtly to hug the geometry closely without z-fighting
+      unionBox.expandByScalar(0.008);
       helper.box.copy(unionBox);
 
       if (fillMeshRef.current) {
