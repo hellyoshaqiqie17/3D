@@ -23,6 +23,8 @@ import {
   FileBox,
   Check,
   RefreshCw,
+  Home,
+  Sofa,
 } from 'lucide-react';
 import type { SkpFileRecord } from '@/app/api/skp-files/route';
 import { convertSkpClientSide } from '@/lib/skp-client-converter';
@@ -40,6 +42,7 @@ export default function NewProjectPage() {
   const addProject = useProjectStore((s) => s.addProject);
   const user = useAuthStore((s) => s.user);
 
+  const [modelType, setModelType] = useState<'architecture' | 'furniture'>('architecture');
   const [uploadMode, setUploadMode] = useState<'device' | 'library'>('device');
   const [libraryFiles, setLibraryFiles] = useState<SkpFileRecord[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
@@ -82,6 +85,16 @@ export default function NewProjectPage() {
       const fileName = params.get('fileName');
       const cleanName = params.get('cleanName');
       const fileSize = params.get('fileSize');
+      const urlModelType = params.get('modelType') as 'architecture' | 'furniture' | null;
+
+      if (urlModelType === 'furniture' || urlModelType === 'architecture') {
+        setModelType(urlModelType);
+      } else if (
+        (cleanName && /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(cleanName)) ||
+        (fileName && /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(fileName))
+      ) {
+        setModelType('furniture');
+      }
 
       if (fromLibrary) {
         setUploadMode('library');
@@ -98,6 +111,7 @@ export default function NewProjectPage() {
           updatedAt: new Date().toISOString(),
           isConverted: false,
           publicUrl: `/api/storage/${fromLibrary}`,
+          modelType: urlModelType || (/meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(cleanName || fileName || '') ? 'furniture' : 'architecture'),
         });
       }
     }
@@ -113,6 +127,9 @@ export default function NewProjectPage() {
         if (!projectName) {
           setProjectName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
         }
+        if (/meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(file.name)) {
+          setModelType('furniture');
+        }
       }
     }
   };
@@ -125,6 +142,9 @@ export default function NewProjectPage() {
         setSelectedFile(file);
         if (!projectName) {
           setProjectName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
+        }
+        if (/meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(file.name)) {
+          setModelType('furniture');
         }
       }
     }
@@ -378,113 +398,178 @@ export default function NewProjectPage() {
         }
       });
 
-      // Categorize meshes with comprehensive architectural & CAD patterns
+      // Categorize meshes with comprehensive architectural or furniture patterns
       const assignedSet = new Set<string>();
 
-      const roofMeshes = discoveredMeshes.filter((m) => /roof|ceiling|canopy|cover|slab|shingle|top/i.test(m));
-      roofMeshes.forEach((m) => assignedSet.add(m));
+      if (modelType === 'furniture') {
+        const tabletopMeshes = discoveredMeshes.filter((m) =>
+          /top|surface|tabletop|daun|plate|board|papan|glass|kaca/i.test(m)
+        );
+        tabletopMeshes.forEach((m) => assignedSet.add(m));
 
-      const wallMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /wall|facade|exterior|building|siding|panel|body|ib10/i.test(m));
-      wallMeshes.forEach((m) => assignedSet.add(m));
+        const legMeshes = discoveredMeshes.filter(
+          (m) => !assignedSet.has(m) && /leg|kaki|frame|rangka|base|stand|foot|feet|support/i.test(m)
+        );
+        legMeshes.forEach((m) => assignedSet.add(m));
 
-      const doorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /door|entry|pivot|frame|gate|hinge|handle|lock/i.test(m));
-      doorMeshes.forEach((m) => assignedSet.add(m));
+        const drawerMeshes = discoveredMeshes.filter(
+          (m) => !assignedSet.has(m) && /drawer|laci|handle|pegangan|knob|shelf|rak|acc|pintu/i.test(m)
+        );
+        drawerMeshes.forEach((m) => assignedSet.add(m));
 
-      const trimMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /corner|trim|beam|column|pillar|post|railing|fence/i.test(m));
-      trimMeshes.forEach((m) => assignedSet.add(m));
+        const remainingFurnitureMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m));
 
-      const ventMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /vent|grid|fan|chimney|cupola|weather|arrow|light|lamp/i.test(m));
-      ventMeshes.forEach((m) => assignedSet.add(m));
+        if (tabletopMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_tabletop',
+            name: 'Daun Meja / Top Surface',
+            category: 'wall',
+            meshNames: tabletopMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (legMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_table_legs',
+            name: 'Kaki Meja & Rangka Struktur',
+            category: 'wall',
+            meshNames: legMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (drawerMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_drawers',
+            name: 'Laci & Rak Penyimpanan',
+            category: 'wall',
+            meshNames: drawerMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (remainingFurnitureMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_details',
+            name: 'Aksen & Detail Furnitur',
+            category: 'wall',
+            meshNames: remainingFurnitureMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (candidateZones.length === 0 && discoveredMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_furniture_main',
+            name: 'Bodi Meja Utama',
+            category: 'wall',
+            meshNames: discoveredMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+      } else {
+        const roofMeshes = discoveredMeshes.filter((m) => /roof|ceiling|canopy|cover|slab|shingle|top/i.test(m));
+        roofMeshes.forEach((m) => assignedSet.add(m));
 
-      const floorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /floor|ground|parquet|wood|deck|patio/i.test(m));
-      floorMeshes.forEach((m) => assignedSet.add(m));
+        const wallMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /wall|facade|exterior|building|siding|panel|body|ib10/i.test(m));
+        wallMeshes.forEach((m) => assignedSet.add(m));
 
-      const bathMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /bath|tile|ceramic|shower|toilet/i.test(m));
-      bathMeshes.forEach((m) => assignedSet.add(m));
+        const doorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /door|entry|pivot|frame|gate|hinge|handle|lock/i.test(m));
+        doorMeshes.forEach((m) => assignedSet.add(m));
 
-      const remainingMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m));
+        const trimMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /corner|trim|beam|column|pillar|post|railing|fence/i.test(m));
+        trimMeshes.forEach((m) => assignedSet.add(m));
 
-      if (roofMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_roof',
-          name: 'Roofing & Canopy',
-          category: 'roof',
-          meshNames: roofMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (wallMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_wall',
-          name: 'Exterior & Interior Walls',
-          category: 'wall',
-          meshNames: wallMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (doorMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_door',
-          name: 'Doors, Gates & Hardware',
-          category: 'door',
-          meshNames: doorMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (trimMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_trim',
-          name: 'Corners, Trim & Columns',
-          category: 'exterior',
-          meshNames: trimMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (ventMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_vents',
-          name: 'Vents, Fixtures & Accents',
-          category: 'exterior',
-          meshNames: ventMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (floorMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_floor',
-          name: 'Main Flooring & Decks',
-          category: 'floor',
-          meshNames: floorMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (bathMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_bath',
-          name: 'Bathroom & Wet Surfaces',
-          category: 'bathroom',
-          meshNames: bathMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
-      if (remainingMeshes.length > 0 && remainingMeshes.length <= 15) {
-        candidateZones.push({
-          id: 'zone_other',
-          name: 'Architectural Details',
-          category: 'exterior',
-          meshNames: remainingMeshes,
-          defaultMaterialId: 'original',
-        });
-      }
+        const ventMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /vent|grid|fan|chimney|cupola|weather|arrow|light|lamp/i.test(m));
+        ventMeshes.forEach((m) => assignedSet.add(m));
 
-      if (candidateZones.length === 0 && discoveredMeshes.length > 0) {
-        candidateZones.push({
-          id: 'zone_general',
-          name: 'Primary Structure',
-          category: 'wall',
-          meshNames: discoveredMeshes,
-          defaultMaterialId: 'original',
-        });
+        const floorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /floor|ground|parquet|wood|deck|patio/i.test(m));
+        floorMeshes.forEach((m) => assignedSet.add(m));
+
+        const bathMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /bath|tile|ceramic|shower|toilet/i.test(m));
+        bathMeshes.forEach((m) => assignedSet.add(m));
+
+        const remainingMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m));
+
+        if (roofMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_roof',
+            name: 'Roofing & Canopy',
+            category: 'roof',
+            meshNames: roofMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (wallMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_wall',
+            name: 'Exterior & Interior Walls',
+            category: 'wall',
+            meshNames: wallMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (doorMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_door',
+            name: 'Doors, Gates & Hardware',
+            category: 'door',
+            meshNames: doorMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (trimMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_trim',
+            name: 'Corners, Trim & Columns',
+            category: 'exterior',
+            meshNames: trimMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (ventMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_vents',
+            name: 'Vents, Fixtures & Accents',
+            category: 'exterior',
+            meshNames: ventMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (floorMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_floor',
+            name: 'Main Flooring & Decks',
+            category: 'floor',
+            meshNames: floorMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (bathMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_bath',
+            name: 'Bathroom & Wet Surfaces',
+            category: 'bathroom',
+            meshNames: bathMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+        if (remainingMeshes.length > 0 && remainingMeshes.length <= 15) {
+          candidateZones.push({
+            id: 'zone_other',
+            name: 'Architectural Details',
+            category: 'exterior',
+            meshNames: remainingMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
+
+        if (candidateZones.length === 0 && discoveredMeshes.length > 0) {
+          candidateZones.push({
+            id: 'zone_general',
+            name: 'Primary Structure',
+            category: 'wall',
+            meshNames: discoveredMeshes,
+            defaultMaterialId: 'original',
+          });
+        }
       }
 
       setStage('detecting');
@@ -502,7 +587,11 @@ export default function NewProjectPage() {
         isPublic: false,
         name: projectName.trim(),
         clientName: clientName.trim() || 'Private Client',
-        description: description.trim() || 'Interactive architectural visualization.',
+        description:
+          description.trim() ||
+          (modelType === 'furniture'
+            ? 'Visualisasi & konfigurasi 3D produk meja.'
+            : 'Interactive architectural visualization.'),
         modelUrl,
         thumbnailUrl: generatedThumbnail || capturedThumbnailUrl || '',
         createdAt: new Date().toISOString(),
@@ -510,6 +599,7 @@ export default function NewProjectPage() {
         status: 'published',
         viewsCount: 1,
         savedConfigsCount: 0,
+        modelType,
         zones: candidateZones,
       };
 
@@ -559,6 +649,10 @@ export default function NewProjectPage() {
               <CheckCircle2 className="w-7 h-7" />
             </div>
             <h3 className="text-lg font-semibold text-primary mb-1">Model Ready for Presentation</h3>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold mb-3 border shadow-xs bg-emerald-50 text-emerald-800 border-emerald-200">
+              {modelType === 'furniture' ? <Sofa className="w-3.5 h-3.5" /> : <Home className="w-3.5 h-3.5" />}
+              <span>{modelType === 'furniture' ? 'Tipe: Meja / Furnitur' : 'Tipe: Desain Rumah / Bangunan'}</span>
+            </div>
             <p className="text-xs text-secondary max-w-sm mx-auto mb-4">
               Extracted geometry and created {detectedZonesCount} configurable material zones.
             </p>
@@ -640,6 +734,112 @@ export default function NewProjectPage() {
                 onChange={(e) => setDescription(e.target.value)}
                 className="w-full px-3.5 py-2 text-xs rounded-xl border border-border focus:outline-none focus:border-primary text-primary resize-none"
               />
+            </div>
+
+            {/* Pilihan Tipe Model 3D (Desain Rumah vs Meja / Furnitur) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-primary block">
+                  Pilihan Tipe Model 3D *
+                </label>
+                <span className="text-[11px] text-secondary">
+                  Sesuaikan mode tampilan & kontrol kamera
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setModelType('architecture')}
+                  className={`p-4 rounded-2xl border text-left transition-all relative flex flex-col justify-between ${
+                    modelType === 'architecture'
+                      ? 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-subtle'
+                      : 'bg-surface-50 border-border hover:border-primary/40 hover:bg-surface-100/60'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                          modelType === 'architecture'
+                            ? 'bg-emerald-600 text-white shadow-subtle'
+                            : 'bg-white border border-border text-secondary'
+                        }`}
+                      >
+                        <Home className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-primary block leading-tight">
+                          Desain Rumah / Bangunan
+                        </span>
+                        <span className="text-[10px] text-secondary font-medium">
+                          Objek Arsitektur & Denah
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${
+                        modelType === 'architecture'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'border border-border text-transparent'
+                      }`}
+                    >
+                      ✓
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-secondary leading-relaxed">
+                    Untuk bangunan/rumah: dilengkapi navigasi Masuk Ruangan, Buka Atap (Dollhouse), Hide Perabot, dan Tampak Luar.
+                  </p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setModelType('furniture')}
+                  className={`p-4 rounded-2xl border text-left transition-all relative flex flex-col justify-between ${
+                    modelType === 'furniture'
+                      ? 'bg-emerald-50/70 border-emerald-500 ring-2 ring-emerald-500/20 shadow-subtle'
+                      : 'bg-surface-50 border-border hover:border-primary/40 hover:bg-surface-100/60'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                          modelType === 'furniture'
+                            ? 'bg-emerald-600 text-white shadow-subtle'
+                            : 'bg-white border border-border text-secondary'
+                        }`}
+                      >
+                        <Sofa className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <span className="text-xs font-bold text-primary block leading-tight">
+                          Meja / Furnitur
+                        </span>
+                        <span className="text-[10px] text-secondary font-medium">
+                          Objek Produk & Meja
+                        </span>
+                      </div>
+                    </div>
+
+                    <span
+                      className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors ${
+                        modelType === 'furniture'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : 'border border-border text-transparent'
+                      }`}
+                    >
+                      ✓
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-secondary leading-relaxed">
+                    Untuk preview meja & produk: tampilan ringkas (hanya Depan dan Dari Atas meja, tanpa tombol masuk ruangan arsitektur).
+                  </p>
+                </button>
+              </div>
             </div>
 
             {/* 3D Model Selection (Mode Switcher: Upload Baru vs Library) */}
@@ -828,6 +1028,11 @@ export default function NewProjectPage() {
                                 setSelectedLibraryFile(f);
                                 if (!projectName) {
                                   setProjectName(f.name);
+                                }
+                                if (f.modelType) {
+                                  setModelType(f.modelType);
+                                } else if (/meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(f.name || f.filename)) {
+                                  setModelType('furniture');
                                 }
                               }}
                               className={`p-3 rounded-2xl border cursor-pointer transition-all flex items-start gap-3 text-left ${

@@ -36,6 +36,11 @@ const PRESETS = [
   { id: 'top', name: 'Denah', icon: Grid, description: 'Tampilan denah lurus dari atas' },
 ];
 
+const FURNITURE_PRESETS = [
+  { id: 'facade', name: 'Depan', icon: Sun, description: 'Tampak depan meja' },
+  { id: 'dollhouse', name: 'Dari Atas', icon: Layers, description: 'Tampak dari atas meja' },
+];
+
 const HINT_STORAGE_KEY = 'homecraft-hide-nav-hint';
 
 /** Simple accessible on/off switch row */
@@ -104,6 +109,8 @@ export function CameraPresetBar() {
   const setWalkMode = useConfiguratorStore((s) => s.setWalkMode);
   const toggleWalkMode = useConfiguratorStore((s) => s.toggleWalkMode);
   const enterRoom = useConfiguratorStore((s) => s.enterRoom);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
 
   const [isPanelOpen, setPanelOpen] = useState(true);
   const [isHelpOpen, setHelpOpen] = useState(false);
@@ -158,22 +165,24 @@ export function CameraPresetBar() {
 
         {isPanelOpen && (
           <div className="px-2 pb-2 space-y-2">
-            {/* Quick 1-Click Enter Room Button */}
-            <button
-              type="button"
-              onClick={enterRoom}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-semibold shadow-subtle transition-all active:scale-[0.98]"
-            >
-              <DoorOpen className="w-4 h-4" />
-              <span>Masuk ke Ruangan (1-Click)</span>
-            </button>
+            {/* Quick 1-Click Enter Room Button (Architecture only) */}
+            {!isFurniture && (
+              <button
+                type="button"
+                onClick={enterRoom}
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-semibold shadow-subtle transition-all active:scale-[0.98]"
+              >
+                <DoorOpen className="w-4 h-4" />
+                <span>Masuk ke Ruangan (1-Click)</span>
+              </button>
+            )}
 
             {/* Navigation mode selector */}
             <div>
               <p className="px-1 pb-1 text-[10px] font-semibold uppercase tracking-wider text-secondary">
                 Mode Kontrol 3D
               </p>
-              <div className="grid grid-cols-3 gap-1">
+              <div className={`grid ${isFurniture ? 'grid-cols-2' : 'grid-cols-3'} gap-1`}>
                 {/* 1. Orbit / Turntable */}
                 <button
                   type="button"
@@ -181,7 +190,7 @@ export function CameraPresetBar() {
                     setWalkMode(false);
                     setLookAround360(false);
                   }}
-                  title="AutoCAD Orbit: Seret untuk memutar objek, scroll untuk zoom tembus dinding"
+                  title="CAD Orbit: Seret untuk memutar objek 3D"
                   className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
                     !isLookAround360 && !isWalkMode
                       ? 'bg-primary text-white border-primary shadow-subtle'
@@ -195,106 +204,132 @@ export function CameraPresetBar() {
                   </span>
                 </button>
 
-                {/* 2. Look Around 360 */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWalkMode(false);
-                    setLookAround360(true);
-                  }}
-                  title="Kamera diam di 1 titik, seret mouse menoleh 360°"
-                  className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
-                    isLookAround360
-                      ? 'bg-amber-500 text-white border-amber-600 shadow-subtle'
-                      : 'bg-white text-secondary border-border hover:border-amber-400 hover:text-primary'
-                  }`}
-                >
-                  <Compass className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold leading-tight">Menoleh 360°</span>
-                  <span className={`text-[8px] leading-tight ${isLookAround360 ? 'text-white/85' : 'text-secondary'}`}>
-                    Diam di titik
-                  </span>
-                </button>
+                {isFurniture ? (
+                  /* 2. Turntable auto-rotate toggle button for furniture */
+                  <button
+                    type="button"
+                    onClick={toggleAutoRotate}
+                    title="Putar otomatis 360° secara continuous untuk presentasi meja"
+                    className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
+                      isAutoRotate
+                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-subtle'
+                        : 'bg-white text-secondary border-border hover:border-emerald-400 hover:text-primary'
+                    }`}
+                  >
+                    <Compass className="w-4 h-4" />
+                    <span className="text-[10px] font-semibold leading-tight">Putar 360°</span>
+                    <span className={`text-[8px] leading-tight ${isAutoRotate ? 'text-white/85' : 'text-secondary'}`}>
+                      {isAutoRotate ? 'Aktif' : 'Otomatis'}
+                    </span>
+                  </button>
+                ) : (
+                  <>
+                    {/* 2. Look Around 360 */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setWalkMode(false);
+                        setLookAround360(true);
+                      }}
+                      title="Kamera diam di 1 titik, seret mouse menoleh 360°"
+                      className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
+                        isLookAround360
+                          ? 'bg-amber-500 text-white border-amber-600 shadow-subtle'
+                          : 'bg-white text-secondary border-border hover:border-amber-400 hover:text-primary'
+                      }`}
+                    >
+                      <Compass className="w-4 h-4" />
+                      <span className="text-[10px] font-semibold leading-tight">Menoleh 360°</span>
+                      <span className={`text-[8px] leading-tight ${isLookAround360 ? 'text-white/85' : 'text-secondary'}`}>
+                        Diam di titik
+                      </span>
+                    </button>
 
-                {/* 3. Blender Walk Mode */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLookAround360(false);
-                    toggleWalkMode();
-                  }}
-                  title="Blender Walk Mode: Jalan di dalam ruangan dengan W A S D dan mouse look"
-                  className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
-                    isWalkMode
-                      ? 'bg-indigo-600 text-white border-indigo-700 shadow-subtle'
-                      : 'bg-white text-secondary border-border hover:border-indigo-400 hover:text-primary'
-                  }`}
-                >
-                  <Footprints className="w-4 h-4" />
-                  <span className="text-[10px] font-semibold leading-tight">Jalan (Blender)</span>
-                  <span className={`text-[8px] leading-tight ${isWalkMode ? 'text-white/85' : 'text-secondary'}`}>
-                    WASD Walk
-                  </span>
-                </button>
+                    {/* 3. Blender Walk Mode */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLookAround360(false);
+                        toggleWalkMode();
+                      }}
+                      title="Blender Walk Mode: Jalan di dalam ruangan dengan W A S D dan mouse look"
+                      className={`flex flex-col items-center gap-1 p-1.5 rounded-xl border text-center transition-all ${
+                        isWalkMode
+                          ? 'bg-indigo-600 text-white border-indigo-700 shadow-subtle'
+                          : 'bg-white text-secondary border-border hover:border-indigo-400 hover:text-primary'
+                      }`}
+                    >
+                      <Footprints className="w-4 h-4" />
+                      <span className="text-[10px] font-semibold leading-tight">Jalan (Blender)</span>
+                      <span className={`text-[8px] leading-tight ${isWalkMode ? 'text-white/85' : 'text-secondary'}`}>
+                        WASD Walk
+                      </span>
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
             {/* Visibility toggles */}
             <div className="border-t border-border/70 pt-1.5">
               <p className="px-1 pb-0.5 text-[10px] font-semibold uppercase tracking-wider text-secondary">
-                Tampilan Arsitektur
+                {isFurniture ? 'Tampilan Meja' : 'Tampilan Arsitektur'}
               </p>
-              <SwitchRow
-                label="Buka atap & plafon"
-                description={
-                  isRoofHidden || isCeilingCut
-                    ? 'Atap dibuka – isi ruangan terlihat'
-                    : 'Buka atap agar isi ruangan terlihat dari atas'
-                }
-                checked={isRoofHidden || isCeilingCut}
-                onChange={() => {
-                  const currentlyOpen = isRoofHidden || isCeilingCut;
-                  const next = !currentlyOpen;
-                  setRoofHidden(next);
-                  setCeilingCut(next);
-                }}
-              />
-              <SwitchRow
-                label="Sembunyikan Perabot & Furnitur"
-                description={
-                  isFurnitureHidden
-                    ? 'Mode Kosong aktif – hanya dinding, lantai & plafon'
-                    : 'Sembunyikan perabot, elektronik, pohon & dekorasi'
-                }
-                checked={isFurnitureHidden}
-                onChange={toggleFurnitureHidden}
-              />
-              {detectedFloors
-                .filter((f) => f.levelNumber > 1)
-                .slice()
-                .reverse()
-                .map((floor) => {
-                  const isHidden = hiddenFloors.includes(floor.levelNumber);
-                  return (
-                    <SwitchRow
-                      key={floor.levelNumber}
-                      label={`Tingkat ${floor.name}`}
-                      description={
-                        isHidden
-                          ? `${floor.name} dibuka – lantai bawah terlihat`
-                          : `Matikan untuk membuka ${floor.name}`
-                      }
-                      checked={!isHidden}
-                      onChange={() => toggleFloorHidden(floor.levelNumber)}
-                    />
-                  );
-                })}
-              <SwitchRow
-                label="Lensa lebar (Interior FOV 70°)"
-                description="Pandangan luas natural di dalam ruangan"
-                checked={isWideLens}
-                onChange={() => setCameraFov(isWideLens ? 52 : 70)}
-              />
+              {!isFurniture && (
+                <>
+                  <SwitchRow
+                    label="Buka atap & plafon"
+                    description={
+                      isRoofHidden || isCeilingCut
+                        ? 'Atap dibuka – isi ruangan terlihat'
+                        : 'Buka atap agar isi ruangan terlihat dari atas'
+                    }
+                    checked={isRoofHidden || isCeilingCut}
+                    onChange={() => {
+                      const currentlyOpen = isRoofHidden || isCeilingCut;
+                      const next = !currentlyOpen;
+                      setRoofHidden(next);
+                      setCeilingCut(next);
+                    }}
+                  />
+                  <SwitchRow
+                    label="Sembunyikan Perabot & Furnitur"
+                    description={
+                      isFurnitureHidden
+                        ? 'Mode Kosong aktif – hanya dinding, lantai & plafon'
+                        : 'Sembunyikan perabot, elektronik, pohon & dekorasi'
+                    }
+                    checked={isFurnitureHidden}
+                    onChange={toggleFurnitureHidden}
+                  />
+                  {detectedFloors
+                    .filter((f) => f.levelNumber > 1)
+                    .slice()
+                    .reverse()
+                    .map((floor) => {
+                      const isHidden = hiddenFloors.includes(floor.levelNumber);
+                      return (
+                        <SwitchRow
+                          key={floor.levelNumber}
+                          label={`Tingkat ${floor.name}`}
+                          description={
+                            isHidden
+                              ? `${floor.name} dibuka – lantai bawah terlihat`
+                              : `Matikan untuk membuka ${floor.name}`
+                          }
+                          checked={!isHidden}
+                          onChange={() => toggleFloorHidden(floor.levelNumber)}
+                        />
+                      );
+                    })}
+                  <SwitchRow
+                    label="Lensa lebar (Interior FOV 70°)"
+                    description="Pandangan luas natural di dalam ruangan"
+                    checked={isWideLens}
+                    onChange={() => setCameraFov(isWideLens ? 52 : 70)}
+                  />
+                </>
+              )}
               <SwitchRow
                 label="Putar otomatis 360°"
                 description="Kamera berputar perlahan (presentasi)"
@@ -371,7 +406,11 @@ export function CameraPresetBar() {
         {/* Contextual hint */}
         {!isHintHidden && !isWalkMode && (
           <div className="pointer-events-auto hidden sm:flex items-center gap-2 pl-3 pr-1.5 py-1 bg-black/75 backdrop-blur-md text-white rounded-full text-[11px] shadow-md border border-white/10 max-w-full">
-            {isLookAround360 ? (
+            {isFurniture ? (
+              <span className="truncate">
+                <strong>Seret</strong> untuk memutar 360° meja • <strong>Scroll</strong> untuk zoom in/out • <strong>Klik bagian 3D</strong> untuk ubah material
+              </span>
+            ) : isLookAround360 ? (
               <span className="truncate">
                 <strong className="text-amber-300">Menoleh 360°:</strong> seret mouse untuk menoleh • <strong>klik 2×</strong> lantai untuk berpindah titik
               </span>
@@ -402,42 +441,48 @@ export function CameraPresetBar() {
 
         {/* View presets bar with prominent Quick Enter Room button */}
         <div className="pointer-events-auto flex items-center gap-1 p-1 bg-white/95 backdrop-blur-md rounded-2xl border border-border/80 shadow-float overflow-x-auto scrollbar-none max-w-full">
-          {/* Quick Enter Room Action */}
-          <button
-            type="button"
-            onClick={enterRoom}
-            title="Langsung masuk ke dalam tengah ruangan pada ketinggian mata"
-            className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-subtle transition-all whitespace-nowrap shrink-0 hover:scale-[1.02]"
-          >
-            <DoorOpen className="w-3.5 h-3.5" />
-            <span>Masuk Ruangan</span>
-          </button>
+          {/* Quick Enter Room Action (Architecture only) */}
+          {!isFurniture && (
+            <button
+              type="button"
+              onClick={enterRoom}
+              title="Langsung masuk ke dalam tengah ruangan pada ketinggian mata"
+              className="flex items-center gap-1.5 h-8 px-3 rounded-xl text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 text-white shadow-subtle transition-all whitespace-nowrap shrink-0 hover:scale-[1.02]"
+            >
+              <DoorOpen className="w-3.5 h-3.5" />
+              <span>Masuk Ruangan</span>
+            </button>
+          )}
 
-          {/* Quick Bare Room Toggle */}
-          <button
-            type="button"
-            onClick={toggleFurnitureHidden}
-            title={
-              isFurnitureHidden
-                ? 'Tampilkan kembali seluruh perabot & kulkas'
-                : 'Sembunyikan seluruh perabot & kulkas (Mode Ruang Kosong: Hanya dinding, lantai & plafon)'
-            }
-            className={`flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-semibold shadow-subtle transition-all whitespace-nowrap shrink-0 hover:scale-[1.02] ${
-              isFurnitureHidden
-                ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                : 'bg-white hover:bg-surface-100 text-secondary hover:text-primary border border-border/80'
-            }`}
-          >
-            <Sofa className="w-3.5 h-3.5" />
-            <span>{isFurnitureHidden ? 'Ruang Kosong' : 'Hide Perabot'}</span>
-          </button>
+          {/* Quick Bare Room Toggle (Architecture only) */}
+          {!isFurniture && (
+            <button
+              type="button"
+              onClick={toggleFurnitureHidden}
+              title={
+                isFurnitureHidden
+                  ? 'Tampilkan kembali seluruh perabot & kulkas'
+                  : 'Sembunyikan seluruh perabot & kulkas (Mode Ruang Kosong: Hanya dinding, lantai & plafon)'
+              }
+              className={`flex items-center gap-1.5 h-8 px-2.5 rounded-xl text-xs font-semibold shadow-subtle transition-all whitespace-nowrap shrink-0 hover:scale-[1.02] ${
+                isFurnitureHidden
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'bg-white hover:bg-surface-100 text-secondary hover:text-primary border border-border/80'
+              }`}
+            >
+              <Sofa className="w-3.5 h-3.5" />
+              <span>{isFurnitureHidden ? 'Ruang Kosong' : 'Hide Perabot'}</span>
+            </button>
+          )}
 
-          <div className="h-4 w-px bg-border/80 mx-1 shrink-0" />
+          {!isFurniture && (
+            <div className="h-4 w-px bg-border/80 mx-1 shrink-0" />
+          )}
 
           <span className="hidden md:inline pl-1 pr-1 text-[10px] font-semibold uppercase tracking-wider text-secondary shrink-0">
             Pindah ke
           </span>
-          {PRESETS.map((preset) => {
+          {(isFurniture ? FURNITURE_PRESETS : PRESETS).map((preset) => {
             const Icon = preset.icon;
             const isActive = activeCameraPreset === preset.id;
             return (
@@ -459,7 +504,7 @@ export function CameraPresetBar() {
           <button
             type="button"
             onClick={() => setHelpOpen(true)}
-            title="Panduan navigasi Blender & AutoCAD"
+            title="Panduan navigasi 3D"
             className="flex items-center justify-center h-8 w-8 rounded-xl text-secondary hover:text-primary hover:bg-surface-100 shrink-0 ml-1"
           >
             <HelpCircle className="w-4 h-4" />

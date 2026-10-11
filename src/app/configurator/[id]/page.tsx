@@ -37,6 +37,7 @@ export default function ConfiguratorPage({ params }: PageProps) {
   const loadConfiguration = useConfiguratorStore((s) => s.loadConfiguration);
   const resetConfiguration = useConfiguratorStore((s) => s.resetConfiguration);
   const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
+  const setModelType = useConfiguratorStore((s) => s.setModelType);
 
   const allZones = useMemo(() => {
     const map = new Map<string, MaterialZone>();
@@ -72,6 +73,13 @@ export default function ConfiguratorPage({ params }: PageProps) {
   // Restore configuration from URL query parameter ?config=... if provided
   useEffect(() => {
     if (!project) return;
+
+    const isFurniture =
+      project.modelType === 'furniture' ||
+      Boolean(project.name && /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(project.name)) ||
+      Boolean(project.modelUrl && /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(project.modelUrl));
+
+    setModelType(isFurniture ? 'furniture' : 'architecture');
 
     const isDemo = project.id === 'house-001';
 

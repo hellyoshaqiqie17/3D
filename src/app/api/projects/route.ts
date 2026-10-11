@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
       viewsCount: 0,
       savedConfigsCount: 0,
       zones: body.zones || [],
+      modelType: body.modelType || 'architecture',
     };
 
     const saved = await db.createProject(newProject);

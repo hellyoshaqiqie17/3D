@@ -16,6 +16,7 @@ export interface SkpFileRecord {
   isConverted: boolean;
   glbUrl?: string;
   publicUrl: string;
+  modelType?: 'architecture' | 'furniture';
 }
 
 function getCleanBaseName(filename: string): string {
@@ -103,6 +104,9 @@ export async function GET(req: NextRequest) {
         isConverted,
         glbUrl,
         publicUrl: bunnyStorage.getPublicUrl(storagePath),
+        modelType: /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(item.ObjectName)
+          ? 'furniture'
+          : 'architecture',
       });
     }
 
@@ -129,6 +133,9 @@ export async function GET(req: NextRequest) {
           isConverted: true,
           glbUrl,
           publicUrl: glbUrl,
+          modelType: /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(cleanKey || item.ObjectName)
+            ? 'furniture'
+            : 'architecture',
         });
       }
     }

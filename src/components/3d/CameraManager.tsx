@@ -24,8 +24,10 @@ export function CameraManager() {
   const isAutoRotate = useConfiguratorStore((s) => s.isAutoRotate);
   const autoRotateSpeed = useConfiguratorStore((s) => s.autoRotateSpeed);
   const isLookAround360 = useConfiguratorStore((s) => s.isLookAround360);
-  const isWalkMode = useConfiguratorStore((s) => s.isWalkMode);
+  const isWalkMode = useConfiguratorStore((s) => s.walkSpeed !== undefined && s.isWalkMode);
   const walkSpeed = useConfiguratorStore((s) => s.walkSpeed);
+  const modelType = useConfiguratorStore((s) => s.modelType);
+  const isFurniture = modelType === 'furniture';
 
   const targetCamPos = useRef(new THREE.Vector3(12, 8, 14));
   const targetLookAt = useRef(new THREE.Vector3(0, 1.5, 0));
@@ -208,6 +210,42 @@ export function CameraManager() {
   // Dynamic calculation of camera viewpoints based on actual loaded model bounds
   const calculatePresetVectors = useCallback(
     (presetId: string) => {
+      if (isFurniture) {
+        // Table / Furniture dimensions without artificial min bounds
+        const fw = houseSize[0] || 1.2;
+        const fh = houseSize[1] || 0.8;
+        const fd = houseSize[2] || 0.8;
+        const maxDim = Math.max(fw, fh, fd, 0.6);
+        const cX = houseCenter[0] || 0;
+        const cY = houseCenter[1] || fh * 0.45;
+        const cZ = houseCenter[2] || 0;
+
+        switch (presetId) {
+          case 'dollhouse':
+            // TAMPAK DARI ATAS MEJA (Top angled inspection)
+            setRoofHidden(false);
+            setCeilingCut(false);
+            setCameraFov(45);
+            setCameraMode('orbit');
+            return {
+              pos: new THREE.Vector3(cX, cY + maxDim * 1.8, cZ + maxDim * 0.35),
+              target: new THREE.Vector3(cX, cY, cZ),
+            };
+
+          case 'facade':
+          default:
+            // TAMPAK DEPAN MEJA (Front elevation)
+            setRoofHidden(false);
+            setCeilingCut(false);
+            setCameraFov(45);
+            setCameraMode('orbit');
+            return {
+              pos: new THREE.Vector3(cX, cY + maxDim * 0.35, cZ + maxDim * 1.8),
+              target: new THREE.Vector3(cX, cY, cZ),
+            };
+        }
+      }
+
       // Dynamic room bounds (centered at origin by HouseModel)
       const w = Math.max(houseSize[0] || 4.7, 3.0);
       const h = Math.max(houseSize[1] || 3.2, 2.5);
@@ -218,7 +256,7 @@ export function CameraManager() {
       const cZ = houseCenter[2] || 0;
 
       // Comfortable human eye level inside the room
-      const eyeLevel = Math.min(cY + 1.50, h * 0.55);
+      const eyeLevel = Math.min(cY + 1.5, h * 0.55);
 
       switch (presetId) {
         case 'exterior':
@@ -288,7 +326,7 @@ export function CameraManager() {
           };
       }
     },
-    [houseSize, houseCenter, setRoofHidden, setCeilingCut, setEnvironmentHidden, setCameraFov, setCameraMode]
+    [houseSize, houseCenter, setRoofHidden, setCeilingCut, setEnvironmentHidden, setCameraFov, setCameraMode, isFurniture]
   );
 
   useEffect(() => {
@@ -317,6 +355,16 @@ export function CameraManager() {
       const hit = intersects.find((i) => i.object.visible && !(i.object instanceof THREE.LineSegments));
 
       if (hit) {
+        if (isFurniture) {
+          const point = hit.point;
+          targetLookAt.current.copy(point);
+          const camOffset = new THREE.Vector3();
+          camera.getWorldDirection(camOffset);
+          targetCamPos.current.copy(point).addScaledVector(camOffset, -1.2);
+          isTransitioning.current = true;
+          return;
+        }
+
         const point = hit.point;
         const dir = new THREE.Vector3();
         camera.getWorldDirection(dir);

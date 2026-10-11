@@ -91,6 +91,7 @@ export interface Project {
   zones: MaterialZone[];
   viewsCount?: number;
   savedConfigsCount?: number;
+  modelType?: 'architecture' | 'furniture';
 }
 
 export interface ProjectConfiguration {

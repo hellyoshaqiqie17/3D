@@ -20,6 +20,8 @@ import {
   Plus,
   Sparkles,
   ExternalLink,
+  Home,
+  Sofa,
 } from 'lucide-react';
 import { SkpFileRecord } from '@/app/api/skp-files/route';
 import { convertSkpClientSide } from '@/lib/skp-client-converter';
@@ -38,10 +40,27 @@ export function SkpLibraryView() {
   const [files, setFiles] = useState<SkpFileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'skp' | 'converted'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'architecture' | 'furniture' | 'skp' | 'converted'>('all');
   const [deleteConfirmPath, setDeleteConfirmPath] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [feedbackNotice, setFeedbackNotice] = useState<string | null>(null);
+
+  // Model type customization for library items & batch uploads
+  const [uploadDefaultModelType, setUploadDefaultModelType] = useState<'architecture' | 'furniture'>('architecture');
+  const [customModelTypes, setCustomModelTypes] = useState<Record<string, 'architecture' | 'furniture'>>({});
+
+  const getEffectiveModelType = (file: SkpFileRecord): 'architecture' | 'furniture' => {
+    if (customModelTypes[file.storagePath]) return customModelTypes[file.storagePath];
+    if (file.modelType) return file.modelType;
+    return /meja|table|kursi|chair|furniture|lemari|cabinet|sofa/i.test(file.name || file.filename)
+      ? 'furniture'
+      : 'architecture';
+  };
+
+  const toggleFileModelType = (storagePath: string, current: 'architecture' | 'furniture') => {
+    const next = current === 'furniture' ? 'architecture' : 'furniture';
+    setCustomModelTypes((prev) => ({ ...prev, [storagePath]: next }));
+  };
 
   // Batch upload state
   const [uploadQueue, setUploadQueue] = useState<UploadQueueItem[]>([]);
@@ -189,6 +208,12 @@ export function SkpLibraryView() {
         }
 
         // 4. Mark success
+        if (storagePath) {
+          setCustomModelTypes((prev) => ({
+            ...prev,
+            [storagePath]: uploadDefaultModelType,
+          }));
+        }
         setUploadQueue((prev) =>
           prev.map((it) =>
             it.id === item.id ? { ...it, status: 'success', progress: 100, storagePath } : it
@@ -241,6 +266,8 @@ export function SkpLibraryView() {
 
     if (filterType === 'skp') return f.filename.toLowerCase().endsWith('.skp');
     if (filterType === 'converted') return f.isConverted;
+    if (filterType === 'architecture') return getEffectiveModelType(f) === 'architecture';
+    if (filterType === 'furniture') return getEffectiveModelType(f) === 'furniture';
     return true;
   });
 
@@ -348,6 +375,43 @@ export function SkpLibraryView() {
           <span className="text-[11px] text-secondary font-mono">
             Direct Cloud Upload • Unlimited File Size
           </span>
+        </div>
+
+        {/* Pilihan Tipe Model Upload */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-surface-50 border border-border rounded-xl">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-primary">Tipe Model Upload:</span>
+            <span className="text-[11px] text-secondary">
+              Pilih apakah file yang diunggah berupa arsitektur atau furnitur
+            </span>
+          </div>
+
+          <div className="flex bg-white p-1 rounded-xl border border-border shadow-xs gap-1">
+            <button
+              type="button"
+              onClick={() => setUploadDefaultModelType('architecture')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                uploadDefaultModelType === 'architecture'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-secondary hover:text-primary hover:bg-surface-100'
+              }`}
+            >
+              <Home className="w-3.5 h-3.5" />
+              <span>Desain Rumah (Arsitektur)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setUploadDefaultModelType('furniture')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                uploadDefaultModelType === 'furniture'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'text-secondary hover:text-primary hover:bg-surface-100'
+              }`}
+            >
+              <Sofa className="w-3.5 h-3.5" />
+              <span>Meja / Furnitur</span>
+            </button>
+          </div>
         </div>
 
         <div
@@ -515,6 +579,24 @@ export function SkpLibraryView() {
                 Semua
               </button>
               <button
+                onClick={() => setFilterType('architecture')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all flex items-center gap-1 ${
+                  filterType === 'architecture' ? 'bg-white text-primary shadow-subtle' : 'text-secondary hover:text-primary'
+                }`}
+              >
+                <Home className="w-3 h-3" />
+                <span>Rumah</span>
+              </button>
+              <button
+                onClick={() => setFilterType('furniture')}
+                className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all flex items-center gap-1 ${
+                  filterType === 'furniture' ? 'bg-white text-primary shadow-subtle' : 'text-secondary hover:text-primary'
+                }`}
+              >
+                <Sofa className="w-3 h-3" />
+                <span>Meja</span>
+              </button>
+              <button
                 onClick={() => setFilterType('skp')}
                 className={`px-2.5 py-1 text-[11px] font-semibold rounded-lg transition-all ${
                   filterType === 'skp' ? 'bg-white text-primary shadow-subtle' : 'text-secondary hover:text-primary'
@@ -552,6 +634,8 @@ export function SkpLibraryView() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredFiles.map((file) => {
               const isSkp = file.filename.toLowerCase().endsWith('.skp');
+              const effectiveType = getEffectiveModelType(file);
+              const isFurn = effectiveType === 'furniture';
 
               return (
                 <div
@@ -574,17 +658,33 @@ export function SkpLibraryView() {
                         </div>
                       </div>
 
-                      {/* Status badge */}
-                      {file.isConverted ? (
-                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-semibold shrink-0 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          Siap 3D
-                        </span>
-                      ) : (
-                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[10px] font-semibold shrink-0">
-                          SKP Cloud
-                        </span>
-                      )}
+                      {/* Status & Model type badges */}
+                      <div className="flex flex-col items-end gap-1 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => toggleFileModelType(file.storagePath, effectiveType)}
+                          title="Klik untuk beralih tipe: Desain Rumah vs Meja / Furnitur"
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold flex items-center gap-1 transition-all border ${
+                            isFurn
+                              ? 'bg-amber-50 text-amber-800 border-amber-200/80 hover:bg-amber-100'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-200/80 hover:bg-emerald-100'
+                          }`}
+                        >
+                          {isFurn ? <Sofa className="w-3 h-3 text-amber-600" /> : <Home className="w-3 h-3 text-emerald-600" />}
+                          <span>{isFurn ? 'Meja' : 'Rumah'}</span>
+                        </button>
+
+                        {file.isConverted ? (
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/60 rounded-full text-[10px] font-semibold shrink-0 flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" />
+                            Siap 3D
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 bg-blue-50 text-blue-700 border border-blue-200/60 rounded-full text-[10px] font-semibold shrink-0">
+                            SKP Cloud
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-3 text-[11px] text-secondary font-mono my-2 pb-2 border-b border-border/60">
@@ -623,7 +723,7 @@ export function SkpLibraryView() {
                       </a>
 
                       <Link
-                        href={`/projects/new?fromLibrary=${encodeURIComponent(file.storagePath)}&fileName=${encodeURIComponent(file.filename)}&fileSize=${file.size}&cleanName=${encodeURIComponent(file.name)}`}
+                        href={`/projects/new?fromLibrary=${encodeURIComponent(file.storagePath)}&fileName=${encodeURIComponent(file.filename)}&fileSize=${file.size}&cleanName=${encodeURIComponent(file.name)}&modelType=${effectiveType}`}
                         className="px-2.5 py-1.5 bg-primary hover:bg-primary-hover text-white text-[11px] font-semibold rounded-xl flex items-center gap-1 transition-all shadow-subtle"
                       >
                         <span>Buat Project 3D</span>

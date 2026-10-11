@@ -103,6 +103,8 @@ interface ConfiguratorState {
   setSaveModalOpen: (val: boolean) => void;
   setShareModalOpen: (val: boolean) => void;
   setReportModalOpen: (val: boolean) => void;
+  modelType: 'architecture' | 'furniture';
+  setModelType: (type: 'architecture' | 'furniture') => void;
 
   // Perspective & Interior Visibility Actions
   toggleRoofHidden: () => void;
@@ -183,6 +185,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   isSidebarHidden: false,
   isWireframeMode: false,
   isOriginalMode: false,
+  modelType: 'architecture',
 
   // Architectural Perspective & Visibility Defaults
   isRoofHidden: false,
@@ -386,6 +389,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setSaveModalOpen: (val) => set({ isSaveModalOpen: val }),
   setShareModalOpen: (val) => set({ isShareModalOpen: val }),
   setReportModalOpen: (val) => set({ isReportModalOpen: val }),
+  setModelType: (type) => set({ modelType: type }),
 
   toggleRoofHidden: () =>
     set((state) => {
