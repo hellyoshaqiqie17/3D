@@ -24,22 +24,15 @@ export async function convertSkpClientSide(
   onProgress?.('Membaca geometri dan struktur komponen SketchUp...', 25);
 
   let glbBytes: Uint8Array;
-  const isLargeFile = arrayBuffer.byteLength > 12 * 1024 * 1024;
-
   try {
-    if (!isLargeFile) {
-      try {
-        const instanced = buildInstancedScene(arrayBuffer);
-        onProgress?.('Mengonversi ke Web 3D GLB (Binary format)...', 70);
-        glbBytes = toInstancedGLB(instanced, { textures: true });
-      } catch (instErr) {
-        console.warn('[SKP Converter] Instanced conversion failed, falling back to flat scene:', instErr);
-        const scene = buildScene(arrayBuffer);
-        glbBytes = toGLB(scene);
-      }
-    } else {
-      // Large models (>12MB) use flat scene directly to preserve browser RAM and prevent V8 out of memory
-      onProgress?.('Memproses geometri model besar (Flat scene mode)...', 45);
+    try {
+      onProgress?.('Membangun struktur geometri dan komponen 3D...', 40);
+      const instanced = buildInstancedScene(arrayBuffer);
+      onProgress?.('Mengonversi ke Web 3D GLB (Instanced format)...', 70);
+      glbBytes = toInstancedGLB(instanced, { textures: true });
+    } catch (instErr) {
+      console.warn('[SKP Converter] Instanced conversion failed, falling back to flat scene:', instErr);
+      onProgress?.('Memproses geometri alternatif (Flat scene mode)...', 55);
       const scene = buildScene(arrayBuffer);
       onProgress?.('Mengonversi ke Web 3D GLB (Binary format)...', 75);
       glbBytes = toGLB(scene);

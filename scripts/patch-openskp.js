@@ -170,6 +170,17 @@ for (const filePath of targetFiles) {
     }
   }
 
+  // 5. Patch readInstance GUID for SketchUp < 14 (legacy MFC container)
+  if (!content.includes('ar.ver >= 14 && (schema === void 0 || schema >= 7)')) {
+    const oldGuid = 'const guid = schema === void 0 || schema >= minSchema ? r.raw(16) : new Uint8Array(0);';
+    const newGuid = '// In SketchUp < 14 (legacy MFC), instances do not carry trailing 16-byte GUIDs\n  const guid = (ar.ver >= 14 && (schema === void 0 || schema >= 7)) ? r.raw(16) : new Uint8Array(0);';
+    if (content.includes(oldGuid)) {
+      content = content.replace(oldGuid, newGuid);
+      changed = true;
+      console.log(`[patch-openskp] Patched readInstance GUID in: ${path.basename(filePath)}`);
+    }
+  }
+
   if (changed) {
     fs.writeFileSync(filePath, content, 'utf8');
     console.log(`[patch-openskp] Successfully updated: ${path.basename(filePath)}`);

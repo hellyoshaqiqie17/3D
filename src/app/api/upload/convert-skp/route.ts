@@ -25,18 +25,13 @@ export async function POST(req: NextRequest) {
     const { buildInstancedScene, buildScene, toInstancedGLB, toGLB, extractThumbnail } = await import('openskp');
 
     let glbBytes: Uint8Array;
-    const isLarge = arrayBuffer.byteLength > 12 * 1024 * 1024;
     try {
-      if (!isLarge) {
-        try {
-          const instanced = buildInstancedScene(arrayBuffer);
-          glbBytes = toInstancedGLB(instanced, { textures: true });
-        } catch {
-          const scene = buildScene(arrayBuffer);
-          glbBytes = toGLB(scene);
-        }
-      } else {
-        console.log('[Convert SKP] Large model detected, converting using flat scene to preserve memory...');
+      try {
+        console.log('[Convert SKP] Converting with instanced scene mode...');
+        const instanced = buildInstancedScene(arrayBuffer);
+        glbBytes = toInstancedGLB(instanced, { textures: true });
+      } catch (instErr) {
+        console.warn('[Convert SKP] Instanced conversion failed, falling back to flat scene:', instErr);
         const scene = buildScene(arrayBuffer);
         glbBytes = toGLB(scene);
       }
