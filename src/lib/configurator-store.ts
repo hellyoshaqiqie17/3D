@@ -409,7 +409,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   toggleRoofHidden: () =>
     set((state) => {
-      const next = !state.isRoofHidden;
+      const next = !(state.isRoofHidden || state.isCeilingCut);
       return { isRoofHidden: next, isCeilingCut: next };
     }),
   setRoofHidden: (val) => set({ isRoofHidden: val, isCeilingCut: val }),
@@ -441,8 +441,12 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setCameraFov: (fov) => set({ cameraFov: fov }),
   setCameraMode: (mode) => set({ cameraMode: mode }),
   setHouseBounds: (center, size) => set({ houseCenter: center, houseSize: size }),
-  toggleCeilingCut: () => set((state) => ({ isCeilingCut: !state.isCeilingCut })),
-  setCeilingCut: (val) => set({ isCeilingCut: val }),
+  toggleCeilingCut: () =>
+    set((state) => {
+      const next = !(state.isCeilingCut || state.isRoofHidden);
+      return { isCeilingCut: next, isRoofHidden: next };
+    }),
+  setCeilingCut: (val) => set({ isCeilingCut: val, isRoofHidden: val }),
   setCeilingCutHeight: (height) => set({ ceilingCutHeight: height }),
   toggleAutoRotate: () =>
     set((state) => ({

@@ -445,6 +445,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           m.clippingPlanes = clipPlanes;
           m.clipShadows = true;
           m.side = THREE.DoubleSide; // Render both interior and exterior faces
+          m.needsUpdate = true;
         });
       }
     });

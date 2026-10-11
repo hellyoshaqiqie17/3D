@@ -85,8 +85,10 @@ export function CameraPresetBar() {
   const activeCameraPreset = useConfiguratorStore((s) => s.activeCameraPreset);
   const setCameraPreset = useConfiguratorStore((s) => s.setCameraPreset);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
+  const setRoofHidden = useConfiguratorStore((s) => s.setRoofHidden);
   const toggleRoofHidden = useConfiguratorStore((s) => s.toggleRoofHidden);
   const isCeilingCut = useConfiguratorStore((s) => s.isCeilingCut);
+  const setCeilingCut = useConfiguratorStore((s) => s.setCeilingCut);
   const toggleCeilingCut = useConfiguratorStore((s) => s.toggleCeilingCut);
   const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
   const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
@@ -245,11 +247,17 @@ export function CameraPresetBar() {
               </p>
               <SwitchRow
                 label="Buka atap & plafon"
-                description={isRoofHidden || isCeilingCut ? 'Atap dibuka – isi ruangan terlihat' : 'Buka atap agar isi ruangan terlihat dari atas'}
+                description={
+                  isRoofHidden || isCeilingCut
+                    ? 'Atap dibuka – isi ruangan terlihat'
+                    : 'Buka atap agar isi ruangan terlihat dari atas'
+                }
                 checked={isRoofHidden || isCeilingCut}
                 onChange={() => {
-                  toggleRoofHidden();
-                  toggleCeilingCut();
+                  const currentlyOpen = isRoofHidden || isCeilingCut;
+                  const next = !currentlyOpen;
+                  setRoofHidden(next);
+                  setCeilingCut(next);
                 }}
               />
               {detectedFloors
