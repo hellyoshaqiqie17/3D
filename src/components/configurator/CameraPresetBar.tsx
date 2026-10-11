@@ -267,7 +267,7 @@ export function CameraPresetBar() {
                 description={
                   isFurnitureHidden
                     ? 'Mode Kosong aktif – hanya dinding, lantai & plafon'
-                    : 'Sembunyikan kulkas, kabinet, meja & elektronik'
+                    : 'Sembunyikan perabot, elektronik, pohon & dekorasi'
                 }
                 checked={isFurnitureHidden}
                 onChange={toggleFurnitureHidden}
@@ -292,12 +292,6 @@ export function CameraPresetBar() {
                     />
                   );
                 })}
-              <SwitchRow
-                label="Pohon & lingkungan"
-                description={isEnvironmentHidden ? 'Disembunyikan agar rumah bersih' : 'Matikan jika menghalangi'}
-                checked={!isEnvironmentHidden}
-                onChange={toggleEnvironmentHidden}
-              />
               <SwitchRow
                 label="Lensa lebar (Interior FOV 70°)"
                 description="Pandangan luas natural di dalam ruangan"

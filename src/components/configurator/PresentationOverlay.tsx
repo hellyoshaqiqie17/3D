@@ -10,7 +10,6 @@ import {
   Eye,
   Sofa,
   Layers,
-  Trees,
   Sun,
   Grid,
   Home,
@@ -182,18 +181,6 @@ export function PresentationOverlay({ project }: PresentationOverlayProps) {
             >
               <Sofa className="w-3.5 h-3.5" />
               <span>{isFurnitureHidden ? 'Ruang Kosong' : 'Hide Perabot'}</span>
-            </button>
-
-            <button
-              onClick={toggleEnvironmentHidden}
-              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all border ${
-                isEnvironmentHidden
-                  ? 'bg-emerald-600 text-white border-emerald-700 shadow-subtle'
-                  : 'text-secondary hover:text-primary hover:bg-surface-100 border-border/80'
-              }`}
-            >
-              <Trees className="w-3.5 h-3.5" />
-              <span>{isEnvironmentHidden ? 'Pohon Bersih' : 'Pohon ON'}</span>
             </button>
 
             <button

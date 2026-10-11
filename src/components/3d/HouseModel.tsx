@@ -403,7 +403,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
           name.startsWith('Component_197');
 
         if (isEnv) {
-          child.visible = !isEnvironmentHidden;
+          child.visible = !isFurnitureHidden && !isEnvironmentHidden;
           return;
         }
 
