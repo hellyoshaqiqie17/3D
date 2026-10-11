@@ -25,13 +25,24 @@ export async function POST(req: NextRequest) {
     const { buildInstancedScene, buildScene, toInstancedGLB, toGLB, extractThumbnail } = await import('openskp');
 
     let glbBytes: Uint8Array;
+    const isLarge = arrayBuffer.byteLength > 12 * 1024 * 1024;
     try {
-      const instanced = buildInstancedScene(arrayBuffer);
-      glbBytes = toInstancedGLB(instanced, { textures: true });
-    } catch (instancedErr) {
-      console.warn('[Convert SKP] Instanced GLB conversion fallback to flat scene:', instancedErr);
-      const scene = buildScene(arrayBuffer);
-      glbBytes = toGLB(scene);
+      if (!isLarge) {
+        try {
+          const instanced = buildInstancedScene(arrayBuffer);
+          glbBytes = toInstancedGLB(instanced, { textures: true });
+        } catch {
+          const scene = buildScene(arrayBuffer);
+          glbBytes = toGLB(scene);
+        }
+      } else {
+        console.log('[Convert SKP] Large model detected, converting using flat scene to preserve memory...');
+        const scene = buildScene(arrayBuffer);
+        glbBytes = toGLB(scene);
+      }
+    } catch (err: any) {
+      console.error('[Convert SKP] Geometry build failed:', err);
+      throw new Error(`Gagal memproses geometri 3D SketchUp: ${err?.message || 'Format tidak valid'}`);
     }
 
     const cleanBase = baseName || path.basename(storagePath, path.extname(storagePath));

@@ -25,6 +25,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import type { SkpFileRecord } from '@/app/api/skp-files/route';
+import { convertSkpClientSide } from '@/lib/skp-client-converter';
 
 type UploadStage =
   | 'idle'
@@ -129,31 +130,6 @@ export default function NewProjectPage() {
     }
   };
 
-  const handleUseDemoTemplate = () => {
-    setSelectedFile(new File([''], 'modern-villa.glb', { type: 'model/gltf-binary' }));
-    setProjectName('Highland Hillside Villa');
-    setClientName('Serenity Estates');
-    setDescription('Modern 2-bedroom residential villa featuring floor-to-ceiling panoramic glass, natural timber deck, and minimalist architectural concrete envelope.');
-
-    const loader = new GLTFLoader();
-    loader.load('/models/modern-villa.glb', (gltf) => {
-      try {
-        const thumb = generateModelThumbnail(gltf.scene, 640, 360);
-        if (thumb) setCapturedThumbnailUrl(thumb);
-      } catch (e) {
-        console.warn('Could not generate sample thumbnail:', e);
-      }
-    });
-  };
-
-  const handleUseSkpTemplate = () => {
-    setSelectedFile(new File([''], 'sample-sketchup-house.skp', { type: 'application/octet-stream' }));
-    setProjectName('SketchUp Modern House Concept');
-    setClientName('Krona Architectural Studio');
-    setDescription('Clean single-storey pavilion designed in Trimble SketchUp (.skp), converted to real-time Web 3D with customizable facade, timber floor, and slate canopy.');
-    setCapturedThumbnailUrl('/models/sample-sketchup-thumb.png');
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -169,365 +145,382 @@ export default function NewProjectPage() {
     setStage('uploading');
     setUploadProgress(10);
 
-    // Parse model to extract meshes and generate initial candidate material zones
-    let modelUrl = '/models/modern-villa.glb';
+    let modelUrl = '';
     let generatedThumbnail = '';
     const candidateZones: MaterialZone[] = [];
 
     try {
       if (uploadMode === 'library' && selectedLibraryFile) {
-        setUploadProgress(40);
+        setUploadProgress(25);
 
-        // Check if file is already converted to GLB
+        // Check if file is already converted to GLB in library
         if (selectedLibraryFile.isConverted && selectedLibraryFile.glbUrl) {
           modelUrl = selectedLibraryFile.glbUrl;
-          setUploadProgress(80);
+          setUploadProgress(70);
         } else {
-          // SKP file is already in Bunny Storage! Convert directly without uploading again
+          // SKP file in library not yet converted! Download and convert client-side (no Vercel timeout)
           setStage('processing');
-          setUploadProgress(60);
+          setUploadProgress(20);
 
-          const convRes = await fetch('/api/upload/convert-skp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              storagePath: selectedLibraryFile.storagePath,
-              originalName: selectedLibraryFile.filename,
-              baseName: selectedLibraryFile.filename.replace(/\.[^/.]+$/, ''),
-              timestamp: Date.now(),
-            }),
+          const skpUrl = selectedLibraryFile.publicUrl || `/api/storage/${selectedLibraryFile.storagePath}`;
+          const skpRes = await fetch(skpUrl);
+          if (!skpRes.ok) {
+            throw new Error(`Gagal mengunduh file SketchUp dari cloud storage (${skpRes.status})`);
+          }
+          const arrayBuffer = await skpRes.arrayBuffer();
+
+          setUploadProgress(35);
+          const converted = await convertSkpClientSide(arrayBuffer, (stageMsg, pct) => {
+            setUploadProgress(30 + Math.round(pct * 0.4));
           });
 
-          if (!convRes.ok) {
-            const errText = await convRes.text();
-            let errMsg = 'Gagal mengonversi file SketchUp (.skp)';
-            try {
-              const parsed = JSON.parse(errText);
-              if (parsed.error) errMsg = parsed.error;
-            } catch {
-              errMsg = errText || errMsg;
-            }
-            throw new Error(errMsg);
-          }
+          // Upload converted GLB to Bunny Storage
+          const baseName = selectedLibraryFile.filename.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const timestamp = Date.now();
+          const glbFilename = `${baseName}_${timestamp}.glb`;
 
-          const convData = await convRes.json();
-          modelUrl = convData.url;
-          if (convData.thumbnailUrl) {
-            generatedThumbnail = convData.thumbnailUrl;
+          const prepRes = await fetch('/api/upload/direct', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: glbFilename, targetFolder: 'models' }),
+          });
+          if (!prepRes.ok) throw new Error('Gagal menyiapkan penyimpanan cloud untuk hasil konversi GLB');
+          const prepData = await prepRes.json();
+
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', prepData.uploadUrl, true);
+            xhr.setRequestHeader('AccessKey', prepData.accessKey);
+            xhr.setRequestHeader('Content-Type', 'model/gltf-binary');
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Gagal mengunggah GLB ke cloud storage')));
+            xhr.onerror = () => reject(new Error('Koneksi terputus saat mengunggah GLB'));
+            xhr.send(converted.glbBlob);
+          });
+
+          modelUrl = prepData.publicUrl;
+
+          if (converted.thumbnailBlob) {
+            try {
+              const thumbFilename = `${baseName}_${timestamp}_thumb.png`;
+              const prepThumbRes = await fetch('/api/upload/direct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: thumbFilename, targetFolder: 'models' }),
+              });
+              if (prepThumbRes.ok) {
+                const prepThumbData = await prepThumbRes.json();
+                const xhrThumb = new XMLHttpRequest();
+                xhrThumb.open('PUT', prepThumbData.uploadUrl, true);
+                xhrThumb.setRequestHeader('AccessKey', prepThumbData.accessKey);
+                xhrThumb.setRequestHeader('Content-Type', 'image/png');
+                xhrThumb.send(converted.thumbnailBlob);
+                generatedThumbnail = prepThumbData.publicUrl;
+              }
+            } catch {}
           }
         }
-
-        setUploadProgress(70);
       } else if (selectedFile && selectedFile.size > 0) {
-        // Direct Cloud Upload to Bunny Storage (bypasses Vercel 4.5MB request limit!)
-        try {
-          // 1. Prepare direct cloud upload parameters
+        const isSkp = selectedFile.name.toLowerCase().endsWith('.skp');
+
+        if (isSkp) {
+          // CONVERT CLIENT-SIDE IN BROWSER: Fast, no Vercel serverless 10s timeout, handles large files (35MB+)
+          setStage('processing');
+          setUploadProgress(15);
+
+          const arrayBuffer = await selectedFile.arrayBuffer();
+          const converted = await convertSkpClientSide(arrayBuffer, (stageMsg, pct) => {
+            setUploadProgress(15 + Math.round(pct * 0.45)); // 15% to 60%
+          });
+
+          setStage('uploading');
+          setUploadProgress(65);
+
+          const baseName = selectedFile.name.replace(/\.[^/.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const timestamp = Date.now();
+          const glbFilename = `${baseName}_${timestamp}.glb`;
+
+          // 1. Upload converted GLB directly to Bunny Storage
+          const prepGlbRes = await fetch('/api/upload/direct', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: glbFilename, targetFolder: 'models' }),
+          });
+          if (!prepGlbRes.ok) throw new Error('Gagal menyiapkan penyimpanan cloud untuk file GLB');
+          const prepGlbData = await prepGlbRes.json();
+
+          await new Promise<void>((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', prepGlbData.uploadUrl, true);
+            xhr.setRequestHeader('AccessKey', prepGlbData.accessKey);
+            xhr.setRequestHeader('Content-Type', 'model/gltf-binary');
+            xhr.upload.onprogress = (evt) => {
+              if (evt.lengthComputable) {
+                const pct = Math.round((evt.loaded / evt.total) * 15) + 65;
+                setUploadProgress(pct);
+              }
+            };
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Gagal mengunggah GLB ke cloud')));
+            xhr.onerror = () => reject(new Error('Koneksi terputus saat mengunggah model 3D'));
+            xhr.send(converted.glbBlob);
+          });
+
+          modelUrl = prepGlbData.publicUrl;
+
+          // 2. Upload original SKP to Bunny Storage in background
+          try {
+            const skpFilename = `${baseName}_${timestamp}.skp`;
+            const prepSkpRes = await fetch('/api/upload/direct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: skpFilename, targetFolder: 'models' }),
+            });
+            if (prepSkpRes.ok) {
+              const prepSkpData = await prepSkpRes.json();
+              const xhrSkp = new XMLHttpRequest();
+              xhrSkp.open('PUT', prepSkpData.uploadUrl, true);
+              xhrSkp.setRequestHeader('AccessKey', prepSkpData.accessKey);
+              xhrSkp.setRequestHeader('Content-Type', 'application/octet-stream');
+              xhrSkp.send(selectedFile);
+            }
+          } catch (e) {
+            console.warn('Background SKP upload note:', e);
+          }
+
+          // 3. Upload extracted thumbnail if available
+          if (converted.thumbnailBlob) {
+            try {
+              const thumbFilename = `${baseName}_${timestamp}_thumb.png`;
+              const prepThumbRes = await fetch('/api/upload/direct', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ filename: thumbFilename, targetFolder: 'models' }),
+              });
+              if (prepThumbRes.ok) {
+                const prepThumbData = await prepThumbRes.json();
+                const xhrThumb = new XMLHttpRequest();
+                xhrThumb.open('PUT', prepThumbData.uploadUrl, true);
+                xhrThumb.setRequestHeader('AccessKey', prepThumbData.accessKey);
+                xhrThumb.setRequestHeader('Content-Type', 'image/png');
+                xhrThumb.send(converted.thumbnailBlob);
+                generatedThumbnail = prepThumbData.publicUrl;
+              }
+            } catch {}
+          }
+        } else {
+          // Direct GLB / GLTF upload
           const prepRes = await fetch('/api/upload/direct', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               filename: selectedFile.name,
               fileSize: selectedFile.size,
+              targetFolder: 'models',
             }),
           });
-
-          if (!prepRes.ok) {
-            const errText = await prepRes.text();
-            throw new Error(`Gagal mempersiapkan upload: ${errText}`);
-          }
-
+          if (!prepRes.ok) throw new Error('Gagal menyiapkan penyimpanan cloud');
           const prepData = await prepRes.json();
-          const { uploadUrl, accessKey, isSkp, storagePath, baseName, timestamp, publicUrl } = prepData;
 
-          // 2. Upload file directly to Bunny Storage with XMLHttpRequest for progress tracking
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest();
-            xhr.open('PUT', uploadUrl, true);
-            xhr.setRequestHeader('AccessKey', accessKey);
-            xhr.setRequestHeader('Content-Type', selectedFile.type || 'application/octet-stream');
-
+            xhr.open('PUT', prepData.uploadUrl, true);
+            xhr.setRequestHeader('AccessKey', prepData.accessKey);
+            xhr.setRequestHeader('Content-Type', selectedFile.type || 'model/gltf-binary');
             xhr.upload.onprogress = (evt) => {
               if (evt.lengthComputable) {
-                const pct = Math.round((evt.loaded / evt.total) * 55) + 10; // 10% to 65%
+                const pct = Math.round((evt.loaded / evt.total) * 60) + 15;
                 setUploadProgress(pct);
               }
             };
-
-            xhr.onload = () => {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                resolve();
-              } else {
-                reject(new Error(`Gagal mengunggah file ke cloud storage (Status ${xhr.status})`));
-              }
-            };
-
-            xhr.onerror = () => reject(new Error('Koneksi upload ke cloud storage terputus'));
-            xhr.ontimeout = () => reject(new Error('Waktu upload habis (timeout)'));
+            xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('Gagal upload file 3D ke cloud')));
+            xhr.onerror = () => reject(new Error('Koneksi terputus saat mengunggah file 3D'));
             xhr.send(selectedFile);
           });
 
-          setUploadProgress(65);
-
-          // 3. If SKP, convert on server
-          if (isSkp) {
-            setStage('processing');
-            setUploadProgress(75);
-
-            const convRes = await fetch('/api/upload/convert-skp', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                storagePath,
-                originalName: selectedFile.name,
-                baseName,
-                timestamp,
-              }),
-            });
-
-            if (!convRes.ok) {
-              const errText = await convRes.text();
-              let errMsg = 'Gagal mengonversi file SketchUp (.skp)';
-              try {
-                const parsed = JSON.parse(errText);
-                if (parsed.error) errMsg = parsed.error;
-              } catch {
-                errMsg = errText || errMsg;
-              }
-              throw new Error(errMsg);
-            }
-
-            const convData = await convRes.json();
-            modelUrl = convData.url;
-            if (convData.thumbnailUrl) {
-              generatedThumbnail = convData.thumbnailUrl;
-            }
-          } else {
-            // Direct GLB / GLTF
-            modelUrl = publicUrl;
-          }
-
-          setUploadProgress(70);
-        } catch (uploadErr: any) {
-          console.error('Direct cloud upload error:', uploadErr);
-          alert(uploadErr.message || 'Gagal mengunggah file 3D');
-          setStage('idle');
-          return;
+          modelUrl = prepData.publicUrl;
         }
-      } else if (selectedFile?.name.toLowerCase().endsWith('.skp')) {
-        modelUrl = '/models/sample-sketchup-house.glb';
-        generatedThumbnail = '/models/sample-sketchup-thumb.png';
-        setCapturedThumbnailUrl('/models/sample-sketchup-thumb.png');
-      } else {
-        modelUrl = '/models/modern-villa.glb';
-        generatedThumbnail = '/models/villa-thumb.png';
+      }
+
+      // Hard check: Ensure modelUrl is valid and not empty!
+      if (!modelUrl) {
+        throw new Error('File model 3D tidak tersedia atau proses konversi belum selesai.');
       }
 
       setUploadProgress(85);
       setStage('geometry');
 
-        // Fetch converted GLB from modelUrl to parse geometry and detect zones
-        const glbRes = await fetch(modelUrl);
-        const arrayBuf = await glbRes.arrayBuffer();
-        const loader = new GLTFLoader();
-        const gltf = await new Promise<any>((resolve, reject) => {
-          loader.parse(arrayBuf, '', resolve, reject);
+      // Fetch converted GLB from modelUrl to parse geometry and detect zones
+      const glbRes = await fetch(modelUrl);
+      if (!glbRes.ok) {
+        throw new Error(`Gagal memuat file GLB (${glbRes.status}).`);
+      }
+      const arrayBuf = await glbRes.arrayBuffer();
+      const loader = new GLTFLoader();
+      const gltf = await new Promise<any>((resolve, reject) => {
+        loader.parse(arrayBuf, '', resolve, reject);
+      });
+
+      // Automatically capture realistic 3D snapshot
+      try {
+        const thumb = generateModelThumbnail(gltf.scene, 640, 360);
+        if (thumb) {
+          generatedThumbnail = thumb;
+          setCapturedThumbnailUrl(thumb);
+        }
+      } catch (thumbErr) {
+        console.warn('Thumbnail generation skipped:', thumbErr);
+      }
+
+      // Traverse scene and intelligently detect material zones from mesh names
+      const discoveredMeshes: string[] = [];
+      gltf.scene.traverse((obj: THREE.Object3D) => {
+        if (obj instanceof THREE.Mesh) {
+          discoveredMeshes.push(obj.name || `Mesh_${obj.id}`);
+        }
+      });
+
+      // Categorize meshes with comprehensive architectural & CAD patterns
+      const assignedSet = new Set<string>();
+
+      const roofMeshes = discoveredMeshes.filter((m) => /roof|ceiling|canopy|cover|slab|shingle|top/i.test(m));
+      roofMeshes.forEach((m) => assignedSet.add(m));
+
+      const wallMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /wall|facade|exterior|building|siding|panel|body|ib10/i.test(m));
+      wallMeshes.forEach((m) => assignedSet.add(m));
+
+      const doorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /door|entry|pivot|frame|gate|hinge|handle|lock/i.test(m));
+      doorMeshes.forEach((m) => assignedSet.add(m));
+
+      const trimMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /corner|trim|beam|column|pillar|post|railing|fence/i.test(m));
+      trimMeshes.forEach((m) => assignedSet.add(m));
+
+      const ventMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /vent|grid|fan|chimney|cupola|weather|arrow|light|lamp/i.test(m));
+      ventMeshes.forEach((m) => assignedSet.add(m));
+
+      const floorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /floor|ground|parquet|wood|deck|patio/i.test(m));
+      floorMeshes.forEach((m) => assignedSet.add(m));
+
+      const bathMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /bath|tile|ceramic|shower|toilet/i.test(m));
+      bathMeshes.forEach((m) => assignedSet.add(m));
+
+      const remainingMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m));
+
+      if (roofMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_roof',
+          name: 'Roofing & Canopy',
+          category: 'roof',
+          meshNames: roofMeshes,
+          defaultMaterialId: 'original',
         });
-
-        // Automatically capture a realistic 3D PNG snapshot of the uploaded house!
-        try {
-          const thumb = generateModelThumbnail(gltf.scene, 640, 360);
-          if (thumb) {
-            generatedThumbnail = thumb;
-            setCapturedThumbnailUrl(thumb);
-          }
-        } catch (thumbErr) {
-          console.warn('Could not generate 3D thumbnail during GLB parsing:', thumbErr);
-        }
-
-        // Traverse scene and intelligently detect material zones from mesh names
-        const discoveredMeshes: string[] = [];
-        gltf.scene.traverse((obj: THREE.Object3D) => {
-          if (obj instanceof THREE.Mesh) {
-            discoveredMeshes.push(obj.name || `Mesh_${obj.id}`);
-          }
+      }
+      if (wallMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_wall',
+          name: 'Exterior & Interior Walls',
+          category: 'wall',
+          meshNames: wallMeshes,
+          defaultMaterialId: 'original',
         });
+      }
+      if (doorMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_door',
+          name: 'Doors, Gates & Hardware',
+          category: 'door',
+          meshNames: doorMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
+      if (trimMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_trim',
+          name: 'Corners, Trim & Columns',
+          category: 'exterior',
+          meshNames: trimMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
+      if (ventMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_vents',
+          name: 'Vents, Fixtures & Accents',
+          category: 'roof',
+          meshNames: ventMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
+      if (floorMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_floor',
+          name: 'Main Flooring & Decks',
+          category: 'floor',
+          meshNames: floorMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
+      if (bathMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_bath',
+          name: 'Bathroom & Wet Surfaces',
+          category: 'bathroom',
+          meshNames: bathMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
+      if (remainingMeshes.length > 0 && remainingMeshes.length <= 15) {
+        candidateZones.push({
+          id: 'zone_other',
+          name: 'Architectural Details',
+          category: 'exterior',
+          meshNames: remainingMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
 
-        // Categorize meshes with comprehensive architectural & CAD patterns
-        const assignedSet = new Set<string>();
+      if (candidateZones.length === 0 && discoveredMeshes.length > 0) {
+        candidateZones.push({
+          id: 'zone_general',
+          name: 'Primary Structure',
+          category: 'wall',
+          meshNames: discoveredMeshes,
+          defaultMaterialId: 'original',
+        });
+      }
 
-        const roofMeshes = discoveredMeshes.filter((m) => /roof|ceiling|canopy|cover|slab|shingle|top/i.test(m));
-        roofMeshes.forEach((m) => assignedSet.add(m));
+      setStage('detecting');
+      setUploadProgress(90);
+      setDetectedZonesCount(candidateZones.length);
 
-        const wallMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /wall|facade|exterior|building|siding|panel|body|ib10/i.test(m));
-        wallMeshes.forEach((m) => assignedSet.add(m));
+      await new Promise((r) => setTimeout(r, 400));
+      setStage('ready');
+      setUploadProgress(100);
 
-        const doorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /door|entry|pivot|frame|gate|hinge|handle|lock/i.test(m));
-        doorMeshes.forEach((m) => assignedSet.add(m));
+      const newId = `project_${Date.now()}`;
+      const newProject: Project = {
+        id: newId,
+        userId: user?.id || 'usr-admin-lead',
+        isPublic: false,
+        name: projectName.trim(),
+        clientName: clientName.trim() || 'Private Client',
+        description: description.trim() || 'Interactive architectural visualization.',
+        modelUrl,
+        thumbnailUrl: generatedThumbnail || capturedThumbnailUrl || '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'published',
+        viewsCount: 1,
+        savedConfigsCount: 0,
+        zones: candidateZones,
+      };
 
-        const trimMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /corner|trim|beam|column|pillar|post|railing|fence/i.test(m));
-        trimMeshes.forEach((m) => assignedSet.add(m));
-
-        const ventMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /vent|grid|fan|chimney|cupola|weather|arrow|light|lamp/i.test(m));
-        ventMeshes.forEach((m) => assignedSet.add(m));
-
-        const floorMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /floor|ground|parquet|wood|deck|patio/i.test(m));
-        floorMeshes.forEach((m) => assignedSet.add(m));
-
-        const bathMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m) && /bath|tile|ceramic|shower|toilet/i.test(m));
-        bathMeshes.forEach((m) => assignedSet.add(m));
-
-        // Remaining unassigned meshes
-        const remainingMeshes = discoveredMeshes.filter((m) => !assignedSet.has(m));
-
-        if (roofMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_roof',
-            name: 'Roofing & Canopy',
-            category: 'roof',
-            meshNames: roofMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (wallMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_wall',
-            name: 'Exterior & Interior Walls',
-            category: 'wall',
-            meshNames: wallMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (doorMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_door',
-            name: 'Doors, Gates & Hardware',
-            category: 'door',
-            meshNames: doorMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (trimMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_trim',
-            name: 'Corners, Trim & Columns',
-            category: 'exterior',
-            meshNames: trimMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (ventMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_vents',
-            name: 'Vents, Fixtures & Accents',
-            category: 'roof',
-            meshNames: ventMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (floorMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_floor',
-            name: 'Main Flooring & Decks',
-            category: 'floor',
-            meshNames: floorMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (bathMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_bath',
-            name: 'Bathroom & Wet Surfaces',
-            category: 'bathroom',
-            meshNames: bathMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-        if (remainingMeshes.length > 0 && remainingMeshes.length <= 15) {
-          candidateZones.push({
-            id: 'zone_other',
-            name: 'Architectural Details',
-            category: 'exterior',
-            meshNames: remainingMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-
-        // If none matched, group all into a general zone
-        if (candidateZones.length === 0 && discoveredMeshes.length > 0) {
-          candidateZones.push({
-            id: 'zone_general',
-            name: 'Primary Structure',
-            category: 'wall',
-            meshNames: discoveredMeshes,
-            defaultMaterialId: 'original',
-          });
-        }
-
-        // If candidateZones is empty (e.g. no mesh matched regex), assign default architectural zones
-        if (candidateZones.length === 0) {
-          candidateZones.push(
-            {
-              id: 'wall_ext',
-              name: 'Exterior Walls',
-              category: 'wall',
-              meshNames: ['Wall_Exterior_Main', 'Wall_Exterior_Accent'],
-              defaultMaterialId: 'wall-pure-white',
-            },
-            {
-              id: 'floor_living',
-              name: 'Living Room Flooring',
-              category: 'floor',
-              meshNames: ['Floor_Living'],
-              defaultMaterialId: 'floor-oak-natural',
-            },
-            {
-              id: 'floor_bathroom',
-              name: 'Bathroom Surfaces',
-              category: 'bathroom',
-              meshNames: ['Floor_Bathroom', 'Wall_Bathroom'],
-              defaultMaterialId: 'tile-white-subway',
-            },
-            {
-              id: 'roof_main',
-              name: 'Roof Canopy',
-              category: 'roof',
-              meshNames: ['Roof_Main'],
-              defaultMaterialId: 'roof-zinc-charcoal',
-            }
-          );
-        }
-    } catch (err) {
-      console.warn('Parsing custom model, falling back to default structure:', err);
+      await addProject(newProject);
+      setCreatedProjectId(newId);
+    } catch (err: any) {
+      console.error('Project creation error:', err);
+      alert(`Gagal membuat proyek 3D: ${err.message || 'Terjadi kesalahan sistem'}`);
+      setStage('idle');
+      return;
     }
-
-    setStage('detecting');
-    setUploadProgress(90);
-    setDetectedZonesCount(candidateZones.length);
-
-    await new Promise((r) => setTimeout(r, 600));
-    setStage('ready');
-    setUploadProgress(100);
-
-    const newId = `project_${Date.now()}`;
-    const newProject: Project = {
-      id: newId,
-      userId: user?.id || 'usr-admin-lead',
-      isPublic: false,
-      name: projectName.trim(),
-      clientName: clientName.trim() || 'Private Client',
-      description: description.trim() || 'Interactive architectural visualization.',
-      modelUrl,
-      thumbnailUrl: generatedThumbnail || capturedThumbnailUrl || '/models/villa-thumb.png',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      status: 'published',
-      viewsCount: 1,
-      savedConfigsCount: 0,
-      zones: candidateZones,
-    };
-
-    await addProject(newProject);
-    setCreatedProjectId(newId);
   };
 
   return (
@@ -697,25 +690,6 @@ export default function NewProjectPage() {
                         SKP Ready
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <button
-                        type="button"
-                        onClick={handleUseDemoTemplate}
-                        className="flex items-center gap-1 text-[11px] font-medium text-secondary hover:text-primary hover:underline"
-                      >
-                        <Sparkles className="w-3 h-3 text-accent" />
-                        <span>Demo GLB</span>
-                      </button>
-                      <span className="text-border">|</span>
-                      <button
-                        type="button"
-                        onClick={handleUseSkpTemplate}
-                        className="flex items-center gap-1 text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline"
-                      >
-                        <Sparkles className="w-3 h-3 text-emerald-600" />
-                        <span>Demo SketchUp (.skp)</span>
-                      </button>
-                    </div>
                   </div>
 
                   <div
@@ -748,9 +722,7 @@ export default function NewProjectPage() {
                           </span>
                         )}
                         <span className="text-[11px] text-secondary mt-1">
-                          {selectedFile.size > 0
-                            ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
-                            : 'Bundled Architecture Model'}
+                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
                         </span>
                         <span className="text-[10px] text-accent mt-2 underline">Klik untuk ganti file</span>
                       </div>

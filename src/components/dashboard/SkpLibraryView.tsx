@@ -22,6 +22,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { SkpFileRecord } from '@/app/api/skp-files/route';
+import { convertSkpClientSide } from '@/lib/skp-client-converter';
 
 interface UploadQueueItem {
   id: string;
@@ -160,7 +161,34 @@ export function SkpLibraryView() {
           xhr.send(item.file);
         });
 
-        // 3. Mark success
+        // 3. If file is SketchUp (.skp), convert client-side and upload matching GLB
+        if (item.file.name.toLowerCase().endsWith('.skp')) {
+          try {
+            const arrayBuffer = await item.file.arrayBuffer();
+            const converted = await convertSkpClientSide(arrayBuffer);
+            const baseName = storagePath.split('/').pop()?.replace(/\.[^/.]+$/, '') || item.file.name.replace(/\.[^/.]+$/, '');
+            const glbFilename = `${baseName}.glb`;
+
+            const prepGlbRes = await fetch('/api/upload/direct', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ filename: glbFilename, targetFolder: 'models' }),
+            });
+
+            if (prepGlbRes.ok) {
+              const prepGlbData = await prepGlbRes.json();
+              const xhrGlb = new XMLHttpRequest();
+              xhrGlb.open('PUT', prepGlbData.uploadUrl, true);
+              xhrGlb.setRequestHeader('AccessKey', prepGlbData.accessKey);
+              xhrGlb.setRequestHeader('Content-Type', 'model/gltf-binary');
+              xhrGlb.send(converted.glbBlob);
+            }
+          } catch (convErr) {
+            console.warn(`[SkpLibrary] Client convert note for ${item.file.name}:`, convErr);
+          }
+        }
+
+        // 4. Mark success
         setUploadQueue((prev) =>
           prev.map((it) =>
             it.id === item.id ? { ...it, status: 'success', progress: 100, storagePath } : it
