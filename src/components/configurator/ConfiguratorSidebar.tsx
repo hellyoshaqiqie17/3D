@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import { useMaterialsStore } from '@/lib/materials-store';
-import { getMaterialsByCategory, getMaterialById } from '@/lib/materials';
+import { getMaterialsByCategory, getMaterialById, isMaterialForCategory } from '@/lib/materials';
 import { CategorySelector } from './CategorySelector';
 import { MaterialGrid } from './MaterialGrid';
 import { ColorPickerSection } from './ColorPickerSection';
@@ -52,29 +52,29 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
     return zones.filter((z) => z.category === activeCategory);
   }, [zones, activeCategory]);
 
-  // Current active zone (prioritize user-selected box/zone, fallback to first zone in category)
+  // Current active zone (prioritize user-selected box/zone if matching category, fallback to first zone in category)
   const currentZone = useMemo(() => {
     const foundExplicit = zones.find((z) => z.id === selectedZoneId);
-    if (foundExplicit) return foundExplicit;
-    return categoryZones[0] || zones[0];
-  }, [categoryZones, selectedZoneId, zones]);
+    if (foundExplicit && foundExplicit.category === activeCategory) return foundExplicit;
+    return categoryZones[0] || foundExplicit || zones[0];
+  }, [categoryZones, selectedZoneId, zones, activeCategory]);
 
   // Keep 3D selection box in sync with current zone
   useEffect(() => {
-    if (!selectedZoneId && currentZone) {
-      selectZone(currentZone.id);
-    }
-    if (currentZone && currentZone.meshNames && currentZone.meshNames.length > 0) {
-      setSelectedMesh(currentZone.meshNames[0]);
+    if (currentZone) {
+      if (selectedZoneId !== currentZone.id) {
+        selectZone(currentZone.id);
+      }
+      if (currentZone.meshNames && currentZone.meshNames.length > 0) {
+        setSelectedMesh(currentZone.meshNames[0]);
+      }
     }
   }, [currentZone, selectedZoneId, selectZone, setSelectedMesh]);
 
   // Materials available for this category including user-uploaded PBR materials
   const combinedMaterials = useMemo(() => {
     const allCustom = [...customMaterials, ...uploadedMaterials];
-    const categoryCustom = allCustom.filter(
-      (m) => m.category === activeCategory || m.isCustomUpload
-    );
+    const categoryCustom = allCustom.filter((m) => isMaterialForCategory(m, activeCategory));
     const fromLibrary = getMaterialsByCategory(activeCategory);
     const seen = new Set<string>();
     const result: MaterialOption[] = [];

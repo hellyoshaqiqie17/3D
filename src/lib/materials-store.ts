@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { MaterialOption, MaterialCategory } from '@/types';
-import { MATERIAL_LIBRARY } from './materials';
+import { MATERIAL_LIBRARY, isMaterialForCategory } from './materials';
 import { useConfiguratorStore } from './configurator-store';
 
 const STORAGE_KEY = 'homecraft_custom_pbr_materials';
@@ -197,9 +197,7 @@ export const useMaterialsStore = create<MaterialsState>((set, get) => ({
   },
 
   getCombinedMaterialsByCategory: (category: MaterialCategory) => {
-    const custom = get().customMaterials.filter(
-      (m) => m.category === category || m.isCustomUpload
-    );
+    const custom = get().customMaterials.filter((m) => isMaterialForCategory(m, category));
     const standard = MATERIAL_LIBRARY.filter((m) => m.category === category && m.id !== 'original');
     const seen = new Set<string>();
     const list: MaterialOption[] = [];

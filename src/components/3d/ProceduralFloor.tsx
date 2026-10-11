@@ -33,6 +33,8 @@ export function ProceduralFloor() {
   const setActiveCategory = useConfiguratorStore((s) => s.setActiveCategory);
   const setHoveredMesh = useConfiguratorStore((s) => s.setHoveredMesh);
   const setSelectedMesh = useConfiguratorStore((s) => s.setSelectedMesh);
+  const selectZone = useConfiguratorStore((s) => s.selectZone);
+  const dynamicZones = useConfiguratorStore((s) => s.dynamicZones);
 
   const [customTexture, setCustomTexture] = useState<THREE.Texture | null>(null);
 
@@ -157,13 +159,19 @@ export function ProceduralFloor() {
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
     setActiveCategory('floor');
-    setSelectedMesh('Lantai & Keramik Ubin (Floor)');
+    const floorZone = dynamicZones.find((z) => z.category === 'floor' || z.id === 'surface_lantai_bawah');
+    if (floorZone) {
+      selectZone(floorZone.id);
+      setSelectedMesh(floorZone.meshNames[0] || 'Lantai & Keramik Ubin (Floor)');
+    } else {
+      setSelectedMesh('Lantai & Keramik Ubin (Floor)');
+    }
   };
 
   const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     document.body.style.cursor = 'pointer';
-    setHoveredMesh('Klik untuk kustomisasi Ubin / Lantai');
+    setHoveredMesh('Lantai Ruangan (Floor) - Klik untuk kustomisasi ubin keramik');
   };
 
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {

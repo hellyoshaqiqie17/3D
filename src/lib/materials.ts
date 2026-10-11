@@ -452,13 +452,36 @@ export const MATERIAL_LIBRARY: MaterialOption[] = [
   },
 ];
 
+export function isMaterialForCategory(mat: MaterialOption, category: MaterialCategory): boolean {
+  // If explicitly tagged with surfaceType ('wall' | 'floor')
+  if (mat.surfaceType) {
+    if (mat.surfaceType === 'floor') return category === 'floor';
+    if (mat.surfaceType === 'wall') return category === 'wall';
+    return mat.surfaceType === category;
+  }
+  // If explicitly categorized
+  if (mat.category) {
+    if (mat.category === 'floor') return category === 'floor';
+    if (mat.category === 'wall') return category === 'wall';
+    return mat.category === category;
+  }
+  // Heuristic based on title/description for older legacy materials
+  const lowerName = (mat.name || '').toLowerCase();
+  const lowerDesc = (mat.description || '').toLowerCase();
+  if (lowerName.includes('lantai') || lowerDesc.includes('lantai') || lowerName.includes('floor')) {
+    return category === 'floor';
+  }
+  if (lowerName.includes('dinding') || lowerDesc.includes('dinding') || lowerName.includes('wall') || lowerName.includes('tembok')) {
+    return category === 'wall';
+  }
+  return category === 'wall';
+}
+
 export function getMaterialsByCategory(
   category: MaterialCategory,
   customMaterials?: MaterialOption[]
 ): MaterialOption[] {
-  const custom = (customMaterials || []).filter(
-    (mat) => mat.category === category || mat.isCustomUpload
-  );
+  const custom = (customMaterials || []).filter((mat) => isMaterialForCategory(mat, category));
   const standard = MATERIAL_LIBRARY.filter(
     (mat) => mat.category === category && mat.id !== 'original'
   );

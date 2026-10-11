@@ -105,13 +105,11 @@ export default function DashboardPage() {
   const filteredMaterials = React.useMemo(() => {
     return allDisplayMaterials.filter((mat) => {
       if (materialFilterCategory === 'custom' && !mat.isCustomUpload) return false;
-      if (
-        materialFilterCategory !== 'all' &&
-        materialFilterCategory !== 'custom' &&
-        mat.category !== materialFilterCategory &&
-        !mat.isCustomUpload
-      ) {
-        return false;
+      if (materialFilterCategory !== 'all' && materialFilterCategory !== 'custom') {
+        const targetCat = mat.surfaceType || mat.category;
+        if (targetCat !== materialFilterCategory) {
+          return false;
+        }
       }
       if (materialSearch.trim()) {
         const q = materialSearch.toLowerCase();
@@ -686,7 +684,11 @@ export default function DashboardPage() {
                             {mat.name}
                           </h4>
                           <span className="text-[10px] text-secondary font-mono block uppercase">
-                            {mat.isCustomUpload ? 'Universal (Semua Bagian)' : mat.category}
+                            {(mat.surfaceType || mat.category) === 'floor'
+                              ? 'Lantai (Floor)'
+                              : (mat.surfaceType || mat.category) === 'wall'
+                              ? 'Dinding (Wall)'
+                              : mat.category}
                           </span>
                         </div>
 

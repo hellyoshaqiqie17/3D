@@ -38,6 +38,7 @@ interface StagedFile {
   previewUrl: string;
   name: string;
   sizeFormatted: string;
+  surfaceType?: 'wall' | 'floor';
 }
 
 function formatBytes(bytes: number): string {
@@ -175,6 +176,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         previewUrl,
         name,
         sizeFormatted: formatBytes(file.size),
+        surfaceType: surfaceType,
       });
     });
 
@@ -184,6 +186,25 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
     }
 
     setStagedFiles((prev) => [...prev, ...newStaged]);
+  };
+
+  const handleToggleItemSurface = (id: string) => {
+    setStagedFiles((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, surfaceType: (item.surfaceType || surfaceType) === 'wall' ? 'floor' : 'wall' }
+          : item
+      )
+    );
+  };
+
+  const handleBatchSurfaceTypeChange = (newType: 'wall' | 'floor') => {
+    setSurfaceType(newType);
+    setIsCustomTileSize(false);
+    setTileSize(newType === 'floor' ? [60, 60] : [30, 60]);
+    setStagedFiles((prev) =>
+      prev.map((item) => ({ ...item, surfaceType: newType }))
+    );
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -294,12 +315,24 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
 
       // 2. Build MaterialOption records with physical tile sizing and nat keramik
       const newMaterialsToSave: MaterialOption[] = uploadedResults.map((uploaded, index) => {
+        const stagedItem = stagedFiles[index];
+        const itemSurfaceType = (stagedItem?.surfaceType || surfaceType) as 'wall' | 'floor';
+        const isFloor = itemSurfaceType === 'floor';
+
         const assignedName = uploaded.cleanName.trim() || `Material Tekstur ${index + 1}`;
+        const itemTileSize: [number, number] = isCustomTileSize
+          ? [customW, customH]
+          : isFloor
+          ? tileSize[0] === tileSize[1]
+            ? tileSize
+            : [60, 60]
+          : tileSize;
+        const itemRepeat = calculateRepeatFromTileSize(itemTileSize);
 
         return {
           id: `custom_mat_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
           name: assignedName,
-          category: surfaceType === 'floor' ? 'floor' : 'wall',
+          category: isFloor ? 'floor' : 'wall',
           type: 'texture',
           color: '#FFFFFF',
           textureUrl: uploaded.url,
@@ -308,15 +341,15 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
           metalness: 0.04,
           bumpScale: 0.16,
           rotation: 0,
-          repeat: physicalRepeat,
-          tileSizeCm: effectiveTileSize,
-          surfaceType: surfaceType,
+          repeat: itemRepeat,
+          tileSizeCm: itemTileSize,
+          surfaceType: itemSurfaceType,
           showGrout: showGrout,
           groutWidthMm: showGrout ? groutWidthMm : 0,
           groutColor: groutColor,
           finish: 'gloss',
-          description: `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
-          tag: 'Custom PBR',
+          description: `Pola keramik ${isFloor ? 'lantai' : 'dinding'} ${itemTileSize[0]}x${itemTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
+          tag: isFloor ? 'Keramik Lantai' : 'Keramik Dinding',
           isCustomUpload: true,
         };
       });
@@ -481,10 +514,34 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-md">
-                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                          Bebas diaplikasikan ke dinding, lantai, atau elemen apa pun
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => handleToggleItemSurface(item.id)}
+                          disabled={isUploading}
+                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
+                            (item.surfaceType || surfaceType) === 'floor'
+                              ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                              : 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+                          }`}
+                          title="Klik untuk ubah jenis ubin file ini (Dinding vs Lantai)"
+                        >
+                          {(item.surfaceType || surfaceType) === 'floor' ? (
+                            <>
+                              <Grid className="w-3 h-3 text-amber-600" />
+                              <span>Ubin Lantai (Floor)</span>
+                            </>
+                          ) : (
+                            <>
+                              <Layers className="w-3 h-3 text-blue-600" />
+                              <span>Ubin Dinding (Wall)</span>
+                            </>
+                          )}
+                        </button>
+                        <span className="text-[10px] text-secondary">
+                          {(item.surfaceType || surfaceType) === 'floor'
+                            ? 'Khusus lantai bawah'
+                            : 'Khusus dinding (kiri/kanan/belakang/depan)'}
                         </span>
                       </div>
                     </div>
@@ -515,39 +572,41 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                 </div>
 
                 {/* Surface Type Switcher */}
-                <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-lg">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSurfaceType('wall');
-                      setIsCustomTileSize(false);
-                      setTileSize([30, 60]);
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                      surfaceType === 'wall'
-                        ? 'bg-white text-primary shadow-subtle'
-                        : 'text-secondary hover:text-primary'
-                    }`}
-                  >
-                    <Layers className="w-3.5 h-3.5 text-primary" />
-                    <span>Dinding (Wall)</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSurfaceType('floor');
-                      setIsCustomTileSize(false);
-                      setTileSize([60, 60]);
-                    }}
-                    className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                      surfaceType === 'floor'
-                        ? 'bg-white text-primary shadow-subtle'
-                        : 'text-secondary hover:text-primary'
-                    }`}
-                  >
-                    <Grid className="w-3.5 h-3.5 text-primary" />
-                    <span>Lantai (Floor)</span>
-                  </button>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[11px] font-semibold text-primary">
+                      Pilih Bagian Penerapan (Semua File):
+                    </span>
+                    <span className="text-[10px] text-secondary">
+                      {surfaceType === 'floor' ? 'Hanya tampil di Kustomisasi Lantai' : 'Hanya tampil di Kustomisasi Dinding'}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => handleBatchSurfaceTypeChange('wall')}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                        surfaceType === 'wall'
+                          ? 'bg-white text-primary shadow-subtle border border-border'
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <Layers className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Dinding (Wall)</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleBatchSurfaceTypeChange('floor')}
+                      className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                        surfaceType === 'floor'
+                          ? 'bg-white text-primary shadow-subtle border border-border'
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      <Grid className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Lantai (Floor)</span>
+                    </button>
+                  </div>
                 </div>
 
                 {/* Preset Sizes */}

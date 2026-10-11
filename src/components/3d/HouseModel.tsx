@@ -754,158 +754,338 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     };
   };
 
-  // Handle pointer interactions
-  const handlePointerOver = (e: ThreeEvent<PointerEvent>) => {
-    e.stopPropagation();
-    const mesh = e.object;
-    if (mesh instanceof THREE.Mesh) {
-      document.body.style.cursor = 'pointer';
+  const [hoveredMeshes, setHoveredMeshes] = useState<THREE.Object3D[]>([]);
+  const [hoveredSurfaceId, setHoveredSurfaceId] = useState<string | null>(null);
+
+  // Filters intersections for the first truly visible surface, passing through section cuts into the room
+  const getValidHit = (e: ThreeEvent<any>): { mesh: THREE.Mesh; point: THREE.Vector3 } | null => {
+    const shouldCut = isRoofHidden || isCeilingCut;
+    const cutY = Math.min(roofElevationY > 0 ? roofElevationY - 0.15 : 2.70, ceilingCutHeight || 2.70);
+
+    if (e.intersections && e.intersections.length > 0) {
+      for (const hit of e.intersections) {
+        const obj = hit.object;
+        if (!(obj instanceof THREE.Mesh)) continue;
+
+        // Ensure mesh and all ancestors are visible
+        let visible = true;
+        let curr: THREE.Object3D | null = obj;
+        while (curr) {
+          if (!curr.visible) {
+            visible = false;
+            break;
+          }
+          curr = curr.parent;
+        }
+        if (!visible) continue;
+
+        // Skip geometry clipped away by section cut / ceiling cut so clicks enter the room cleanly
+        if (shouldCut && hit.point.y > cutY) {
+          continue;
+        }
+
+        return { mesh: obj, point: hit.point };
+      }
+    }
+
+    if (e.object instanceof THREE.Mesh && e.object.visible) {
+      if (shouldCut && e.point && e.point.y > cutY) {
+        return null;
+      }
+      return { mesh: e.object, point: e.point };
+    }
+
+    return null;
+  };
+
+  // Identifies the surface family (back wall, left wall, floor, etc.) and all sibling member meshes
+  const getSurfaceMeshesAndInfo = (mesh: THREE.Mesh) => {
+    const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => mesh.name.includes(s.tag));
+    let targetMeshes: THREE.Object3D[] = [];
+    let surfaceId = '';
+    let displayName = '';
+    let category: MaterialZone['category'] = 'wall';
+    let description = '';
+
+    if (matchedSurface) {
+      surfaceId = matchedSurface.id;
+      displayName = matchedSurface.name;
+      category = matchedSurface.category;
+      description = matchedSurface.description;
+      sceneClone.traverse((child) => {
+        if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+          targetMeshes.push(child);
+        }
+      });
+    } else {
       const existingZone =
         dynamicZones.find((z) => z.meshNames.includes(mesh.name)) ||
         zones.find((z) => z.meshNames.includes(mesh.name));
+
       if (existingZone) {
-        setHoveredMesh(existingZone.name);
+        surfaceId = existingZone.id;
+        displayName = existingZone.name;
+        category = existingZone.category;
+        description = existingZone.description || '';
+        existingZone.meshNames.forEach((n) => {
+          const obj = sceneClone.getObjectByName(n);
+          if (obj) targetMeshes.push(obj);
+        });
       } else {
         const detected = detectMeshCategoryAndName(mesh);
-        setHoveredMesh(detected.name);
+        surfaceId = `box_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
+        displayName = detected.name;
+        category = detected.category;
+        description = detected.description;
+        targetMeshes = [mesh];
       }
+    }
+
+    if (targetMeshes.length === 0) {
+      targetMeshes = [mesh];
+    }
+
+    return { surfaceId, displayName, category, description, targetMeshes };
+  };
+
+  // Real-time hover tracking: highlights the surface in sky blue whenever cursor moves
+  const handlePointerMove = (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    const hit = getValidHit(e);
+    if (!hit) {
+      if (hoveredMeshes.length > 0) {
+        setHoveredMeshes([]);
+        setHoveredSurfaceId(null);
+        setHoveredMesh(null);
+        document.body.style.cursor = 'default';
+      }
+      return;
+    }
+
+    document.body.style.cursor = 'pointer';
+    const { surfaceId, displayName, targetMeshes } = getSurfaceMeshesAndInfo(hit.mesh);
+
+    if (hoveredSurfaceId !== surfaceId) {
+      setHoveredSurfaceId(surfaceId);
+      setHoveredMeshes(targetMeshes);
+      setHoveredMesh(displayName);
     }
   };
 
   const handlePointerOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    document.body.style.cursor = 'default';
+    setHoveredMeshes([]);
+    setHoveredSurfaceId(null);
     setHoveredMesh(null);
+    document.body.style.cursor = 'default';
   };
 
+  // Click selects the entire architectural surface or zone with solid blueprint blue outline
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation();
-    const mesh = e.object;
-    if (!(mesh instanceof THREE.Mesh)) return;
+    const hit = getValidHit(e);
+    if (!hit) return;
 
-    // Immediately highlight this exact box with the blue wireframe BoxHelper
-    setSelectedMesh(mesh.name);
+    const { surfaceId, displayName, category, description, targetMeshes } = getSurfaceMeshesAndInfo(hit.mesh);
+    const targetMeshNames = targetMeshes.map((m) => m.name).filter(Boolean);
 
-    // Look for an existing zone covering this mesh
-    const existingZone =
-      dynamicZones.find((z) => z.meshNames.includes(mesh.name)) ||
-      zones.find((z) => z.meshNames.includes(mesh.name));
+    let zone =
+      dynamicZones.find((z) => z.id === surfaceId) ||
+      zones.find((z) => z.id === surfaceId);
 
-    if (existingZone) {
-      selectZone(existingZone.id);
-      setActiveCategory(existingZone.category);
-      if (onMeshClick) onMeshClick(mesh.name, existingZone);
-      return;
+    if (!zone) {
+      zone = {
+        id: surfaceId,
+        name: displayName,
+        category: category,
+        meshNames: targetMeshNames.length > 0 ? targetMeshNames : [hit.mesh.name],
+        defaultMaterialId: 'original',
+        description: description,
+      };
+      addDynamicZone(zone);
     }
 
-    // Check if this mesh belongs to one of the architectural surface families
-    const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => mesh.name.includes(s.tag));
-    let targetMeshNames = [mesh.name];
-    let zoneId = `box_${mesh.name.replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-    let zoneName = '';
-    let zoneCategory: MaterialZone['category'] = 'wall';
-    let zoneDesc = '';
-
-    if (matchedSurface) {
-      const matchingSiblings: string[] = [];
-      sceneClone.traverse((child) => {
-        if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
-          matchingSiblings.push(child.name);
-        }
-      });
-      if (matchingSiblings.length > 0) {
-        targetMeshNames = matchingSiblings;
-      }
-      zoneId = matchedSurface.id;
-      zoneName = matchedSurface.name;
-      zoneCategory = matchedSurface.category;
-      zoneDesc = matchedSurface.description;
-    } else {
-      const detected = detectMeshCategoryAndName(mesh);
-      zoneName = detected.name;
-      zoneCategory = detected.category;
-      zoneDesc = detected.description;
-    }
-
-    const newZone: MaterialZone = {
-      id: zoneId,
-      name: zoneName,
-      category: zoneCategory,
-      meshNames: targetMeshNames,
-      defaultMaterialId: 'original',
-      description: zoneDesc,
-    };
-
-    addDynamicZone(newZone);
-    selectZone(newZone.id);
-    setActiveCategory(newZone.category);
+    selectZone(zone.id);
+    setActiveCategory(zone.category);
+    setSelectedMesh(targetMeshNames[0] || hit.mesh.name);
 
     if (onMeshClick) {
-      onMeshClick(mesh.name, newZone);
+      onMeshClick(hit.mesh.name, zone);
     }
   };
 
-  // Locate the currently selected 3D object for visual highlight
-  const selectedObject = useMemo(() => {
-    if (!sceneClone) return null;
-    if (selectedMeshName) {
-      const obj = sceneClone.getObjectByName(selectedMeshName);
-      if (obj) return obj;
-    }
+  // Locates all member meshes belonging to the currently selected zone or architectural surface
+  const selectedMeshes = useMemo<THREE.Object3D[]>(() => {
+    if (!sceneClone) return [];
+    const meshes: THREE.Object3D[] = [];
+
     if (selectedZoneId) {
+      const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => s.id === selectedZoneId);
+      if (matchedSurface) {
+        sceneClone.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+            meshes.push(child);
+          }
+        });
+        if (meshes.length > 0) return meshes;
+      }
+
       const zone = combinedZones.find((z) => z.id === selectedZoneId);
       if (zone && zone.meshNames.length > 0) {
-        for (const name of zone.meshNames) {
-          const obj = sceneClone.getObjectByName(name);
-          if (obj) return obj;
-        }
+        zone.meshNames.forEach((n) => {
+          const obj = sceneClone.getObjectByName(n);
+          if (obj) meshes.push(obj);
+        });
+        if (meshes.length > 0) return meshes;
       }
     }
-    return null;
-  }, [sceneClone, selectedMeshName, selectedZoneId, combinedZones]);
+
+    if (selectedMeshName) {
+      const matchedSurface = ARCHITECTURAL_SURFACES.find((s) => selectedMeshName.includes(s.tag));
+      if (matchedSurface) {
+        sceneClone.traverse((child) => {
+          if (child instanceof THREE.Mesh && child.name && child.name.includes(matchedSurface.tag)) {
+            meshes.push(child);
+          }
+        });
+        if (meshes.length > 0) return meshes;
+      }
+
+      const obj = sceneClone.getObjectByName(selectedMeshName);
+      if (obj) meshes.push(obj);
+    }
+
+    return meshes;
+  }, [sceneClone, selectedZoneId, selectedMeshName, combinedZones]);
 
   return (
     <group ref={modelRef}>
       <primitive
         object={sceneClone}
-        onPointerOver={handlePointerOver}
+        onPointerMove={handlePointerMove}
         onPointerOut={handlePointerOut}
         onClick={handleClick}
       />
-      <MeshSelectionBox target={selectedObject} />
+      {/* Interactive real-time hover highlight on cursor move (sky-blue) */}
+      <SurfaceHighlightBox
+        meshes={hoveredMeshes}
+        color={0x38bdf8}
+        fillOpacity={0.08}
+        isHover={true}
+        excludeMeshes={selectedMeshes}
+      />
+      {/* Active selection bounding box (solid blueprint blue) */}
+      <SurfaceHighlightBox
+        meshes={selectedMeshes}
+        color={0x2563eb}
+        fillOpacity={0.14}
+        isHover={false}
+      />
     </group>
   );
 }
 
 /**
- * Visual 3D wireframe bounding box indicating the currently selected zone/mesh
+ * 3D wireframe bounding box with translucent fill that smoothly envelops single meshes
+ * or entire architectural surface groups (e.g. all pieces of Back Wall or Floor).
  */
-function MeshSelectionBox({ target }: { target: THREE.Object3D | null }) {
+function SurfaceHighlightBox({
+  meshes,
+  color,
+  fillOpacity,
+  isHover,
+  excludeMeshes,
+}: {
+  meshes: THREE.Object3D[];
+  color: number;
+  fillOpacity: number;
+  isHover?: boolean;
+  excludeMeshes?: THREE.Object3D[];
+}) {
+  const fillMeshRef = useRef<THREE.Mesh>(null);
+
+  // If hovered meshes are identical to selected meshes, do not duplicate hover outline
+  const shouldRender = useMemo(() => {
+    if (!meshes || meshes.length === 0) return false;
+    if (isHover && excludeMeshes && excludeMeshes.length > 0) {
+      const isSame = meshes.some((m) => excludeMeshes.includes(m));
+      if (isSame) return false;
+    }
+    return true;
+  }, [meshes, isHover, excludeMeshes]);
+
   const helper = useMemo(() => {
-    if (!target) return null;
-    const h = new THREE.BoxHelper(target, 0x2563eb); // Blueprint blue
+    if (!shouldRender) return null;
+    const b = new THREE.Box3();
+    const h = new THREE.Box3Helper(b, new THREE.Color(color));
     const mat = h.material as THREE.LineBasicMaterial;
     mat.depthTest = false;
     mat.transparent = true;
-    mat.opacity = 0.88;
+    mat.opacity = isHover ? 0.9 : 0.98;
     return h;
-  }, [target]);
+  }, [shouldRender, color, isHover]);
 
   useFrame(() => {
-    if (helper && target) {
-      // Hide the outline when the selected object (or any ancestor) is hidden, e.g. by Bare Room mode
+    if (!helper || !shouldRender) return;
+
+    let hasVisible = false;
+    const unionBox = new THREE.Box3();
+
+    for (const obj of meshes) {
       let visible = true;
-      let node: THREE.Object3D | null = target;
-      while (node) {
-        if (!node.visible) { visible = false; break; }
-        node = node.parent;
+      let curr: THREE.Object3D | null = obj;
+      while (curr) {
+        if (!curr.visible) {
+          visible = false;
+          break;
+        }
+        curr = curr.parent;
       }
-      helper.visible = visible;
-      if (visible) helper.update();
+
+      if (visible) {
+        unionBox.expandByObject(obj);
+        hasVisible = true;
+      }
+    }
+
+    const isValid = hasVisible && !unionBox.isEmpty();
+    helper.visible = isValid;
+
+    if (isValid) {
+      // Expand slightly to avoid z-fighting with the geometry
+      unionBox.expandByScalar(0.015);
+      helper.box.copy(unionBox);
+
+      if (fillMeshRef.current) {
+        const center = new THREE.Vector3();
+        const size = new THREE.Vector3();
+        unionBox.getCenter(center);
+        unionBox.getSize(size);
+        fillMeshRef.current.position.copy(center);
+        fillMeshRef.current.scale.copy(size);
+        fillMeshRef.current.visible = true;
+      }
+    } else if (fillMeshRef.current) {
+      fillMeshRef.current.visible = false;
     }
   });
 
-  if (!helper) return null;
+  if (!shouldRender || !helper) return null;
 
-  return <primitive object={helper} />;
+  return (
+    <group>
+      <primitive object={helper} />
+      <mesh ref={fillMeshRef} visible={false}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshBasicMaterial
+          color={color}
+          transparent
+          opacity={fillOpacity}
+          depthWrite={false}
+          depthTest={false}
+          side={THREE.DoubleSide}
+        />
+      </mesh>
+    </group>
+  );
 }
