@@ -65,6 +65,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
   const [roofElevationY, setRoofElevationY] = useState<number>(2.80);
   const setHouseBounds = useConfiguratorStore((s) => s.setHouseBounds);
+  const setInteriorBounds = useConfiguratorStore((s) => s.setInteriorBounds);
   const isCeilingCut = useConfiguratorStore((s) => s.isCeilingCut);
   const ceilingCutHeight = useConfiguratorStore((s) => s.ceilingCutHeight);
 
@@ -223,6 +224,93 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       ]
     );
 
+    // Intelligent Interior Room Center Detection (finds toilet, bath, sink, fixtures, floors)
+    const interiorBox = new THREE.Box3();
+    let hasInteriorElements = false;
+
+    sceneClone.traverse((child) => {
+      if (child instanceof THREE.Mesh) {
+        const name = (child.name || '').toLowerCase();
+        const isEnv =
+          name.includes('tree') ||
+          name.includes('palm') ||
+          name.includes('bush') ||
+          name.includes('plant') ||
+          name.includes('grass') ||
+          name.includes('soil') ||
+          name.includes('gravel') ||
+          name.includes('batu') ||
+          name.includes('kerikil') ||
+          name.includes('road') ||
+          name.includes('jalan');
+
+        if (isEnv) return;
+
+        // Interior fixtures and indoor room props
+        const isInteriorProp =
+          name.includes('toilet') ||
+          name.includes('closet') ||
+          name.includes('wc') ||
+          name.includes('bath') ||
+          name.includes('shower') ||
+          name.includes('sink') ||
+          name.includes('wastafel') ||
+          name.includes('vanity') ||
+          name.includes('cermin') ||
+          name.includes('mirror') ||
+          name.includes('bed') ||
+          name.includes('kasur') ||
+          name.includes('sofa') ||
+          name.includes('couch') ||
+          name.includes('kitchen') ||
+          name.includes('dapur') ||
+          name.includes('counter') ||
+          name.includes('cabinet') ||
+          name.includes('wardrobe') ||
+          name.includes('rug') ||
+          name.includes('mat') ||
+          name.includes('karpet') ||
+          name.includes('__lantai_bawah') ||
+          name.includes('floor');
+
+        if (isInteriorProp) {
+          interiorBox.expandByObject(child);
+          hasInteriorElements = true;
+        }
+      }
+    });
+
+    if (hasInteriorElements && !interiorBox.isEmpty()) {
+      const intCenter = new THREE.Vector3();
+      interiorBox.getCenter(intCenter);
+      const intSize = new THREE.Vector3();
+      interiorBox.getSize(intSize);
+
+      // Eye-level is 1.45m above the floor of the room
+      const camY = Math.max(interiorBox.min.y + 1.45, 1.45);
+
+      // Stand in the room looking across the space
+      const isZLonger = intSize.z >= intSize.x;
+      const pos = [
+        parseFloat(intCenter.x.toFixed(2)),
+        parseFloat(camY.toFixed(2)),
+        parseFloat((intCenter.z + (isZLonger ? intSize.z * 0.25 : 0)).toFixed(2)),
+      ] as [number, number, number];
+
+      const target = [
+        parseFloat(intCenter.x.toFixed(2)),
+        parseFloat((camY - 0.05).toFixed(2)),
+        parseFloat((intCenter.z - (isZLonger ? intSize.z * 0.25 : 1.5)).toFixed(2)),
+      ] as [number, number, number];
+
+      setInteriorBounds(pos, target);
+    } else {
+      setInteriorBounds(
+        [parseFloat(mainCenter.x.toFixed(2)), 1.45, parseFloat((mainCenter.z + 0.5).toFixed(2))],
+        [parseFloat(mainCenter.x.toFixed(2)), 1.40, parseFloat((mainCenter.z - 1.5).toFixed(2))]
+      );
+    }
+
     // 3. Intelligent Multi-level Floor and Roof Base Elevation Detection
     const envKeywords = [
       'tree', 'palm', 'bush', 'plant', 'hydrant', 'ball', 'motorbike',
@@ -326,7 +414,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
     setDetectedFloors(computedFloors);
     setRoofElevationY(detectedRoofY);
-  }, [sceneClone, setDetectedFootprint, setHouseBounds, setDetectedFloors]);
+  }, [sceneClone, setDetectedFootprint, setHouseBounds, setInteriorBounds, setDetectedFloors]);
 
   // Set of mesh names belonging to roof zones
   const roofMeshSet = useMemo(() => {

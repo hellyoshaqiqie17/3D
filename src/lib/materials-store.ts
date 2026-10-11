@@ -16,15 +16,23 @@ interface MaterialsState {
   getCombinedMaterialsByCategory: (category: MaterialCategory) => MaterialOption[];
 }
 
-function isDummyMaterial(id: string): boolean {
+function isDummyMaterial(id: string, mat?: any): boolean {
+  if (mat?.isCustomUpload || id.startsWith('custom') || id.startsWith('pbr-custom')) {
+    return false;
+  }
   return (
     id.includes('designer-mosaic') ||
     id.includes('designer-slate') ||
-    id.startsWith('wall-') ||
-    id.startsWith('floor-') ||
-    id.startsWith('tile-') ||
-    id.startsWith('roof-') ||
-    id.startsWith('facade-')
+    id === 'wall-brick-modern' ||
+    id === 'wall-concrete-smooth' ||
+    id === 'wall-wood-cladding' ||
+    id === 'wall-limestone' ||
+    id === 'floor-granite-tile' ||
+    id === 'floor-parquet-oak' ||
+    id === 'floor-marble-white' ||
+    id === 'roof-clay-tile' ||
+    id === 'roof-metal-slate' ||
+    id === 'facade-stone-slate'
   );
 }
 
@@ -35,7 +43,7 @@ function getInitialCustomMaterials(): MaterialOption[] {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (Array.isArray(parsed)) {
-          const clean = parsed.filter((m) => m && m.id && !isDummyMaterial(m.id));
+          const clean = parsed.filter((m) => m && m.id && !isDummyMaterial(m.id, m));
           return clean;
         }
       }
@@ -56,7 +64,7 @@ export const useMaterialsStore = create<MaterialsState>((set, get) => ({
       if (res.ok) {
         const data = await res.json();
         if (data.materials && Array.isArray(data.materials)) {
-          const clean = data.materials.filter((m: any) => m && m.id && !isDummyMaterial(m.id));
+          const clean = data.materials.filter((m: any) => m && m.id && !isDummyMaterial(m.id, m));
           set({ customMaterials: clean, isLoading: false });
           if (typeof window !== 'undefined') {
             try {
@@ -69,7 +77,7 @@ export const useMaterialsStore = create<MaterialsState>((set, get) => ({
             const currentUploaded = useConfiguratorStore.getState().uploadedMaterials;
             const merged = [...clean];
             for (const item of currentUploaded) {
-              if (!isDummyMaterial(item.id) && !merged.some((m) => m.id === item.id)) {
+              if (!isDummyMaterial(item.id, item) && !merged.some((m) => m.id === item.id)) {
                 merged.push(item);
               }
             }

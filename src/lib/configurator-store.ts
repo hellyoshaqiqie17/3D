@@ -41,6 +41,8 @@ interface ConfiguratorState {
   cameraMode: 'orbit' | 'interior' | 'walk';
   houseCenter: [number, number, number];
   houseSize: [number, number, number];
+  interiorCenter: [number, number, number] | null;
+  interiorTarget: [number, number, number] | null;
   isCeilingCut: boolean; // Cuts ceiling/plafon at 2.45m so interior is completely open from above
   ceilingCutHeight: number; // default 2.45 meters
   isAutoRotate: boolean; // 360 rotation in-place or turntable
@@ -124,6 +126,7 @@ interface ConfiguratorState {
   setCameraFov: (fov: number) => void;
   setCameraMode: (mode: 'orbit' | 'interior' | 'walk') => void;
   setHouseBounds: (center: [number, number, number], size: [number, number, number]) => void;
+  setInteriorBounds: (center: [number, number, number], target: [number, number, number]) => void;
   toggleCeilingCut: () => void;
   setCeilingCut: (val: boolean) => void;
   setCeilingCutHeight: (height: number) => void;
@@ -195,6 +198,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   cameraMode: 'orbit',
   houseCenter: [0, 1.5, 0],
   houseSize: [10, 4, 12],
+  interiorCenter: null,
+  interiorTarget: null,
   isCeilingCut: false,
   ceilingCutHeight: 2.70,
   isAutoRotate: false,
@@ -427,6 +432,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setCameraFov: (fov) => set({ cameraFov: fov }),
   setCameraMode: (mode) => set({ cameraMode: mode }),
   setHouseBounds: (center, size) => set({ houseCenter: center, houseSize: size }),
+  setInteriorBounds: (center, target) => set({ interiorCenter: center, interiorTarget: target }),
   toggleCeilingCut: () =>
     set((state) => {
       const next = !(state.isCeilingCut || state.isRoofHidden);

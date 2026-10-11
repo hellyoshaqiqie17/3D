@@ -17,6 +17,8 @@ export function CameraManager() {
   const setCameraFov = useConfiguratorStore((s) => s.setCameraFov);
   const houseSize = useConfiguratorStore((s) => s.houseSize);
   const houseCenter = useConfiguratorStore((s) => s.houseCenter);
+  const interiorCenter = useConfiguratorStore((s) => s.interiorCenter);
+  const interiorTarget = useConfiguratorStore((s) => s.interiorTarget);
   const setRoofHidden = useConfiguratorStore((s) => s.setRoofHidden);
   const setCeilingCut = useConfiguratorStore((s) => s.setCeilingCut);
   const setEnvironmentHidden = useConfiguratorStore((s) => s.setEnvironmentHidden);
@@ -269,10 +271,18 @@ export function CameraManager() {
 
         case 'interior':
         case 'living':
-          // RUANG TAMU: Placed INSIDE the room at human eye-level looking across the lounge/furniture
+          // RUANG TAMU / INTERIOR: Placed INSIDE the room at human eye-level looking across the space
           setRoofHidden(false);
           setCameraFov(70); // Natural wide-angle interior lens
           setCameraMode('interior');
+          if (interiorCenter) {
+            const targetPos =
+              interiorTarget || [interiorCenter[0], interiorCenter[1] - 0.05, interiorCenter[2] - 1.5];
+            return {
+              pos: new THREE.Vector3(interiorCenter[0], interiorCenter[1], interiorCenter[2]),
+              target: new THREE.Vector3(targetPos[0], targetPos[1], targetPos[2]),
+            };
+          }
           return {
             pos: new THREE.Vector3(cX, eyeLevel, cZ + d * 0.22),
             target: new THREE.Vector3(cX, eyeLevel - 0.05, cZ - d * 0.18),
@@ -326,7 +336,7 @@ export function CameraManager() {
           };
       }
     },
-    [houseSize, houseCenter, setRoofHidden, setCeilingCut, setEnvironmentHidden, setCameraFov, setCameraMode, isFurniture]
+    [houseSize, houseCenter, interiorCenter, interiorTarget, setRoofHidden, setCeilingCut, setEnvironmentHidden, setCameraFov, setCameraMode, isFurniture]
   );
 
   useEffect(() => {
@@ -394,7 +404,7 @@ export function CameraManager() {
     return () => glDom.removeEventListener('dblclick', handleDblClick);
   }, [camera, scene, gl, setCameraFov]);
 
-  // Blender-Style Keyboard Walk Navigation (WASD / Arrow Keys + Q/E Elevation)
+  // Blender / SketchUp Style Keyboard Walk Navigation (WASD / Arrow Keys + Q/E Elevation)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (
@@ -404,12 +414,12 @@ export function CameraManager() {
         return;
       }
       activeKeys.current[e.key.toLowerCase()] = true;
-      activeKeys.current[e.code] = true;
+      activeKeys.current[e.code.toLowerCase()] = true;
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
       activeKeys.current[e.key.toLowerCase()] = false;
-      activeKeys.current[e.code] = false;
+      activeKeys.current[e.code.toLowerCase()] = false;
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -458,7 +468,71 @@ export function CameraManager() {
       return;
     }
 
-    // 3. Blender-Style Walk Navigation (WASD + Mouse Look)
+    // 3. Direct WASD Navigation in CAD Orbit Mode (SketchUp style walk everywhere without needing to enable walk mode)
+    if (!isWalkMode && !isLookAround360 && controlsRef.current && !isTransitioning.current) {
+      const isSprint =
+        activeKeys.current['shift'] ||
+        activeKeys.current['shiftleft'] ||
+        activeKeys.current['shiftright'];
+      const moveSpeed = (isSprint ? 7.5 : 3.8) * (walkSpeed || 1.0) * delta;
+
+      const forwardDir = new THREE.Vector3();
+      camera.getWorldDirection(forwardDir);
+      forwardDir.y = 0;
+      if (forwardDir.lengthSq() > 0.001) {
+        forwardDir.normalize();
+      } else {
+        forwardDir.set(0, 0, -1);
+      }
+
+      const rightDir = new THREE.Vector3();
+      rightDir.crossVectors(forwardDir, camera.up).normalize();
+
+      const moveVec = new THREE.Vector3();
+      if (
+        activeKeys.current['w'] ||
+        activeKeys.current['keyw'] ||
+        activeKeys.current['arrowup']
+      ) {
+        moveVec.add(forwardDir);
+      }
+      if (
+        activeKeys.current['s'] ||
+        activeKeys.current['keys'] ||
+        activeKeys.current['arrowdown']
+      ) {
+        moveVec.sub(forwardDir);
+      }
+      if (
+        activeKeys.current['a'] ||
+        activeKeys.current['keya'] ||
+        activeKeys.current['arrowleft']
+      ) {
+        moveVec.sub(rightDir);
+      }
+      if (
+        activeKeys.current['d'] ||
+        activeKeys.current['keyd'] ||
+        activeKeys.current['arrowright']
+      ) {
+        moveVec.add(rightDir);
+      }
+      if (activeKeys.current['e'] || activeKeys.current['keye']) {
+        moveVec.y += 0.8;
+      }
+      if (activeKeys.current['q'] || activeKeys.current['keyq']) {
+        moveVec.y -= 0.8;
+      }
+
+      if (moveVec.lengthSq() > 0) {
+        moveVec.normalize().multiplyScalar(moveSpeed);
+        camera.position.add(moveVec);
+        controlsRef.current.target.add(moveVec);
+        controlsRef.current.update();
+      }
+    }
+
+    // 4. Blender-Style Walk Navigation (WASD + Mouse Look)
     if (isWalkMode) {
       // Mouse Look smoothing
       currentYaw.current = THREE.MathUtils.damp(currentYaw.current, targetYaw.current, 18, delta);
@@ -479,12 +553,12 @@ export function CameraManager() {
       const speed = (isSprint ? 5.5 : 2.5) * walkSpeed * delta;
 
       const moveVec = new THREE.Vector3();
-      if (activeKeys.current['w'] || activeKeys.current['arrowup']) moveVec.add(moveForward);
-      if (activeKeys.current['s'] || activeKeys.current['arrowdown']) moveVec.sub(moveForward);
-      if (activeKeys.current['a'] || activeKeys.current['arrowleft']) moveVec.sub(moveRight);
-      if (activeKeys.current['d'] || activeKeys.current['arrowright']) moveVec.add(moveRight);
-      if (activeKeys.current['e']) moveVec.y += 0.8;
-      if (activeKeys.current['q']) moveVec.y -= 0.8;
+      if (activeKeys.current['w'] || activeKeys.current['keyw'] || activeKeys.current['arrowup']) moveVec.add(moveForward);
+      if (activeKeys.current['s'] || activeKeys.current['keys'] || activeKeys.current['arrowdown']) moveVec.sub(moveForward);
+      if (activeKeys.current['a'] || activeKeys.current['keya'] || activeKeys.current['arrowleft']) moveVec.sub(moveRight);
+      if (activeKeys.current['d'] || activeKeys.current['keyd'] || activeKeys.current['arrowright']) moveVec.add(moveRight);
+      if (activeKeys.current['e'] || activeKeys.current['keye']) moveVec.y += 0.8;
+      if (activeKeys.current['q'] || activeKeys.current['keyq']) moveVec.y -= 0.8;
 
       if (moveVec.lengthSq() > 0) {
         moveVec.normalize().multiplyScalar(speed);
@@ -502,7 +576,7 @@ export function CameraManager() {
       return;
     }
 
-    // 4. Stationary In-Place 360 Look Around
+    // 5. Stationary In-Place 360 Look Around
     if (isLookAround360) {
       currentYaw.current = THREE.MathUtils.damp(currentYaw.current, targetYaw.current, 15, delta);
       currentPitch.current = THREE.MathUtils.damp(currentPitch.current, targetPitch.current, 15, delta);
@@ -523,7 +597,7 @@ export function CameraManager() {
       return;
     }
 
-    // 5. Smooth 360 Auto-Rotation
+    // 6. Smooth 360 Auto-Rotation
     if (isAutoRotate && !isTransitioning.current && !isInteracting.current && controlsRef.current) {
       if (isInPlacePreset) {
         inPlaceYaw.current += delta * 0.40 * autoRotateSpeed;
@@ -544,13 +618,19 @@ export function CameraManager() {
       ref={controlsRef}
       enabled={!isLookAround360 && !isWalkMode}
       enableDamping
-      dampingFactor={0.06}
+      dampingFactor={0.08}
       rotateSpeed={0.8}
-      panSpeed={0.8}
+      panSpeed={0.9}
       zoomSpeed={1.2}
-      maxPolarAngle={Math.PI / 2 + 0.05} // Gentle floor constraint
+      screenSpacePanning={true}
+      mouseButtons={{
+        LEFT: THREE.MOUSE.ROTATE,
+        MIDDLE: THREE.MOUSE.ROTATE,
+        RIGHT: THREE.MOUSE.PAN,
+      }}
+      maxPolarAngle={Math.PI / 2 + 0.15} // Gentle floor constraint
       minDistance={0.05}
-      maxDistance={350}
+      maxDistance={500}
       autoRotate={isAutoRotate && !isInPlacePreset && !isTransitioning.current && !isInteracting.current}
       autoRotateSpeed={autoRotateSpeed * 1.5}
       onStart={() => {

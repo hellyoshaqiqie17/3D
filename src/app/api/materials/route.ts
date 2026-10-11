@@ -36,24 +36,35 @@ export async function POST(req: NextRequest) {
 
     // 1. Batch materials creation
     if (body.materials && Array.isArray(body.materials)) {
-      const itemsToSave: MaterialOption[] = body.materials.map((item: any, idx: number) => ({
-        id: item.id || `custom_mat_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
-        name: (item.name || `Material Tekstur ${idx + 1}`).trim(),
-        category: item.category || 'wall',
-        type: 'texture',
-        color: item.color || '#FFFFFF',
-        textureUrl: item.textureUrl,
-        previewThumbnail: item.previewThumbnail || item.textureUrl,
-        roughness: typeof item.roughness === 'number' ? item.roughness : 0.35,
-        metalness: typeof item.metalness === 'number' ? item.metalness : 0.05,
-        bumpScale: typeof item.bumpScale === 'number' ? item.bumpScale : 0.15,
-        rotation: typeof item.rotation === 'number' ? item.rotation : 0,
-        repeat: Array.isArray(item.repeat) ? item.repeat : [4, 4],
-        finish: item.finish || 'gloss',
-        description: item.description || 'Custom user uploaded architectural PBR material.',
-        tag: item.tag || 'Custom PBR',
-        isCustomUpload: true,
-      }));
+      const itemsToSave: MaterialOption[] = body.materials.map((item: any, idx: number) => {
+        const itemCategory = item.category || 'wall';
+        const itemSurfaceType = item.surfaceType || (itemCategory === 'floor' ? 'floor' : 'wall');
+        const isFloor = itemSurfaceType === 'floor';
+
+        return {
+          id: item.id || `custom_mat_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
+          name: (item.name || `Material Tekstur ${idx + 1}`).trim(),
+          category: itemCategory,
+          type: 'texture',
+          color: item.color || '#FFFFFF',
+          textureUrl: item.textureUrl,
+          previewThumbnail: item.previewThumbnail || item.textureUrl,
+          roughness: typeof item.roughness === 'number' ? item.roughness : 0.35,
+          metalness: typeof item.metalness === 'number' ? item.metalness : 0.05,
+          bumpScale: typeof item.bumpScale === 'number' ? item.bumpScale : 0.15,
+          rotation: typeof item.rotation === 'number' ? item.rotation : 0,
+          repeat: Array.isArray(item.repeat) ? item.repeat : [4, 4],
+          finish: item.finish || 'gloss',
+          tileSizeCm: Array.isArray(item.tileSizeCm) ? item.tileSizeCm : isFloor ? [60, 60] : [30, 60],
+          surfaceType: itemSurfaceType,
+          showGrout: typeof item.showGrout === 'boolean' ? item.showGrout : true,
+          groutWidthMm: typeof item.groutWidthMm === 'number' ? item.groutWidthMm : 2,
+          groutColor: item.groutColor || '#8E9297',
+          description: item.description || `Pola keramik ${isFloor ? 'lantai' : 'dinding'} kustom.`,
+          tag: item.tag || (isFloor ? 'Keramik Lantai' : 'Keramik Dinding'),
+          isCustomUpload: true,
+        };
+      });
 
       const saved = await db.createCustomMaterials(itemsToSave);
       return NextResponse.json(
@@ -74,6 +85,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const itemSurfaceType = body.surfaceType || (body.category === 'floor' ? 'floor' : 'wall');
+    const isFloor = itemSurfaceType === 'floor';
+
     const newMaterial: MaterialOption = {
       id: body.id || `custom_mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: body.name.trim(),
@@ -88,8 +102,13 @@ export async function POST(req: NextRequest) {
       rotation: typeof body.rotation === 'number' ? body.rotation : 0,
       repeat: Array.isArray(body.repeat) ? body.repeat : [4, 4],
       finish: body.finish || (body.roughness < 0.3 ? 'gloss' : 'textured'),
-      description: body.description || 'Custom user uploaded architectural PBR material.',
-      tag: body.tag || 'Custom PBR',
+      tileSizeCm: Array.isArray(body.tileSizeCm) ? body.tileSizeCm : isFloor ? [60, 60] : [30, 60],
+      surfaceType: itemSurfaceType,
+      showGrout: typeof body.showGrout === 'boolean' ? body.showGrout : true,
+      groutWidthMm: typeof body.groutWidthMm === 'number' ? body.groutWidthMm : 2,
+      groutColor: body.groutColor || '#8E9297',
+      description: body.description || `Pola keramik ${isFloor ? 'lantai' : 'dinding'} kustom.`,
+      tag: body.tag || (isFloor ? 'Keramik Lantai' : 'Keramik Dinding'),
       isCustomUpload: true,
     };
 

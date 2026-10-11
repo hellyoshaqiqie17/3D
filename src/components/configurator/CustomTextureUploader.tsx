@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+import { useMaterialsStore } from '@/lib/materials-store';
 import {
   UploadCloud,
   Sparkles,
@@ -13,6 +14,8 @@ import {
   ChevronUp,
   Layers,
   Grid,
+  Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import {
   FLOOR_TILE_PRESETS,
@@ -35,6 +38,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const [isOpen, setIsOpen] = useState(false);
   const [patternName, setPatternName] = useState('');
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [bumpDepth, setBumpDepth] = useState(0.16);
   const [surfaceFinish, setSurfaceFinish] = useState<'gloss' | 'satin' | 'textured'>('gloss');
 
@@ -72,8 +78,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
+      setSelectedFile(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
+      setUploadError(null);
       if (!patternName) {
         setPatternName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
       }
@@ -84,61 +92,103 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const file = e.dataTransfer.files[0];
+      setSelectedFile(file);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
+      setUploadError(null);
       if (!patternName) {
         setPatternName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
       }
     }
   };
 
-  const handleApplyCustom = (e: React.FormEvent) => {
+  const handleApplyCustom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!previewUrl) return;
 
-    const repeat = calculateRepeatFromTileSize(effectiveTileSize);
-    const newId = `custom-texture-${Date.now()}`;
+    setIsUploading(true);
+    setUploadError(null);
 
-    const newMaterial: MaterialOption = {
-      id: newId,
-      name: patternName.trim() || `Keramik ${surfaceType === 'floor' ? 'Lantai' : 'Dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]}`,
-      category: surfaceType === 'floor' ? 'floor' : 'wall',
-      type: 'texture',
-      textureUrl: previewUrl,
-      previewThumbnail: previewUrl,
-      roughness: surfaceFinish === 'gloss' ? 0.2 : surfaceFinish === 'satin' ? 0.38 : 0.65,
-      metalness: 0.05,
-      bumpScale: bumpDepth,
-      finish: surfaceFinish,
-      repeat: repeat,
-      tileSizeCm: effectiveTileSize,
-      surfaceType: surfaceType,
-      showGrout: showGrout,
-      groutWidthMm: showGrout ? groutWidthMm : 0,
-      groutColor: groutColor,
-      description: `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
-      tag: 'Custom Tile',
-      isCustomUpload: true,
-    };
+    try {
+      let permanentUrl = previewUrl;
 
-    addUploadedMaterial(newMaterial);
-    applyMaterial(currentZone.id, newId);
-    setZoneTextureSettings(currentZone.id, {
-      repeat: repeat,
-      bumpScale: bumpDepth,
-      roughness: newMaterial.roughness,
-      rotation: 0,
-      colorTint: '#FFFFFF',
-      tileSizeCm: effectiveTileSize,
-      surfaceType: surfaceType,
-      showGrout: showGrout,
-      groutWidthMm: showGrout ? groutWidthMm : 0,
-      groutColor: groutColor,
-    });
+      // 1. Upload to CDN via /api/materials/upload if a physical File was selected
+      if (selectedFile) {
+        const formData = new FormData();
+        formData.append('file', selectedFile);
 
-    setIsOpen(false);
-    setPreviewUrl(null);
-    setPatternName('');
+        const uploadRes = await fetch('/api/materials/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!uploadRes.ok) {
+          throw new Error('Gagal mengunggah file pola keramik ke server CDN');
+        }
+
+        const uploadData = await uploadRes.json();
+        const cdnUrl = uploadData.url || uploadData.uploaded?.[0]?.url;
+        if (cdnUrl) {
+          permanentUrl = cdnUrl;
+        }
+      }
+
+      const repeat = calculateRepeatFromTileSize(effectiveTileSize);
+      const newId = `custom-texture-${Date.now()}`;
+
+      const newMaterial: MaterialOption = {
+        id: newId,
+        name:
+          patternName.trim() ||
+          `Keramik ${surfaceType === 'floor' ? 'Lantai' : 'Dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]}`,
+        category: surfaceType === 'floor' ? 'floor' : 'wall',
+        type: 'texture',
+        textureUrl: permanentUrl,
+        previewThumbnail: permanentUrl,
+        roughness: surfaceFinish === 'gloss' ? 0.2 : surfaceFinish === 'satin' ? 0.38 : 0.65,
+        metalness: 0.05,
+        bumpScale: bumpDepth,
+        finish: surfaceFinish,
+        repeat: repeat,
+        tileSizeCm: effectiveTileSize,
+        surfaceType: surfaceType,
+        showGrout: showGrout,
+        groutWidthMm: showGrout ? groutWidthMm : 0,
+        groutColor: groutColor,
+        description: `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
+        tag: surfaceType === 'floor' ? 'Keramik Lantai' : 'Keramik Dinding',
+        isCustomUpload: true,
+      };
+
+      // 2. Persist to server database & localStorage
+      await useMaterialsStore.getState().addCustomMaterial(newMaterial);
+
+      // 3. Register in in-memory configuratorStore and immediately apply to active 3D zone
+      addUploadedMaterial(newMaterial);
+      applyMaterial(currentZone.id, newId);
+      setZoneTextureSettings(currentZone.id, {
+        repeat: repeat,
+        bumpScale: bumpDepth,
+        roughness: newMaterial.roughness,
+        rotation: 0,
+        colorTint: '#FFFFFF',
+        tileSizeCm: effectiveTileSize,
+        surfaceType: surfaceType,
+        showGrout: showGrout,
+        groutWidthMm: showGrout ? groutWidthMm : 0,
+        groutColor: groutColor,
+      });
+
+      setIsOpen(false);
+      setPreviewUrl(null);
+      setSelectedFile(null);
+      setPatternName('');
+    } catch (err: any) {
+      console.error('[Apply Custom Texture] Error:', err);
+      setUploadError(err?.message || 'Gagal menyimpan pola keramik');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
 
@@ -516,15 +566,33 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                   </div>
                 </div>
 
+                {/* Error message */}
+                {uploadError && (
+                  <div className="p-2 rounded-lg bg-red-50 border border-red-200 text-red-600 text-[11px] flex items-center gap-1.5">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>{uploadError}</span>
+                  </div>
+                )}
+
                 {/* Submit Apply Button */}
                 <button
                   type="submit"
-                  className="w-full py-2.5 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-colors flex items-center justify-center gap-1.5"
+                  disabled={isUploading}
+                  className="w-full py-2.5 text-xs font-semibold text-white bg-primary hover:bg-primary-hover rounded-xl shadow-subtle transition-colors flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>
-                    Terapkan Keramik {effectiveTileSize[0]}×{effectiveTileSize[1]} cm ke 3D {currentZone.name}
-                  </span>
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Mengunggah & Menyimpan Pola...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>
+                        Terapkan Keramik {effectiveTileSize[0]}×{effectiveTileSize[1]} cm ke 3D {currentZone.name}
+                      </span>
+                    </>
+                  )}
                 </button>
               </>
             )}
