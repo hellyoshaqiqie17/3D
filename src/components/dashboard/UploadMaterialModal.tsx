@@ -25,6 +25,8 @@ import {
   GROUT_WIDTH_PRESETS,
   calculateRepeatFromTileSize,
 } from '@/lib/tile-constants';
+import { optimizeTextureImage } from '@/lib/image-optimizer';
+import { extractSizeFromFilename } from '@/lib/tile-autotrim';
 
 interface UploadMaterialModalProps {
   isOpen: boolean;
@@ -56,74 +58,6 @@ function cleanMaterialName(fileName: string): string {
     .replace(/\s+/g, ' ')
     .trim()
     .replace(/\b\w/g, (c) => c.toUpperCase()); // Huruf kapital tiap kata
-}
-
-/**
- * Optimizes huge client images (e.g. 10MB+ raw PNGs from cameras/catalogs)
- * down to ~400-800KB high-res 2048px textures for instant cloud upload & fast WebGL rendering.
- */
-async function optimizeTextureFile(file: File): Promise<File> {
-  // If already under 1.5MB and is JPEG/WebP, upload as is
-  if (file.size < 1.5 * 1024 * 1024 && (file.type === 'image/jpeg' || file.type === 'image/webp')) {
-    return file;
-  }
-
-  return new Promise((resolve) => {
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const MAX_DIM = 2048;
-      let width = img.width;
-      let height = img.height;
-
-      if (width > MAX_DIM || height > MAX_DIM) {
-        if (width > height) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
-        }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        resolve(file);
-        return;
-      }
-
-      ctx.drawImage(img, 0, 0, width, height);
-
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) {
-            resolve(file);
-            return;
-          }
-          const baseName = file.name.replace(/\.[^/.]+$/, '');
-          const newFile = new File([blob], `${baseName}.jpg`, {
-            type: 'image/jpeg',
-            lastModified: Date.now(),
-          });
-          resolve(newFile);
-        },
-        'image/jpeg',
-        0.88
-      );
-    };
-
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      resolve(file); // fallback to original on error
-    };
-
-    img.src = objectUrl;
-  });
 }
 
 export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMaterialModalProps) {
@@ -278,8 +212,8 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
           `Mengunggah (${i + 1}/${stagedFiles.length}): ${item.name}...`
         );
 
-        // Client-side image optimization
-        const optimizedFile = await optimizeTextureFile(item.file);
+        // Client-side image optimization with auto-crop of packaging margins
+        const optimizedFile = await optimizeTextureImage(item.file);
 
         let textureUrl: string | undefined;
         let filename = '';
@@ -358,13 +292,14 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         const isFloor = itemSurfaceType === 'floor';
 
         const assignedName = uploaded.cleanName.trim() || `Material Tekstur ${index + 1}`;
-        const itemTileSize: [number, number] = isCustomTileSize
+        const filenameDetectedSize = extractSizeFromFilename(stagedItem?.file?.name || uploaded.cleanName);
+        const itemTileSize: [number, number] = filenameDetectedSize || (isCustomTileSize
           ? [customW, customH]
           : isFloor
           ? tileSize[0] === tileSize[1]
             ? tileSize
             : [60, 60]
-          : tileSize;
+          : tileSize);
         const itemRepeat = calculateRepeatFromTileSize(itemTileSize);
 
         return {

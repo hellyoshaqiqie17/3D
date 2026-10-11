@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { detectTileBounds } from './tile-autotrim';
 
 // Cache for generated CanvasTextures with grout lines
 const groutTextureCache = new Map<string, { map: THREE.Texture; bumpMap: THREE.Texture }>();
@@ -56,6 +57,13 @@ export function getTileTextureWithGrout(
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
+      const origW = img.naturalWidth || img.width;
+      const origH = img.naturalHeight || img.height;
+
+      // Automatically crop empty packaging margins (transparent margins or solid borders)
+      const bounds = detectTileBounds(img, origW, origH);
+      const { cropX, cropY, cropW, cropH } = bounds;
+
       const size = 1024;
       const canvas = document.createElement('canvas');
       canvas.width = size;
@@ -68,11 +76,17 @@ export function getTileTextureWithGrout(
       const bumpCtx = bumpCanvas.getContext('2d');
 
       if (ctx && bumpCtx) {
-        // Draw base tile image
-        ctx.drawImage(img, 0, 0, size, size);
+        // Base background fill to prevent any transparent alpha turning black in WebGL
+        ctx.fillStyle = '#EBE7DF';
+        ctx.fillRect(0, 0, size, size);
+
+        // Draw ONLY the cropped tile image (guarantees zero black vertical borders!)
+        ctx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, size, size);
 
         // Generate bump map base from image grayscale
-        bumpCtx.drawImage(img, 0, 0, size, size);
+        bumpCtx.fillStyle = '#C8C8C8';
+        bumpCtx.fillRect(0, 0, size, size);
+        bumpCtx.drawImage(img, cropX, cropY, cropW, cropH, 0, 0, size, size);
         try {
           const imgData = bumpCtx.getImageData(0, 0, size, size);
           const data = imgData.data;

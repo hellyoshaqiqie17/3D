@@ -3,6 +3,7 @@ import { MaterialOption, MaterialZone, ZoneTextureSettings } from '@/types';
 import { getProceduralTexture } from './texture-generator';
 import { calculateRepeatFromTileSize } from './tile-constants';
 import { getTileTextureWithGrout } from './grout-generator';
+import { extractSizeFromFilename } from './tile-autotrim';
 
 // Map of mesh uuid -> original material backup (so we can restore if needed)
 export const originalMaterialMap = new WeakMap<THREE.Mesh, THREE.Material | THREE.Material[]>();
@@ -282,8 +283,12 @@ export function applyMaterialToZone(
 
     if (material.type === 'texture' && material.textureUrl) {
       // Custom uploaded texture URL (e.g. client imported PNG/JPG)
+      const filenameSize =
+        extractSizeFromFilename(material.name || '') ||
+        extractSizeFromFilename(material.textureUrl || '');
+
       const tileSizeCm: [number, number] | undefined =
-        settings?.tileSizeCm || material.tileSizeCm;
+        settings?.tileSizeCm || material.tileSizeCm || filenameSize || undefined;
 
       let rx: number;
       let ry: number;

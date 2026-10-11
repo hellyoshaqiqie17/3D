@@ -25,6 +25,11 @@ import {
   calculateRepeatFromTileSize,
 } from '@/lib/tile-constants';
 import { optimizeTextureImage } from '@/lib/image-optimizer';
+import {
+  extractSizeFromFilename,
+  inferSuggestedTilePreset,
+  detectTileBounds,
+} from '@/lib/tile-autotrim';
 
 interface CustomTextureUploaderProps {
   currentZone: MaterialZone;
@@ -76,30 +81,74 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
     ? [customWidthCm, customHeightCm]
     : selectedTileSize;
 
+  const processSelectedFile = (file: File) => {
+    setSelectedFile(file);
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    setUploadError(null);
+
+    // Format clean pattern name from file name
+    const clean = file.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[-_]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    setPatternName(clean);
+
+    // Auto-detect tile dimensions from filename (e.g. CV90180 -> 90x180)
+    const filenameSize = extractSizeFromFilename(file.name);
+    if (filenameSize) {
+      const [w, h] = filenameSize;
+      const isWallMatch = WALL_TILE_PRESETS.some((p) => p.widthCm === w && p.heightCm === h);
+      const isFloorMatch = FLOOR_TILE_PRESETS.some((p) => p.widthCm === w && p.heightCm === h);
+
+      if (isWallMatch && surfaceType === 'wall') {
+        setSelectedTileSize([w, h]);
+        setIsCustomTileSize(false);
+      } else if (isFloorMatch && surfaceType === 'floor') {
+        setSelectedTileSize([w, h]);
+        setIsCustomTileSize(false);
+      } else if (isWallMatch) {
+        setSurfaceType('wall');
+        setSelectedTileSize([w, h]);
+        setIsCustomTileSize(false);
+      } else if (isFloorMatch) {
+        setSurfaceType('floor');
+        setSelectedTileSize([w, h]);
+        setIsCustomTileSize(false);
+      } else {
+        setIsCustomTileSize(true);
+        setCustomWidthCm(w);
+        setCustomHeightCm(h);
+      }
+    } else {
+      // If filename has no dimensions, inspect image content aspect ratio
+      const img = new Image();
+      img.onload = () => {
+        const bounds = detectTileBounds(img, img.naturalWidth || img.width, img.naturalHeight || img.height);
+        const suggested = inferSuggestedTilePreset(bounds.aspectRatio, surfaceType);
+        const isPreset = (surfaceType === 'wall' ? WALL_TILE_PRESETS : FLOOR_TILE_PRESETS).some(
+          (p) => p.widthCm === suggested[0] && p.heightCm === suggested[1]
+        );
+        if (isPreset) {
+          setSelectedTileSize(suggested);
+          setIsCustomTileSize(false);
+        }
+      };
+      img.src = url;
+    }
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setUploadError(null);
-      if (!patternName) {
-        setPatternName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
-      }
+      processSelectedFile(e.target.files[0]);
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setUploadError(null);
-      if (!patternName) {
-        setPatternName(file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' '));
-      }
+      processSelectedFile(e.dataTransfer.files[0]);
     }
   };
 
@@ -116,9 +165,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       // 1. Upload to CDN via /api/materials/upload with optimization & direct signed upload fallback
       if (selectedFile) {
         let cdnUrl: string | undefined;
+        const optimizedFile = await optimizeTextureImage(selectedFile);
 
         try {
-          const optimizedFile = await optimizeTextureImage(selectedFile);
           const formData = new FormData();
           formData.append('file', optimizedFile);
 
@@ -140,7 +189,6 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
         // Direct Signed Upload Fallback to Bunny Storage if API returned error or payload exceeded
         if (!cdnUrl) {
           try {
-            const optimizedFile = await optimizeTextureImage(selectedFile);
             const signRes = await fetch('/api/upload/direct', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
@@ -173,9 +221,9 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
         if (cdnUrl) {
           permanentUrl = cdnUrl;
         } else {
-          // If offline or storage unreachable, fallback to previewUrl so the user can still use the texture in 3D!
-          console.info('[CustomTextureUploader] Using local preview URL as material texture fallback');
-          permanentUrl = previewUrl;
+          // If offline or storage unreachable, fallback to auto-cropped optimized file URL
+          console.info('[CustomTextureUploader] Using local auto-cropped URL as material texture fallback');
+          permanentUrl = URL.createObjectURL(optimizedFile);
         }
       }
 
@@ -312,6 +360,10 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                     <span className="text-[10px] text-secondary block">
                       Klik untuk ganti gambar lain
                     </span>
+                    <div className="inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 text-[10px] font-medium border border-emerald-200/50">
+                      <Sparkles className="w-2.5 h-2.5 text-emerald-600 shrink-0" />
+                      <span>Auto-Crop: Margin transparan/hitam dipotong presisi</span>
+                    </div>
                   </div>
                 </div>
               ) : (
