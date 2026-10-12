@@ -160,6 +160,8 @@ export async function captureArchitectureViews(
   const threeCam = (window as any).__THREE_CAMERA__;
   const threeControls = (window as any).__THREE_CONTROLS__;
   const renderFrame = (window as any).__THREE_RENDER_FRAME__;
+  const threeGl = (window as any).__THREE_GL__;
+  const wasShadowMapEnabled = threeGl?.shadowMap?.enabled;
 
   const initialCamPos = threeCam?.position ? [threeCam.position.x, threeCam.position.y, threeCam.position.z] : null;
   const initialTarget = threeControls?.target ? [threeControls.target.x, threeControls.target.y, threeControls.target.z] : null;
@@ -174,8 +176,15 @@ export async function captureArchitectureViews(
     (window as any).__CAD_CAPTURING_VIEWS__ = true;
   }
 
+  // 2. Disable WebGL shadow map during export so zero shadows obscure textures & walls
+  if (threeGl?.shadowMap) {
+    threeGl.shadowMap.enabled = false;
+  }
+
   const scene = (window as any).__THREE_SCENE__;
   const hiddenSceneObjects: { obj: any; wasVisible: boolean }[] = [];
+  const modifiedLights: { light: any; wasCastShadow: boolean }[] = [];
+
   if (scene && typeof scene.traverse === 'function') {
     scene.traverse((child: any) => {
       if (
@@ -186,6 +195,10 @@ export async function captureArchitectureViews(
       ) {
         hiddenSceneObjects.push({ obj: child, wasVisible: child.visible });
         child.visible = false;
+      }
+      if (child.isLight && child.castShadow) {
+        modifiedLights.push({ light: child, wasCastShadow: child.castShadow });
+        child.castShadow = false;
       }
     });
   }
@@ -210,11 +223,17 @@ export async function captureArchitectureViews(
         })
       );
 
-      // Double-check helpers are hidden in scene
+      // Double-check helpers and cast shadows are suppressed
+      if (threeGl?.shadowMap) {
+        threeGl.shadowMap.enabled = false;
+      }
       if (scene && typeof scene.traverse === 'function') {
         scene.traverse((child: any) => {
           if (child.isBox3Helper || child.type === 'Box3Helper') {
             child.visible = false;
+          }
+          if (child.isLight && child.castShadow) {
+            child.castShadow = false;
           }
         });
       }
@@ -240,12 +259,21 @@ export async function captureArchitectureViews(
       });
     }
   } finally {
-    // Restore capturing flags and selection highlight
+    // Restore capturing flags, selection highlight, and shadow states
     useConfiguratorStore.getState().setIsCapturingViews(false);
     if (typeof window !== 'undefined') {
       (window as any).__CAD_CAPTURING_VIEWS__ = false;
     }
     useConfiguratorStore.getState().setSelectionHighlightVisible(prevSelectionHighlight);
+
+    if (threeGl?.shadowMap && wasShadowMapEnabled !== undefined) {
+      threeGl.shadowMap.enabled = wasShadowMapEnabled;
+    }
+    modifiedLights.forEach(({ light, wasCastShadow }) => {
+      try {
+        light.castShadow = wasCastShadow;
+      } catch {}
+    });
 
     hiddenSceneObjects.forEach(({ obj, wasVisible }) => {
       try {
