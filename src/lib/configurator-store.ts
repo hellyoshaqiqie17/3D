@@ -79,6 +79,7 @@ interface ConfiguratorState {
   isSaveModalOpen: boolean;
   isShareModalOpen: boolean;
   isReportModalOpen: boolean;
+  isCapturingViews: boolean;
 
   // User imported custom designer materials (.png / .jpg)
   uploadedMaterials: MaterialOption[];
@@ -111,6 +112,7 @@ interface ConfiguratorState {
   setSaveModalOpen: (val: boolean) => void;
   setShareModalOpen: (val: boolean) => void;
   setReportModalOpen: (val: boolean) => void;
+  setIsCapturingViews: (val: boolean) => void;
   modelType: 'architecture' | 'furniture';
   setModelType: (type: 'architecture' | 'furniture') => void;
 
@@ -244,6 +246,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   isSaveModalOpen: false,
   isShareModalOpen: false,
   isReportModalOpen: false,
+  isCapturingViews: false,
 
   addDynamicZone: (zone) =>
     set((state) => {
@@ -404,6 +407,7 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
   setSaveModalOpen: (val) => set({ isSaveModalOpen: val }),
   setShareModalOpen: (val) => set({ isShareModalOpen: val }),
   setReportModalOpen: (val) => set({ isReportModalOpen: val }),
+  setIsCapturingViews: (val) => set({ isCapturingViews: val }),
   setModelType: (type) => set({ modelType: type }),
 
   toggleRoofHidden: () =>

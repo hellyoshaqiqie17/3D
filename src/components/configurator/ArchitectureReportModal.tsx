@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project, MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 import {
@@ -40,13 +40,23 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const customColors = useConfiguratorStore((s) => s.customColors);
   const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
+  const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
+  const setHoveredMesh = useConfiguratorStore((s) => s.setHoveredMesh);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
-  const [totalSteps, setTotalSteps] = useState(6);
+  const [totalSteps, setTotalSteps] = useState(5);
   const [statusMessage, setStatusMessage] = useState('');
   const [capturedViews, setCapturedViews] = useState<CapturedView[]>([]);
   const [activePreviewImg, setActivePreviewImg] = useState<CapturedView | null>(null);
+
+  // Automatically ensure all selection highlights and hover outlines are hidden when modal is open
+  useEffect(() => {
+    if (isReportModalOpen) {
+      setSelectionHighlightVisible(false);
+      setHoveredMesh(null);
+    }
+  }, [isReportModalOpen, setSelectionHighlightVisible, setHoveredMesh]);
 
   if (!isReportModalOpen) return null;
 
@@ -184,19 +194,18 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
             </div>
           </div>
 
-          {/* Explanation of the 6 Architectural Mockup Angles */}
+          {/* Explanation of the 5 Architectural Mockup Angles */}
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold uppercase tracking-wider text-primary flex items-center gap-1.5">
                 <Layers className="w-4 h-4 text-secondary" />
-                <span>6 Sudut Pandang Mockup yang Dihasilkan:</span>
+                <span>5 Sudut Pandang Mockup yang Dihasilkan:</span>
               </h3>
               <span className="text-[11px] text-secondary">Kamera Eye-Level 1.45m & FOV Adaptif</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
               {[
-                { title: 'Tampak Isometrik 3D', desc: 'Cover sheet hero render diagonal', badge: 'Cover Sheet' },
                 { title: 'Tampak Atas / Denah', desc: 'Denah tata letak interior potongan atap terbuka', badge: 'Plan View' },
                 { title: 'Bagian Dalam - Depan', desc: 'Perspektif mata manusia menghadap area depan', badge: 'Front Int' },
                 { title: 'Bagian Dalam - Belakang', desc: 'Perspektif mata manusia menghadap area belakang', badge: 'Rear Int' },
@@ -248,7 +257,7 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold uppercase tracking-wider text-emerald-700 flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Preview 6 Mockup View yang Telah Siap:</span>
+                  <span>Preview 5 Mockup View yang Telah Siap:</span>
                 </h3>
                 <span className="text-[11px] text-secondary">Klik gambar untuk memperbesar</span>
               </div>

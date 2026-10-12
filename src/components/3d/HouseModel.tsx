@@ -75,6 +75,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const isEnvironmentHidden = useConfiguratorStore((s) => s.isEnvironmentHidden);
   const isSelectionHighlightVisible = useConfiguratorStore((s) => s.isSelectionHighlightVisible);
   const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
+  const isCapturingViews = useConfiguratorStore((s) => s.isCapturingViews);
   const detectedFloors = useConfiguratorStore((s) => s.detectedFloors);
   const setDetectedFloors = useConfiguratorStore((s) => s.setDetectedFloors);
   const hiddenFloors = useConfiguratorStore((s) => s.hiddenFloors);
@@ -1243,16 +1244,18 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         onClick={handleClick}
       />
       {/* Interactive real-time hover highlight on cursor move (samar-samar, lembut) */}
-      <SurfaceHighlightBox
-        meshes={hoveredMeshes}
-        color={0x60a5fa}
-        fillOpacity={0.02}
-        lineOpacity={0.32}
-        isHover={true}
-        excludeMeshes={isSelectionHighlightVisible ? selectedMeshes : undefined}
-      />
+      {!isCapturingViews && (
+        <SurfaceHighlightBox
+          meshes={hoveredMeshes}
+          color={0x60a5fa}
+          fillOpacity={0.02}
+          lineOpacity={0.32}
+          isHover={true}
+          excludeMeshes={isSelectionHighlightVisible ? selectedMeshes : undefined}
+        />
+      )}
       {/* Active selection bounding box (hanya muncul saat diklik langsung) */}
-      {isSelectionHighlightVisible && (
+      {!isCapturingViews && isSelectionHighlightVisible && (
         <SurfaceHighlightBox
           meshes={selectedMeshes}
           color={0x3b82f6}
@@ -1285,17 +1288,19 @@ function SurfaceHighlightBox({
   isHover?: boolean;
   excludeMeshes?: THREE.Object3D[];
 }) {
+  const isCapturingViews = useConfiguratorStore((s) => s.isCapturingViews);
   const fillMeshRef = useRef<THREE.Mesh>(null);
 
   // If hovered meshes are identical to selected meshes, do not duplicate hover outline
   const shouldRender = useMemo(() => {
+    if (isCapturingViews || (typeof window !== 'undefined' && (window as any).__CAD_CAPTURING_VIEWS__)) return false;
     if (!meshes || meshes.length === 0) return false;
     if (isHover && excludeMeshes && excludeMeshes.length > 0) {
       const isSame = meshes.some((m) => excludeMeshes.includes(m));
       if (isSame) return false;
     }
     return true;
-  }, [meshes, isHover, excludeMeshes]);
+  }, [meshes, isHover, excludeMeshes, isCapturingViews]);
 
   const helper = useMemo(() => {
     if (!shouldRender) return null;
@@ -1309,6 +1314,11 @@ function SurfaceHighlightBox({
   }, [shouldRender, color, lineOpacity]);
 
   useFrame(() => {
+    if (isCapturingViews || (typeof window !== 'undefined' && (window as any).__CAD_CAPTURING_VIEWS__)) {
+      if (helper) helper.visible = false;
+      if (fillMeshRef.current) fillMeshRef.current.visible = false;
+      return;
+    }
     if (!helper || !shouldRender) return;
 
     let hasVisible = false;

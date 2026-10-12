@@ -63,7 +63,17 @@ export function PresentationOverlay({ project }: PresentationOverlayProps) {
 
     if (canvas && typeof canvas.toDataURL === 'function') {
       try {
+        const renderFrame = (window as any).__THREE_RENDER_FRAME__;
+        useConfiguratorStore.getState().setIsCapturingViews(true);
+        useConfiguratorStore.getState().setSelectionHighlightVisible(false);
+        useConfiguratorStore.getState().setHoveredMesh(null);
+        if (typeof renderFrame === 'function') {
+          renderFrame();
+        }
+
         const imageUri = canvas.toDataURL('image/png', 1.0);
+        useConfiguratorStore.getState().setIsCapturingViews(false);
+
         const link = document.createElement('a');
         link.download = `${project.name.toLowerCase().replace(/\s+/g, '-')}-architectural-view.png`;
         link.href = imageUri;
@@ -74,6 +84,7 @@ export function PresentationOverlay({ project }: PresentationOverlayProps) {
         setScreenshotTaken(true);
         setTimeout(() => setScreenshotTaken(false), 2500);
       } catch (err) {
+        useConfiguratorStore.getState().setIsCapturingViews(false);
         console.error('Screenshot failed:', err);
       }
     }
