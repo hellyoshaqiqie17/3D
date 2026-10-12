@@ -113,7 +113,7 @@ export function ArchitecturalNavbar() {
         }`}
       >
         <div className="bg-[#171717]/90 text-white backdrop-blur-xl px-5 py-2 rounded-full border border-white/15 shadow-2xl flex items-center gap-6 text-xs font-medium">
-          <Link href="/" className="flex items-center gap-2 font-bold tracking-wider text-xs uppercase text-white hover:text-amber-200 transition-colors">
+          <Link href="/" className="flex items-center gap-2 font-bold tracking-wider text-xs uppercase text-white hover:text-amber-200 transition-colors whitespace-nowrap shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logo.png"
@@ -122,7 +122,7 @@ export function ArchitecturalNavbar() {
             />
             <span>Mitra Megah Interior</span>
           </Link>
-          <div className="hidden sm:flex items-center gap-5 text-white/70">
+          <div className="hidden sm:flex items-center gap-5 text-white/70 whitespace-nowrap">
             <a href="#projects" className="hover:text-white transition-colors">
               Projects
             </a>
@@ -136,22 +136,22 @@ export function ArchitecturalNavbar() {
               Contact
             </a>
           </div>
-          <div className="flex items-center gap-2 pl-2 border-l border-white/15">
+          <div className="flex items-center gap-2 pl-3 border-l border-white/15 shrink-0">
             {isAuthenticated ? (
               <Link
                 href="/dashboard"
-                className="bg-white text-[#171717] px-3.5 py-1.5 rounded-full font-semibold text-[11px] hover:bg-[#F0F0ED] transition-colors flex items-center gap-1.5"
+                className="bg-white text-[#171717] px-4 sm:px-5 py-1.5 sm:py-2 rounded-full font-semibold text-xs hover:bg-[#F0F0ED] transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm shrink-0"
               >
-                <LayoutDashboard className="w-3 h-3" />
-                <span>Dashboard</span>
+                <LayoutDashboard className="w-3.5 h-3.5" />
+                <span className="whitespace-nowrap">Dashboard</span>
               </Link>
             ) : (
               <Link
                 href="/login"
-                className="bg-white text-[#171717] px-3.5 py-1.5 rounded-full font-semibold text-[11px] hover:bg-[#F0F0ED] transition-colors flex items-center gap-1"
+                className="bg-white text-[#171717] px-4 sm:px-5 py-1.5 sm:py-2 rounded-full font-semibold text-xs hover:bg-[#F0F0ED] transition-colors flex items-center gap-1.5 whitespace-nowrap shadow-sm shrink-0 group"
               >
-                <span>Studio Login</span>
-                <ChevronRight className="w-3 h-3" />
+                <span className="whitespace-nowrap">Studio Login</span>
+                <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
               </Link>
             )}
           </div>
