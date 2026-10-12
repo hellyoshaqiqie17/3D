@@ -18,7 +18,7 @@ import * as THREE from 'three';
 const WELD_PRECISION = 1000; // 1 mm
 const MIN_ROOM_SCALE = 2.0; // mesh must span >= 2 m on at least two axes to be considered architectural
 const MIN_PIECE_SIZE = 0.8; // a piece must span >= 0.8 m to become its own selectable surface
-const MAX_PIECES = 24;
+const MAX_PIECES = 48;
 const MAX_TRIANGLES = 300_000;
 
 interface Piece {
@@ -244,19 +244,41 @@ function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vec
     return c.y < midY ? 'Lantai_Bawah' : 'Plafon_Atas';
   }
 
-  // 2. Vertical walls: Distinguish Left/Right/Front/Back AND Interior vs Exterior
-  // Vector pointing from wall piece center toward room center:
-  const toRoomX = pc.x - c.x;
-  const toRoomZ = pc.z - c.z;
-  const isInterior = (normal.x * toRoomX + normal.z * toRoomZ) > 0;
-  const suffix = isInterior ? '_Dalam' : '_Luar';
+  // 2. Vertical walls: Distinguish Left/Right (X-axis) vs Back/Front (Z-axis)
+  const isXWall = Math.abs(normal.x) >= Math.abs(normal.z);
 
-  if (Math.abs(normal.x) >= Math.abs(normal.z)) {
-    const side = c.x <= pc.x ? 'Dinding_Kiri' : 'Dinding_Kanan';
-    return `${side}${suffix}`;
+  if (isXWall) {
+    const isLeft = c.x <= pc.x;
+    const side = isLeft ? 'Dinding_Kiri' : 'Dinding_Kanan';
+    const outerX = isLeft ? parentBox.min.x : parentBox.max.x;
+    const distToOuter = Math.abs(c.x - outerX);
+
+    // Any wall piece close to the outer perimeter (<= 0.18m) is the exterior building shell (_Luar).
+    // Any wall piece stepped into the room interior (> 0.18m) is the interior wall (_Dalam).
+    const isInterior = distToOuter > 0.18;
+    return `${side}${isInterior ? '_Dalam' : '_Luar'}`;
   } else {
-    const side = c.z <= pc.z ? 'Dinding_Belakang' : 'Dinding_Depan';
-    return `${side}${suffix}`;
+    const isBack = c.z <= pc.z;
+    const side = isBack ? 'Dinding_Belakang' : 'Dinding_Depan';
+    const outerZ = isBack ? parentBox.min.z : parentBox.max.z;
+    const distToOuter = Math.abs(c.z - outerZ);
+
+    let isInterior = false;
+    if (isBack) {
+      // For back wall: if stepped into room (> 0.18m), it is interior.
+      // If at perimeter, a face with normal pointing into the room (+Z, towards pc.z) is interior.
+      if (distToOuter > 0.18) {
+        isInterior = true;
+      } else {
+        const toRoomZ = pc.z - c.z;
+        isInterior = (normal.z * toRoomZ > 0) || normal.z > 0.3;
+      }
+    } else {
+      // For front wall: front exterior facade/porch is at outerZ (z ~ 0.00m, distToOuter <= 0.35m).
+      // Interior partition room wall is stepped inward (z ~ -1.34m, distToOuter > 0.35m).
+      isInterior = distToOuter > 0.35;
+    }
+    return `${side}${isInterior ? '_Dalam' : '_Luar'}`;
   }
 }
 
@@ -329,6 +351,22 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
   const usedNames = new Set<string>();
   root.traverse((o) => o.name && usedNames.add(o.name));
 
+  // Compute the combined bounding box of all room-scale candidate meshes
+  // so piece classification has a consistent reference for the outer building envelope.
+  const buildingBox = new THREE.Box3();
+  candidates.forEach((mesh) => {
+    const b = new THREE.Box3().setFromObject(mesh);
+    const s = b.getSize(new THREE.Vector3());
+    const isRoomWall = s.y >= 1.8 && (s.x >= MIN_ROOM_SCALE || s.z >= MIN_ROOM_SCALE);
+    const isRoomSlab = s.y <= 0.6 && s.x >= MIN_ROOM_SCALE && s.z >= MIN_ROOM_SCALE;
+    if (isRoomWall || isRoomSlab) {
+      buildingBox.union(b);
+    }
+  });
+  if (buildingBox.isEmpty()) {
+    root.traverse((c) => (c as any).isMesh && buildingBox.expandByObject(c));
+  }
+
   let splitCount = 0;
 
   candidates.forEach((mesh) => {
@@ -368,6 +406,7 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
     if (!parent) return;
 
     const baseName = mesh.name || 'Mesh';
+    const referenceBox = buildingBox.isEmpty() ? parentBox : buildingBox;
     pieces.forEach((piece) => {
       const newGeo = extractGeometry(geo, piece.triangles);
       // Clone material so each piece gets its own material instance immediately
@@ -376,7 +415,7 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
         : (mesh.material ? mesh.material.clone() : new THREE.MeshStandardMaterial());
       const part = new THREE.Mesh(newGeo, partMat);
 
-      const label = labelForPiece(piece.box, parentBox, piece.normal);
+      const label = labelForPiece(piece.box, referenceBox, piece.normal);
       let name = `${baseName}__${label}`;
       let n = 2;
       while (usedNames.has(name)) name = `${baseName}__${label}_${n++}`;

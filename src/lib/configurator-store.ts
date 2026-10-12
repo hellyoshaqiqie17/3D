@@ -247,9 +247,8 @@ export const useConfiguratorStore = create<ConfiguratorState>((set) => ({
 
   addDynamicZone: (zone) =>
     set((state) => {
-      const exists = state.dynamicZones.some((z) => z.id === zone.id);
-      if (exists) return state;
-      return { dynamicZones: [...state.dynamicZones, zone] };
+      const filtered = state.dynamicZones.filter((z) => z.id !== zone.id);
+      return { dynamicZones: [...filtered, zone] };
     }),
 
   clearDynamicZones: () => set({ dynamicZones: [] }),

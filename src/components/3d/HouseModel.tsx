@@ -89,10 +89,12 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
   const ceilingCutHeight = useConfiguratorStore((s) => s.ceilingCutHeight);
   const setSceneReady = useConfiguratorStore((s) => s.setSceneReady);
   const setSceneLoadingStage = useConfiguratorStore((s) => s.setSceneLoadingStage);
+  const clearDynamicZones = useConfiguratorStore((s) => s.clearDynamicZones);
 
   const frameCountRef = useRef(0);
 
   useEffect(() => {
+    clearDynamicZones();
     frameCountRef.current = 0;
     setSceneReady(false);
     setSceneLoadingStage('preparing');
@@ -100,7 +102,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
       setSceneReady(false);
       setSceneLoadingStage('idle');
     };
-  }, [resolvedModelUrl, setSceneReady, setSceneLoadingStage]);
+  }, [resolvedModelUrl, clearDynamicZones, setSceneReady, setSceneLoadingStage]);
 
   useFrame(() => {
     if (frameCountRef.current < 2) {
@@ -502,11 +504,13 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         }
       });
       if (matching.length > 0) {
-        const alreadyCovered =
-          dynamicZones.some((z) => z.id === surf.id || z.meshNames.some((m) => matching.includes(m))) ||
-          zones.some((z) => z.meshNames.some((m) => matching.includes(m)));
+        const existingDynamic = dynamicZones.find((z) => z.id === surf.id);
+        const shouldUpdate =
+          !existingDynamic ||
+          existingDynamic.meshNames.length !== matching.length ||
+          !existingDynamic.meshNames.every((m) => matching.includes(m));
 
-        if (!alreadyCovered) {
+        if (shouldUpdate) {
           addDynamicZone({
             id: surf.id,
             name: surf.name,
