@@ -251,7 +251,7 @@ function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vec
   const isInterior = (normal.x * toRoomX + normal.z * toRoomZ) > 0;
   const suffix = isInterior ? '_Dalam' : '_Luar';
 
-  if (size.x <= size.z || Math.abs(normal.x) >= Math.abs(normal.z)) {
+  if (Math.abs(normal.x) >= Math.abs(normal.z)) {
     const side = c.x <= pc.x ? 'Dinding_Kiri' : 'Dinding_Kanan';
     return `${side}${suffix}`;
   } else {

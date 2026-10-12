@@ -43,7 +43,57 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
   const resetConfiguration = useConfiguratorStore((s) => s.resetConfiguration);
 
   const [isMoreOpen, setMoreOpen] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const moreRef = useRef<HTMLDivElement>(null);
+
+  const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
+  const customColors = useConfiguratorStore((s) => s.customColors);
+  const zoneTextureSettings = useConfiguratorStore((s) => s.zoneTextureSettings);
+
+  const handleQuickSave = async () => {
+    setSaveStatus('saving');
+    const configData = {
+      materials: selectedMaterials,
+      customColors: customColors,
+      textureSettings: zoneTextureSettings,
+      savedAt: new Date().toISOString(),
+    };
+
+    // 1. Save locally
+    try {
+      localStorage.setItem(`homecraft_saved_config_${project.id}`, JSON.stringify(configData));
+      const existingList = JSON.parse(localStorage.getItem(`homecraft_saved_configs_${project.id}`) || '[]');
+      existingList.unshift({
+        projectId: project.id,
+        projectName: project.name,
+        createdAt: new Date().toISOString(),
+        configuration: selectedMaterials,
+        customColors: customColors,
+        textureSettings: zoneTextureSettings,
+      });
+      localStorage.setItem(`homecraft_saved_configs_${project.id}`, JSON.stringify(existingList));
+    } catch (err) {
+      console.warn('LocalStorage save warning:', err);
+    }
+
+    // 2. Persist to server / cloud database
+    try {
+      await fetch(`/api/projects/${project.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          savedConfiguration: configData,
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to persist configuration to server:', err);
+    }
+
+    setSaveStatus('saved');
+    setTimeout(() => {
+      setSaveStatus('idle');
+    }, 2500);
+  };
 
   // Close "Lainnya" menu on outside click / Escape
   useEffect(() => {
@@ -230,12 +280,31 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
 
         {/* Save */}
         <button
-          onClick={() => setSaveModalOpen(true)}
-          title="Simpan desain ini"
-          className="flex items-center gap-1.5 h-9 px-4 text-xs font-semibold whitespace-nowrap text-white bg-primary hover:bg-primary-hover rounded-lg transition-colors shadow-subtle"
+          onClick={handleQuickSave}
+          disabled={saveStatus === 'saving'}
+          title="Simpan konfigurasi desain material ini ke cloud & browser Anda"
+          className={`flex items-center gap-1.5 h-9 px-4 text-xs font-semibold whitespace-nowrap text-white rounded-lg transition-all shadow-subtle ${
+            saveStatus === 'saved'
+              ? 'bg-emerald-600 hover:bg-emerald-700'
+              : 'bg-primary hover:bg-primary-hover'
+          }`}
         >
-          <BookmarkCheck className="w-3.5 h-3.5" />
-          <span>Simpan</span>
+          {saveStatus === 'saving' ? (
+            <>
+              <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <span>Menyimpan...</span>
+            </>
+          ) : saveStatus === 'saved' ? (
+            <>
+              <Check className="w-3.5 h-3.5" />
+              <span>Tersimpan!</span>
+            </>
+          ) : (
+            <>
+              <BookmarkCheck className="w-3.5 h-3.5" />
+              <span>Simpan</span>
+            </>
+          )}
         </button>
       </div>
     </header>

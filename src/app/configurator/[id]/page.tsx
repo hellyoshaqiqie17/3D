@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { MaterialZone } from '@/types';
 import { useProjectStore } from '@/lib/project-store';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+import { useMaterialsStore } from '@/lib/materials-store';
 import { ConfiguratorCanvas } from '@/components/3d/ConfiguratorCanvas';
 import { ConfiguratorHeader } from '@/components/configurator/ConfiguratorHeader';
 import { ConfiguratorSidebar } from '@/components/configurator/ConfiguratorSidebar';
@@ -68,9 +69,12 @@ export default function ConfiguratorPage({ params }: PageProps) {
         setIsLoadingProject(false);
       })
       .catch(() => setIsLoadingProject(false));
+
+    // Ensure all custom textures and PBR materials are loaded into memory for registered users & guests alike
+    useMaterialsStore.getState().fetchCustomMaterials();
   }, [projectId]);
 
-  // Restore configuration from URL query parameter ?config=... if provided
+  // Restore configuration from URL query parameter ?config=..., cloud savedConfiguration, or localStorage
   useEffect(() => {
     if (!project) return;
 
@@ -83,12 +87,13 @@ export default function ConfiguratorPage({ params }: PageProps) {
 
     const isDemo = project.id === 'house-001';
 
+    // 1. Direct configuration param from URL query (?config=...)
     const configParam = searchParams.get('config');
     if (configParam) {
       try {
         const decoded = JSON.parse(atob(decodeURIComponent(configParam)));
         loadConfiguration(
-          decoded.m || decoded.configuration,
+          decoded.m || decoded.configuration || {},
           decoded.c || decoded.customColors || {},
           undefined,
           decoded.t || decoded.textureSettings || {}
@@ -99,7 +104,38 @@ export default function ConfiguratorPage({ params }: PageProps) {
       }
     }
 
-    // Default initialization (demo villa gets curated defaults; all user/custom models start 100% original)
+    // 2. Check savedConfiguration from project (persisted in cloud / projects.json)
+    if (
+      project.savedConfiguration &&
+      (project.savedConfiguration.materials || project.savedConfiguration.customColors)
+    ) {
+      loadConfiguration(
+        project.savedConfiguration.materials || {},
+        project.savedConfiguration.customColors || {},
+        undefined,
+        project.savedConfiguration.textureSettings || {}
+      );
+      return;
+    }
+
+    // 3. Fallback to localStorage saved configuration
+    try {
+      const localSaved = localStorage.getItem(`homecraft_saved_config_${project.id}`);
+      if (localSaved) {
+        const parsed = JSON.parse(localSaved);
+        if (parsed.materials || parsed.customColors || parsed.configuration) {
+          loadConfiguration(
+            parsed.materials || parsed.configuration || {},
+            parsed.customColors || {},
+            undefined,
+            parsed.textureSettings || {}
+          );
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // 4. Default initialization (demo villa gets curated defaults; all user/custom models start 100% original)
     resetConfiguration(project.zones, isDemo);
   }, [project, searchParams, loadConfiguration, resetConfiguration]);
 

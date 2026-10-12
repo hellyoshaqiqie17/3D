@@ -25,7 +25,9 @@ export interface ViewpointConfig {
  */
 export function calculateUniversalViewpoints(
   size: [number, number, number],
-  center: [number, number, number]
+  center: [number, number, number],
+  interiorCenter?: [number, number, number] | null,
+  interiorTarget?: [number, number, number] | null
 ): ViewpointConfig[] {
   const w = Math.max(size[0] || 4.7, 2.5);
   const h = Math.max(size[1] || 3.0, 2.2);
@@ -38,12 +40,16 @@ export function calculateUniversalViewpoints(
   // Comfortable human eye-level (standard architectural 1.40m - 1.50m)
   const eyeLevel = Math.min(cY + 1.45, h * 0.52);
 
+  const eyeX = interiorCenter ? interiorCenter[0] : cX;
+  const eyeY = interiorCenter ? interiorCenter[1] : eyeLevel;
+  const eyeZ = interiorCenter ? interiorCenter[2] : cZ;
+
   return [
     {
       id: 'hero',
       title: 'Tampak Isometrik 3D Utama',
       subtitle: 'Sudut pandang 3D diagonal arsitektural (Hero Perspective Mockup)',
-      hideRoof: false,
+      hideRoof: true, // Cutaway reveals interior layout, walls, ceramics and finishes
       fov: 50,
       pos: [cX + w * 0.95, h * 1.05 + Math.max(w, d) * 0.35, cZ + d * 0.95],
       target: [cX, h * 0.35, cZ],
@@ -62,36 +68,36 @@ export function calculateUniversalViewpoints(
       title: 'Bagian Dalam - Tampak Depan',
       subtitle: 'Sudut pandang interior mata manusia menghadap area depan ruangan',
       hideRoof: false,
-      fov: 76,
-      pos: [cX, eyeLevel, cZ - d * 0.30], // Placed inside rear seating area looking forward
-      target: [cX, eyeLevel - 0.02, cZ + d * 0.46], // Looking straight forward
+      fov: 78,
+      pos: [eyeX, eyeY, Math.min(eyeZ, cZ - d * 0.18)], // Placed inside rear seating area looking forward
+      target: [eyeX, eyeY - 0.02, cZ + d * 0.46], // Looking straight forward
     },
     {
       id: 'interior_back',
       title: 'Bagian Dalam - Tampak Belakang',
       subtitle: 'Sudut pandang interior mata manusia menghadap area belakang ruangan',
       hideRoof: false,
-      fov: 76,
-      pos: [cX, eyeLevel, cZ + d * 0.30], // Placed inside front area (clears perimeter window mullions)
-      target: [cX, eyeLevel - 0.02, cZ - d * 0.46], // Looking straight rear
+      fov: 78,
+      pos: [eyeX, eyeY, Math.max(eyeZ, cZ + d * 0.18)], // Placed inside front area
+      target: [eyeX, eyeY - 0.02, cZ - d * 0.46], // Looking straight rear
     },
     {
       id: 'interior_left',
       title: 'Bagian Dalam - Samping Kiri',
       subtitle: 'Sudut pandang interior mata manusia menghadap bidang dinding kiri',
       hideRoof: false,
-      fov: 78,
-      pos: [cX + w * 0.18, eyeLevel, cZ], // Open central walkway, safe clearance from right wall
-      target: [cX - w * 0.46, eyeLevel - 0.02, cZ], // Looking across to left wall & furnishings
+      fov: 80,
+      pos: [Math.min(eyeX, cX + w * 0.15), eyeY, eyeZ], // Safe clearance from left wall
+      target: [cX - w * 0.46, eyeY - 0.02, eyeZ], // Looking across to left wall
     },
     {
       id: 'interior_right',
       title: 'Bagian Dalam - Samping Kanan',
       subtitle: 'Sudut pandang interior mata manusia menghadap bidang dinding kanan',
       hideRoof: false,
-      fov: 78,
-      pos: [cX - w * 0.18, eyeLevel, cZ], // Open central walkway, prevents clipping into left wall & panels
-      target: [cX + w * 0.46, eyeLevel - 0.02, cZ], // Looking across to right wall (TV/entertainment)
+      fov: 80,
+      pos: [Math.max(eyeX - w * 0.30, cX - w * 0.18), eyeY, eyeZ], // Safe clearance from right wall & TV
+      target: [cX + w * 0.46, eyeY - 0.02, eyeZ], // Looking across to right wall
     },
   ];
 }
@@ -148,9 +154,11 @@ export async function captureArchitectureViews(
   center: [number, number, number],
   setRoofHidden: (val: boolean) => void,
   wasRoofHidden: boolean,
-  onProgress: (step: number, total: number, message: string) => void
+  onProgress: (step: number, total: number, message: string) => void,
+  interiorCenter?: [number, number, number] | null,
+  interiorTarget?: [number, number, number] | null
 ): Promise<CapturedView[]> {
-  const viewpoints = calculateUniversalViewpoints(size, center);
+  const viewpoints = calculateUniversalViewpoints(size, center, interiorCenter, interiorTarget);
   const total = viewpoints.length;
   const results: CapturedView[] = [];
 
@@ -186,11 +194,12 @@ export async function captureArchitectureViews(
       );
 
       // 3. Render frame and wait for WebGL flush
+      await new Promise((resolve) => setTimeout(resolve, 150));
       await new Promise((resolve) => requestAnimationFrame(resolve));
       if (typeof renderFrame === 'function') {
         renderFrame();
       }
-      await new Promise((resolve) => setTimeout(resolve, 120));
+      await new Promise((resolve) => setTimeout(resolve, 150));
       if (typeof renderFrame === 'function') {
         renderFrame();
       }

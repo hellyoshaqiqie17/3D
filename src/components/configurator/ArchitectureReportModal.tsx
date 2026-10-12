@@ -33,6 +33,8 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
   const setReportModalOpen = useConfiguratorStore((s) => s.setReportModalOpen);
   const houseSize = useConfiguratorStore((s) => s.houseSize);
   const houseCenter = useConfiguratorStore((s) => s.houseCenter);
+  const interiorCenter = useConfiguratorStore((s) => s.interiorCenter);
+  const interiorTarget = useConfiguratorStore((s) => s.interiorTarget);
   const setRoofHidden = useConfiguratorStore((s) => s.setRoofHidden);
   const isRoofHidden = useConfiguratorStore((s) => s.isRoofHidden);
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
@@ -68,7 +70,9 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
           setProgressStep(step);
           setTotalSteps(total);
           setStatusMessage(msg);
-        }
+        },
+        interiorCenter,
+        interiorTarget
       );
 
       setCapturedViews(views);

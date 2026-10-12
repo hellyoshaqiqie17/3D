@@ -62,9 +62,31 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
     }
   };
 
+  const [copiedDirect, setCopiedDirect] = useState(false);
+
+  const directUrl = typeof window !== 'undefined'
+    ? `${window.location.origin}/configurator/${project.id}`
+    : '';
+
+  const handleCopyDirect = () => {
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(directUrl);
+      setCopiedDirect(true);
+      setTimeout(() => setCopiedDirect(false), 2500);
+    }
+  };
+
   const handleSaveDesign = () => {
+    const configData = {
+      materials: selectedMaterials,
+      customColors: customColors,
+      textureSettings: zoneTextureSettings,
+      savedAt: new Date().toISOString(),
+    };
+
     // Save to localStorage
     try {
+      localStorage.setItem(`homecraft_saved_config_${project.id}`, JSON.stringify(configData));
       const existingKey = `homecraft_saved_configs_${project.id}`;
       const savedList = JSON.parse(localStorage.getItem(existingKey) || '[]');
       savedList.unshift(configPayload);
@@ -72,6 +94,13 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
     } catch (e) {
       console.error(e);
     }
+
+    // Persist to server / cloud database
+    fetch(`/api/projects/${project.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ savedConfiguration: configData }),
+    }).catch(console.error);
 
     // Trigger celebration confetti
     try {
@@ -174,13 +203,43 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
             </>
           ) : (
             <>
-              <p className="text-xs text-secondary leading-relaxed">
-                Anyone with this link can open this 3D house model with your customized wall colors, floor materials, and ceramic tiles applied in real time.
-              </p>
+              <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <p className="text-xs text-emerald-800 font-medium leading-relaxed">
+                  Tamu & Klien dapat langsung membuka tautan ini untuk mengeksplorasi tampilan 3D interaktif secara publik tanpa perlu login.
+                </p>
+              </div>
 
+              {/* Direct Public 3D Link */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-primary">
+                    Link 3D Publik Langsung (Akses Guest / Tamu)
+                  </label>
+                  <span className="text-[10px] font-medium text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                    Tanpa Login
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    readOnly
+                    value={directUrl}
+                    className="flex-1 px-3.5 py-2 text-xs font-mono text-secondary rounded-xl border border-border bg-surface-50 focus:outline-none select-all"
+                  />
+                  <button
+                    onClick={handleCopyDirect}
+                    className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-all shadow-subtle shrink-0"
+                  >
+                    {copiedDirect ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedDirect ? 'Tersalin!' : 'Salin'}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Configuration URL */}
               <div>
                 <label className="text-xs font-medium text-primary block mb-1.5">
-                  Shareable Configurator URL
+                  Link Konfigurasi Khusus (URL Snapshot)
                 </label>
                 <div className="flex items-center gap-2">
                   <input
@@ -194,7 +253,7 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
                     className="flex items-center gap-1.5 px-4 py-2 text-xs font-medium text-white bg-primary hover:bg-primary-hover rounded-xl transition-all shadow-subtle shrink-0"
                   >
                     {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied!' : 'Copy'}</span>
+                    <span>{copied ? 'Tersalin!' : 'Salin'}</span>
                   </button>
                 </div>
               </div>

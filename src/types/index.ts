@@ -92,6 +92,12 @@ export interface Project {
   viewsCount?: number;
   savedConfigsCount?: number;
   modelType?: 'architecture' | 'furniture';
+  savedConfiguration?: {
+    materials: Record<string, string>;
+    customColors: Record<string, string>;
+    textureSettings?: Record<string, ZoneTextureSettings>;
+    savedAt?: string;
+  };
 }
 
 export interface ProjectConfiguration {
