@@ -50,7 +50,9 @@ export const FURNITURE_KEYWORDS = [
   'laptop', 'computer', 'pencil', 'pen', 'stationery', 'phone', 'telephone',
   'person', 'human', 'man', 'woman', 'people', 'orang', 'laura', 'standing',
   'dog', 'cat', 'pet', 'animal',
-  'car', 'mobil', 'bike', 'motor', 'vehicle', 'bicycle', 'sepeda'
+  'car', 'mobil', 'bike', 'motor', 'vehicle', 'bicycle', 'sepeda',
+  // Generic 3D Warehouse furniture tokens & labels
+  'furniture', 'perabot', 'furnitur', 'mebel', 'meubel', 'indones', 'cestas', 'bolas', 'deco', 'decor'
 ];
 
 /**
@@ -118,8 +120,8 @@ export function calculateRoomBounds(scene: THREE.Object3D): RoomStructuralBounds
  * - Room Ceiling/Roof (Plafon/Atap)
  * - Room Perimeter & Partition Walls (Dinding)
  *
- * Everything else inside the room (kitchen counters, island, cabinetry,
- * sinks, appliances, tables, chairs, shelves, tableware, props) is classified
+ * Everything else inside the room (sofa, meja, kursi, TV, karpet, cabinets,
+ * island, kulkas, sink, appliances, shelves, tableware, props) is classified
  * as furniture/fixtures and will be HIDDEN in Bare Room Mode.
  */
 export function isStructuralShellMesh(
@@ -127,23 +129,40 @@ export function isStructuralShellMesh(
   bounds: RoomStructuralBounds,
   roofElevationY?: number
 ): boolean {
-  // 1. Explicit furniture / appliance / kitchen fixture keyword: ALWAYS HIDE
-  // Match whole name tokens across self, all parent ancestors up to scene root, and userData
+  // 1. Explicit structural split tag from mesh-splitter: ALWAYS KEEP
+  const name = (mesh.name || '').toLowerCase();
+  const splitFrom = ((mesh.userData as any)?.splitFrom || '').toLowerCase();
+  const originalName = ((mesh.userData as any)?.originalName || '').toLowerCase();
+
+  const isExplicitSplit =
+    name.includes('__dinding') ||
+    name.includes('__lantai') ||
+    name.includes('__plafon') ||
+    name.includes('__atap') ||
+    splitFrom.includes('__dinding') ||
+    splitFrom.includes('__lantai') ||
+    splitFrom.includes('__plafon') ||
+    splitFrom.includes('__atap');
+
+  if (isExplicitSplit) {
+    return true;
+  }
+
+  // 2. Collect all hierarchy names (self + all ancestors up to scene root)
   const namesList: string[] = [
-    mesh.name || '',
-    (mesh.userData as any)?.name || '',
-    (mesh.userData as any)?.splitFrom || '',
-    (mesh.userData as any)?.originalName || '',
+    name,
+    splitFrom,
+    originalName,
+    ((mesh.userData as any)?.name || '').toLowerCase(),
   ];
 
   let curr: THREE.Object3D | null = mesh.parent;
   while (curr) {
-    if (curr.name) namesList.push(curr.name);
+    if (curr.name) namesList.push(curr.name.toLowerCase());
     curr = curr.parent;
   }
 
   const allNames = namesList.join(' ');
-
   const tokens = new Set(
     allNames
       .replace(/([a-z])([A-Z])/g, '$1 $2')
@@ -152,6 +171,7 @@ export function isStructuralShellMesh(
       .filter(Boolean)
   );
 
+  // 3. Furniture keywords check: if ANY furniture keyword matches anywhere in hierarchy -> ALWAYS HIDE
   for (const keyword of FURNITURE_KEYWORDS) {
     const parts = keyword.split('_');
     const matched = parts.length > 1
@@ -162,12 +182,39 @@ export function isStructuralShellMesh(
     }
   }
 
-  // Explicit structural split tag from mesh-splitter
-  const name = (mesh.name || '').toLowerCase();
-  if (name.includes('__dinding') || name.includes('__lantai') || name.includes('__plafon')) {
+  // 4. Check for explicit architectural enclosure keywords in mesh name (NOT furniture)
+  const isExplicitStructural =
+    name.includes('wall') || name.includes('dinding') ||
+    name.includes('floor') || name.includes('lantai') ||
+    name.includes('ceiling') || name.includes('plafon') ||
+    name.includes('roof') || name.includes('atap') ||
+    name.includes('dak') || name.includes('facade') ||
+    name.includes('root_model') || name.includes('ibuilding') ||
+    name.includes('house') || name.includes('building');
+
+  if (isExplicitStructural) {
     return true;
   }
 
+  // 5. In SketchUp, 3D Warehouse furniture models are grouped as generic Components / Groups:
+  // e.g. "Component_1409711" (sofa), "Component_1442317" (meja), "Component_1410723" (kabinet),
+  // "Group#586", "建立群組", "INDONES", etc.
+  // In Bare Room Mode, ALL such loose interior components are FURNITURE -> ALWAYS HIDE!
+  const isSubComponentOfGenericObject = namesList.some((n) =>
+    n.startsWith('component_') ||
+    n.startsWith('component#') ||
+    n.startsWith('group#') ||
+    n.startsWith('groupe#') ||
+    n.startsWith('group') ||
+    n.includes('群組') ||
+    n.includes('indones')
+  );
+
+  if (isSubComponentOfGenericObject) {
+    return false;
+  }
+
+  // 6. Size check fallback: only large room-scale slabs spanning majority of room footprint are structural
   const box = new THREE.Box3().setFromObject(mesh);
   const size = box.getSize(new THREE.Vector3());
 
@@ -176,8 +223,7 @@ export function isStructuralShellMesh(
     return false;
   }
 
-  // 2. Room Floor Slab (Lantai):
-  // Sits flat at ground level and covers majority of room footprint
+  // Room Floor Slab (Lantai): Sits flat at ground level covering majority of room footprint
   const isRoomFloor =
     box.min.y <= bounds.groundY + 0.25 &&
     size.y <= 0.45 &&
@@ -186,8 +232,7 @@ export function isStructuralShellMesh(
 
   if (isRoomFloor) return true;
 
-  // 3. Room Ceiling / Plafon Slab:
-  // Sits flat near top ceiling elevation and covers majority of room footprint
+  // Room Ceiling / Plafon Slab: Sits flat near ceiling elevation covering majority of room footprint
   const isRoomCeiling =
     box.max.y >= bounds.ceilingY - 0.35 &&
     size.y <= 0.60 &&
@@ -196,20 +241,6 @@ export function isStructuralShellMesh(
 
   if (isRoomCeiling) return true;
 
-  // 4. Room Wall (Dinding):
-  // Full-height or room-scale structural wall slab:
-  // - Height >= 60% of room height (or >= 1.8m)
-  // - Length >= minWallSpan (at least 1.20m, or >= 30% of room dimension)
-  //   (curtain panels, valances, fabric folds are < 1.0m wide)
-  // - Thickness <= 0.40m
-  const minWallSpan = Math.min(1.20, Math.min(bounds.roomWidth, bounds.roomDepth) * 0.30);
-  const isRoomWall =
-    (size.y >= bounds.roomHeight * 0.60 || size.y >= 1.8) &&
-    (size.x >= minWallSpan || size.z >= minWallSpan) &&
-    Math.min(size.x, size.z) <= 0.40;
-
-  if (isRoomWall) return true;
-
-  // Everything else inside the room (island, counter, cabinets, kulkas, sink, etc.) -> HIDE
+  // By default in Bare Room Mode: everything else inside the room is furniture/decor -> HIDE
   return false;
 }

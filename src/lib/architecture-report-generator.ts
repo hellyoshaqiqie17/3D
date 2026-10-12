@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import * as THREE from 'three';
 import { Project, MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+import { isStructuralShellMesh } from '@/lib/furniture-filter';
 
 export interface CapturedView {
   id: string;
@@ -180,6 +181,7 @@ export async function captureArchitectureViews(
   // 1. Explicitly suppress selectors, bounding boxes, and hover outlines during export
   const prevSelectionHighlight = useConfiguratorStore.getState().isSelectionHighlightVisible;
   const disableShadows = useConfiguratorStore.getState().disableShadows;
+  const isFurnitureHidden = useConfiguratorStore.getState().isFurnitureHidden;
   useConfiguratorStore.getState().setSelectionHighlightVisible(false);
   useConfiguratorStore.getState().setHoveredMesh(null);
   useConfiguratorStore.getState().setIsCapturingViews(true);
@@ -191,6 +193,18 @@ export async function captureArchitectureViews(
   if (disableShadows && threeGl?.shadowMap) {
     threeGl.shadowMap.enabled = false;
   }
+
+  const roomBounds = {
+    minX: (center[0] || 0) - (size[0] || 5) / 2,
+    maxX: (center[0] || 0) + (size[0] || 5) / 2,
+    minZ: (center[2] || 0) - (size[2] || 5) / 2,
+    maxZ: (center[2] || 0) + (size[2] || 5) / 2,
+    groundY: 0,
+    ceilingY: size[1] || 3.2,
+    roomHeight: size[1] || 3.2,
+    roomWidth: size[0] || 4.7,
+    roomDepth: size[2] || 7.9,
+  };
 
   const scene = (window as any).__THREE_SCENE__;
   const hiddenSceneObjects: { obj: any; wasVisible: boolean }[] = [];
@@ -209,6 +223,13 @@ export async function captureArchitectureViews(
       ) {
         hiddenSceneObjects.push({ obj: child, wasVisible: child.visible });
         child.visible = false;
+      }
+      if (isFurnitureHidden && (child.isMesh || child instanceof THREE.Mesh)) {
+        const isStructural = isStructuralShellMesh(child, roomBounds, size[1]);
+        if (!isStructural) {
+          hiddenSceneObjects.push({ obj: child, wasVisible: child.visible });
+          child.visible = false;
+        }
       }
       if (disableShadows && child.isLight && child.castShadow) {
         modifiedLights.push({ light: child, wasCastShadow: child.castShadow });
@@ -263,6 +284,12 @@ export async function captureArchitectureViews(
           }
           if (disableShadows && child.isLight && child.castShadow) {
             child.castShadow = false;
+          }
+          if (isFurnitureHidden && (child.isMesh || child instanceof THREE.Mesh)) {
+            const isStructural = isStructuralShellMesh(child, roomBounds, size[1]);
+            if (!isStructural) {
+              child.visible = false;
+            }
           }
         });
       }
@@ -518,7 +545,11 @@ export function buildArchitectureReportPdf(
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);
   doc.setTextColor(113, 113, 122);
-  doc.text('Catatan: Atap dan penutup plafon disembunyikan otomatis untuk menampilkan tata letak interior & furnitur.', 14, pageHeight - 16);
+  const isBareRoom = useConfiguratorStore.getState().isFurnitureHidden;
+  const planNote = isBareRoom
+    ? 'Catatan: Mode Ruang Kosong (Bare Room) aktif — seluruh perabot disembunyikan untuk menampilkan denah tata letak struktural & partisi.'
+    : 'Catatan: Atap dan penutup plafon disembunyikan otomatis untuk menampilkan tata letak interior & furnitur.';
+  doc.text(planNote, 14, pageHeight - 16);
 
   renderFooter('Halaman 1 dari 2');
 
