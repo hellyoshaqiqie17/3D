@@ -21,6 +21,7 @@ import {
   Maximize2,
   Loader2,
   RefreshCw,
+  SunMedium,
 } from 'lucide-react';
 
 interface ArchitectureReportModalProps {
@@ -42,6 +43,8 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
   const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
   const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
   const setHoveredMesh = useConfiguratorStore((s) => s.setHoveredMesh);
+  const disableShadows = useConfiguratorStore((s) => s.disableShadows);
+  const toggleDisableShadows = useConfiguratorStore((s) => s.toggleDisableShadows);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
@@ -192,6 +195,54 @@ export function ArchitectureReportModal({ project, zones }: ArchitectureReportMo
               <span className="text-[10px] uppercase font-bold tracking-wider text-secondary block">Komponen Material</span>
               <span className="text-xs font-semibold text-primary">{zones.length} Zona Terdeteksi</span>
             </div>
+          </div>
+
+          {/* Enable Button: Nonaktifkan Efek Bayangan (Shadowless Mode) */}
+          <div className="flex items-center justify-between p-4 bg-surface-50 border border-border rounded-xl">
+            <div className="flex items-center gap-3">
+              <div
+                className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors ${
+                  disableShadows ? 'bg-amber-100 text-amber-700' : 'bg-surface-200 text-secondary'
+                }`}
+              >
+                <SunMedium className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-primary">
+                    Nonaktifkan Efek Bayangan (Shadowless)
+                  </span>
+                  <span
+                    className={`px-2 py-0.5 text-[9px] font-bold uppercase rounded-full border ${
+                      disableShadows
+                        ? 'bg-amber-50 text-amber-700 border-amber-200'
+                        : 'bg-surface-200 text-secondary border-border'
+                    }`}
+                  >
+                    {disableShadows ? 'Enable (Bayangan Nonaktif)' : 'Disable (Bayangan Aktif)'}
+                  </span>
+                </div>
+                <p className="text-[11px] text-secondary mt-0.5 leading-snug">
+                  Ketika di-enable, efek bayangan dinonaktifkan sehingga semua keramik lantai, dinding, dan sudut ruangan terlihat terang dan jelas merata.
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              role="switch"
+              aria-checked={disableShadows}
+              onClick={toggleDisableShadows}
+              className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 ${
+                disableShadows ? 'bg-amber-600' : 'bg-surface-300'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  disableShadows ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
           </div>
 
           {/* Explanation of the 5 Architectural Mockup Angles */}

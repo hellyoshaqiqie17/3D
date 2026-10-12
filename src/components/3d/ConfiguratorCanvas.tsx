@@ -82,6 +82,7 @@ export function ConfiguratorCanvas({
   const isOriginalMode = useConfiguratorStore((s) => s.isOriginalMode);
   const toggleOriginalMode = useConfiguratorStore((s) => s.toggleOriginalMode);
   const setSelectionHighlightVisible = useConfiguratorStore((s) => s.setSelectionHighlightVisible);
+  const disableShadows = useConfiguratorStore((s) => s.disableShadows);
 
   return (
     <div className={`relative ${className} overflow-hidden select-none bg-[#F7F7F5]`}>
@@ -109,7 +110,7 @@ export function ConfiguratorCanvas({
       <CanvasErrorBoundary>
         <Canvas
           id="configurator-3d-canvas"
-          shadows
+          shadows={!disableShadows}
           dpr={[1, 2]}
           camera={{ position: [12, 8, 14], fov: 50, near: 0.03, far: 2000 }}
           onPointerMissed={() => {

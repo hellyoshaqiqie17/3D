@@ -111,6 +111,8 @@ export function CameraPresetBar() {
   const enterRoom = useConfiguratorStore((s) => s.enterRoom);
   const modelType = useConfiguratorStore((s) => s.modelType);
   const isFurniture = modelType === 'furniture';
+  const disableShadows = useConfiguratorStore((s) => s.disableShadows);
+  const toggleDisableShadows = useConfiguratorStore((s) => s.toggleDisableShadows);
 
   const [isPanelOpen, setPanelOpen] = useState(true);
   const [isHelpOpen, setHelpOpen] = useState(false);
@@ -307,6 +309,16 @@ export function CameraPresetBar() {
                   />
                 </>
               )}
+              <SwitchRow
+                label="Nonaktifkan Efek Bayangan"
+                description={
+                  disableShadows
+                    ? 'Bayangan dinonaktifkan – seluruh ruangan & material terlihat terang merata'
+                    : 'Matikan efek bayangan agar material & sudut terlihat jelas'
+                }
+                checked={disableShadows}
+                onChange={toggleDisableShadows}
+              />
               <SwitchRow
                 label="Putar otomatis 360°"
                 description="Kamera berputar perlahan (presentasi)"

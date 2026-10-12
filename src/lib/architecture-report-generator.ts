@@ -169,6 +169,7 @@ export async function captureArchitectureViews(
 
   // 1. Explicitly suppress selectors, bounding boxes, and hover outlines during export
   const prevSelectionHighlight = useConfiguratorStore.getState().isSelectionHighlightVisible;
+  const disableShadows = useConfiguratorStore.getState().disableShadows;
   useConfiguratorStore.getState().setSelectionHighlightVisible(false);
   useConfiguratorStore.getState().setHoveredMesh(null);
   useConfiguratorStore.getState().setIsCapturingViews(true);
@@ -176,8 +177,8 @@ export async function captureArchitectureViews(
     (window as any).__CAD_CAPTURING_VIEWS__ = true;
   }
 
-  // 2. Disable WebGL shadow map during export so zero shadows obscure textures & walls
-  if (threeGl?.shadowMap) {
+  // 2. Disable WebGL shadow map during export if shadowless mode is enabled
+  if (disableShadows && threeGl?.shadowMap) {
     threeGl.shadowMap.enabled = false;
   }
 
@@ -196,7 +197,7 @@ export async function captureArchitectureViews(
         hiddenSceneObjects.push({ obj: child, wasVisible: child.visible });
         child.visible = false;
       }
-      if (child.isLight && child.castShadow) {
+      if (disableShadows && child.isLight && child.castShadow) {
         modifiedLights.push({ light: child, wasCastShadow: child.castShadow });
         child.castShadow = false;
       }
@@ -223,8 +224,8 @@ export async function captureArchitectureViews(
         })
       );
 
-      // Double-check helpers and cast shadows are suppressed
-      if (threeGl?.shadowMap) {
+      // Double-check helpers and cast shadows are suppressed if shadowless mode is enabled
+      if (disableShadows && threeGl?.shadowMap) {
         threeGl.shadowMap.enabled = false;
       }
       if (scene && typeof scene.traverse === 'function') {
@@ -232,7 +233,7 @@ export async function captureArchitectureViews(
           if (child.isBox3Helper || child.type === 'Box3Helper') {
             child.visible = false;
           }
-          if (child.isLight && child.castShadow) {
+          if (disableShadows && child.isLight && child.castShadow) {
             child.castShadow = false;
           }
         });
