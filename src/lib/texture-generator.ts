@@ -9,7 +9,7 @@ const thumbnailCache = new Map<string, string>();
  * Procedural canvas-based PBR textures for architectural materials.
  * Generates both diffuse maps and thumbnail data URLs.
  */
-export function generateProceduralCanvas(type: TextureGeneratorType, size = 512): HTMLCanvasElement {
+export function generateProceduralCanvas(type: TextureGeneratorType, size = 1024): HTMLCanvasElement {
   if (typeof document === 'undefined') {
     return {} as HTMLCanvasElement;
   }
@@ -408,12 +408,16 @@ export function getProceduralTexture(type: TextureGeneratorType, repeat: [number
     return textureCache.get(key)!;
   }
 
-  const canvas = generateProceduralCanvas(type, 512);
+  const canvas = generateProceduralCanvas(type, 1024);
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
   texture.wrapT = THREE.RepeatWrapping;
   texture.repeat.set(repeat[0], repeat[1]);
   texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 16;
+  texture.generateMipmaps = true;
+  texture.minFilter = THREE.LinearMipmapLinearFilter;
+  texture.magFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
 
   textureCache.set(key, texture);

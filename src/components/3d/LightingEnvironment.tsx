@@ -12,16 +12,16 @@ export function LightingEnvironment() {
 
   return (
     <>
-      {/* Gentle architectural ambient light (amplified to bright, shadow-free illumination when shadows are disabled) */}
+      {/* Gentle architectural ambient light (calibrated for crisp, shadow-free illumination without clipping whites) */}
       <ambientLight
-        intensity={isShadowOff ? 1.35 : 0.65}
+        intensity={isShadowOff ? 0.85 : 0.65}
         color={isShadowOff ? '#FFFFFF' : '#FBFBFA'}
       />
 
       {/* Primary architectural sun/directional light (castShadow strictly disabled when shadows are disabled) */}
       <directionalLight
         position={[14, 22, 16]}
-        intensity={isShadowOff ? 0.95 : 1.8}
+        intensity={isShadowOff ? 0.85 : 1.8}
         color="#FFF9F0"
         castShadow={!isShadowOff}
         shadow-mapSize-width={2048}
@@ -39,14 +39,14 @@ export function LightingEnvironment() {
       {/* Sky fill light from opposite angle to soften recesses */}
       <directionalLight
         position={[-12, 16, -10]}
-        intensity={isShadowOff ? 0.85 : 0.6}
+        intensity={isShadowOff ? 0.50 : 0.6}
         color="#E2EEF8"
       />
 
       {/* Ground bounce fill light */}
       <directionalLight
         position={[0, -10, 0]}
-        intensity={isShadowOff ? 0.45 : 0.2}
+        intensity={isShadowOff ? 0.25 : 0.2}
         color="#EADDC8"
       />
 
@@ -54,7 +54,7 @@ export function LightingEnvironment() {
       {isShadowOff && (
         <directionalLight
           position={[0, 20, 0]}
-          intensity={0.65}
+          intensity={0.35}
           color="#FFFFFF"
         />
       )}

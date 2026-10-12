@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import * as THREE from 'three';
 import { Project, MaterialZone, MaterialOption } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
 
@@ -166,6 +167,15 @@ export async function captureArchitectureViews(
   const initialCamPos = threeCam?.position ? [threeCam.position.x, threeCam.position.y, threeCam.position.z] : null;
   const initialTarget = threeControls?.target ? [threeControls.target.x, threeControls.target.y, threeControls.target.z] : null;
   const initialFov = threeCam?.fov || 50;
+  const initialAspect = threeCam?.aspect;
+
+  // Save original canvas buffer dimensions and pixel ratio
+  const origSize = new THREE.Vector2();
+  let origPixelRatio = 1;
+  if (threeGl) {
+    threeGl.getSize(origSize);
+    origPixelRatio = threeGl.getPixelRatio();
+  }
 
   // 1. Explicitly suppress selectors, bounding boxes, and hover outlines during export
   const prevSelectionHighlight = useConfiguratorStore.getState().isSelectionHighlightVisible;
@@ -185,6 +195,9 @@ export async function captureArchitectureViews(
   const scene = (window as any).__THREE_SCENE__;
   const hiddenSceneObjects: { obj: any; wasVisible: boolean }[] = [];
   const modifiedLights: { light: any; wasCastShadow: boolean }[] = [];
+  const modifiedTextures: { texture: any; originalAnisotropy: number }[] = [];
+
+  const maxAnisotropy = threeGl?.capabilities?.getMaxAnisotropy?.() || 16;
 
   if (scene && typeof scene.traverse === 'function') {
     scene.traverse((child: any) => {
@@ -201,13 +214,28 @@ export async function captureArchitectureViews(
         modifiedLights.push({ light: child, wasCastShadow: child.castShadow });
         child.castShadow = false;
       }
+      if (child.isMesh && child.material) {
+        const mats = Array.isArray(child.material) ? child.material : [child.material];
+        mats.forEach((mat: any) => {
+          if (!mat) return;
+          const texProps = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'bumpMap'];
+          texProps.forEach((prop) => {
+            const tex = mat[prop];
+            if (tex && tex.isTexture && tex.anisotropy !== undefined) {
+              modifiedTextures.push({ texture: tex, originalAnisotropy: tex.anisotropy });
+              tex.anisotropy = maxAnisotropy;
+              tex.needsUpdate = true;
+            }
+          });
+        });
+      }
     });
   }
 
   try {
     for (let i = 0; i < viewpoints.length; i++) {
       const vp = viewpoints[i];
-      onProgress(i + 1, total, `Mengambil ${vp.title}...`);
+      onProgress(i + 1, total, `Mengambil ${vp.title} (Ultra-HD)...`);
 
       // 1. Set roof visibility
       setRoofHidden(vp.hideRoof);
@@ -239,19 +267,36 @@ export async function captureArchitectureViews(
         });
       }
 
-      // 3. Render frame and wait for WebGL flush
+      // 3. Set Ultra-HD native rendering resolution matching exact PDF frame ratio
+      // Top Plan view frame in PDF: 241mm x 142mm (ratio 241/142 = 1.697) -> 2560 x 1508
+      // Interior views frame in PDF: 129mm x 70mm (ratio 129/70 = 1.843) -> 2560 x 1389
+      const targetW = 2560;
+      const targetH = vp.id === 'top' ? 1508 : 1389;
+
+      if (threeGl && threeCam) {
+        threeGl.setPixelRatio(1);
+        threeGl.setSize(targetW, targetH, false); // false preserves CSS DOM size so UI doesn't jump
+        threeCam.aspect = targetW / targetH;
+        threeCam.updateProjectionMatrix();
+      }
+
+      // 4. Render frame and wait for WebGL flush
       await new Promise((resolve) => setTimeout(resolve, 150));
       await new Promise((resolve) => requestAnimationFrame(resolve));
       if (typeof renderFrame === 'function') {
         renderFrame();
+      } else if (scene && threeCam && threeGl) {
+        threeGl.render(scene, threeCam);
       }
-      await new Promise((resolve) => setTimeout(resolve, 150));
+      await new Promise((resolve) => setTimeout(resolve, 120));
       if (typeof renderFrame === 'function') {
         renderFrame();
+      } else if (scene && threeCam && threeGl) {
+        threeGl.render(scene, threeCam);
       }
 
-      // 4. Capture high-res snapshot
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.95);
+      // 5. Capture Ultra-HD high-fidelity snapshot
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.98);
       results.push({
         id: vp.id,
         title: vp.title,
@@ -282,6 +327,23 @@ export async function captureArchitectureViews(
       } catch {}
     });
 
+    modifiedTextures.forEach(({ texture, originalAnisotropy }) => {
+      try {
+        texture.anisotropy = originalAnisotropy;
+        texture.needsUpdate = true;
+      } catch {}
+    });
+
+    // Restore original WebGL dimensions and camera aspect
+    if (threeGl && origSize.x > 0 && origSize.y > 0) {
+      threeGl.setPixelRatio(origPixelRatio);
+      threeGl.setSize(origSize.x, origSize.y, false);
+    }
+    if (threeCam) {
+      threeCam.aspect = initialAspect || (origSize.x / origSize.y);
+      threeCam.updateProjectionMatrix();
+    }
+
     // Restore user's original camera, target, fov, and roof visibility
     setRoofHidden(wasRoofHidden);
     if (initialCamPos && initialTarget) {
@@ -295,9 +357,12 @@ export async function captureArchitectureViews(
           },
         })
       );
-      if (typeof renderFrame === 'function') {
-        renderFrame();
-      }
+    }
+
+    if (typeof renderFrame === 'function') {
+      renderFrame();
+    } else if (scene && threeCam && threeGl) {
+      threeGl.render(scene, threeCam);
     }
   }
 
