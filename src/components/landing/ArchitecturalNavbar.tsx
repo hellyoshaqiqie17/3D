@@ -112,7 +112,7 @@ export function ArchitecturalNavbar() {
           isScrolled ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 -translate-y-4'
         }`}
       >
-        <div className="bg-[#171717]/90 text-white backdrop-blur-xl px-5 py-2 rounded-full border border-white/15 shadow-2xl flex items-center gap-6 text-xs font-medium">
+        <div className="bg-[#171717]/90 text-white backdrop-blur-xl pl-5 sm:pl-6 pr-6 sm:pr-8 py-2 rounded-full border border-white/15 shadow-2xl flex items-center gap-6 text-xs font-medium">
           <Link href="/" className="flex items-center gap-2 font-bold tracking-wider text-xs uppercase text-white hover:text-amber-200 transition-colors whitespace-nowrap shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
