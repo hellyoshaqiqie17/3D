@@ -585,9 +585,11 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         const minY = box.min.y;
         const centerY = (box.min.y + box.max.y) / 2;
 
-        // Wall top caps / lintels (__Bibir_Dinding) close the hollow thickness of walls
-        // and must NEVER be hidden when the roof/ceiling is opened (isRoofHidden)
-        const isWallCap = name.includes('__Bibir_Dinding');
+        // Wall top caps / lintels (__Bibir_Dinding) and vertical wall strips (__Dinding_)
+        // close the hollow thickness of walls and must NEVER be hidden when the roof/ceiling is opened
+        const isWallCap =
+          name.includes('__Bibir_Dinding') ||
+          (name.includes('__Dinding_') && minY <= roofElevationY + 0.15);
 
         // Check if explicit roof component
         const isExplicitRoof =
@@ -618,7 +620,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
             name.startsWith('Component_196') ||
             name.startsWith('Component_197'));
 
-        // Roof: explicit roof keywords OR meshes located at/above the detected roof elevation (excluding wall top caps)
+        // Roof: explicit roof keywords OR meshes located at/above the detected roof elevation (excluding wall top caps & wall strips)
         const isRoof =
           !isWallCap &&
           (isExplicitRoof || minY >= roofElevationY - 0.1 || centerY >= roofElevationY) &&
@@ -658,26 +660,32 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     combinedZones,
   ]);
 
-  // Dynamic Architectural Section Cut / Ceiling Slice Effect (Dollhouse view)
+  // Dynamic Architectural Section Cut / Ceiling Slice Effect (only when explicit Ceiling Cut is enabled)
   useEffect(() => {
     if (!sceneClone) return;
 
-    const shouldCut = isRoofHidden || isCeilingCut;
+    const shouldCut = isCeilingCut;
     const cutY = Math.min(roofElevationY > 0 ? roofElevationY - 0.15 : 2.70, ceilingCutHeight || 2.70);
     const clipPlanes = shouldCut ? [new THREE.Plane(new THREE.Vector3(0, -1, 0), cutY)] : [];
 
     sceneClone.traverse((child) => {
       if (child instanceof THREE.Mesh && child.material) {
+        const isPrimaryWallCap = child.name.includes('_1__Bibir_Dinding');
         const mats = Array.isArray(child.material) ? child.material : [child.material];
         mats.forEach((m) => {
           m.clippingPlanes = clipPlanes;
           m.clipShadows = true;
           m.side = THREE.DoubleSide; // Render both interior and exterior faces
+          if (isPrimaryWallCap) {
+            m.polygonOffset = true;
+            m.polygonOffsetFactor = -1;
+            m.polygonOffsetUnits = -1;
+          }
           m.needsUpdate = true;
         });
       }
     });
-  }, [sceneClone, isRoofHidden, isCeilingCut, ceilingCutHeight, roofElevationY]);
+  }, [sceneClone, isRoofHidden, isCeilingCut, ceilingCutHeight, roofElevationY, selectedMaterials, customColors, zoneTextureSettings, isOriginalMode]);
 
   // Mesh to zone lookup map
   const meshToZoneMap = useMemo(() => {
@@ -1013,7 +1021,7 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
 
   // Filters intersections for the first truly visible surface, passing through section cuts into the room
   const getValidHit = (e: ThreeEvent<any>): { mesh: THREE.Mesh; point: THREE.Vector3 } | null => {
-    const shouldCut = isRoofHidden || isCeilingCut;
+    const shouldCut = isCeilingCut;
     const cutY = Math.min(roofElevationY > 0 ? roofElevationY - 0.15 : 2.70, ceilingCutHeight || 2.70);
 
     if (e.intersections && e.intersections.length > 0) {
