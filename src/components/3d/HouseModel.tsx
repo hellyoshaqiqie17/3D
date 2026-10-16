@@ -585,36 +585,42 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
         const minY = box.min.y;
         const centerY = (box.min.y + box.max.y) / 2;
 
+        // Wall top caps / lintels (__Bibir_Dinding) close the hollow thickness of walls
+        // and must NEVER be hidden when the roof/ceiling is opened (isRoofHidden)
+        const isWallCap = name.includes('__Bibir_Dinding');
+
         // Check if explicit roof component
         const isExplicitRoof =
-          roofMeshSet.has(name) ||
-          lower.includes('roof') ||
-          lower.includes('atap') ||
-          lower.includes('genteng') ||
-          lower.includes('dak') ||
-          lower.includes('kanopi') ||
-          lower.includes('canopy') ||
-          lower.includes('plafon') ||
-          lower.includes('ceiling') ||
-          lower.includes('pergola') ||
-          name.startsWith('Group#137') ||
-          name.startsWith('Group#138') ||
-          name.startsWith('Group#139') ||
-          name.startsWith('Group#140') ||
-          name.startsWith('Group#141') ||
-          name === 'Component_205840' ||
-          name === 'Component_205790' ||
-          name === 'Component_205546' ||
-          name === 'Component_205695' ||
-          name === 'Component_205519' ||
-          name === 'Component_201197' ||
-          name === 'Component_196963' ||
-          name === 'Component_192413' ||
-          name.startsWith('Component_196') ||
-          name.startsWith('Component_197');
+          !isWallCap &&
+          (roofMeshSet.has(name) ||
+            lower.includes('roof') ||
+            lower.includes('atap') ||
+            lower.includes('genteng') ||
+            lower.includes('dak') ||
+            lower.includes('kanopi') ||
+            lower.includes('canopy') ||
+            lower.includes('plafon') ||
+            lower.includes('ceiling') ||
+            lower.includes('pergola') ||
+            name.startsWith('Group#137') ||
+            name.startsWith('Group#138') ||
+            name.startsWith('Group#139') ||
+            name.startsWith('Group#140') ||
+            name.startsWith('Group#141') ||
+            name === 'Component_205840' ||
+            name === 'Component_205790' ||
+            name === 'Component_205546' ||
+            name === 'Component_205695' ||
+            name === 'Component_205519' ||
+            name === 'Component_201197' ||
+            name === 'Component_196963' ||
+            name === 'Component_192413' ||
+            name.startsWith('Component_196') ||
+            name.startsWith('Component_197'));
 
-        // Roof: explicit roof keywords OR meshes located at/above the detected roof elevation
+        // Roof: explicit roof keywords OR meshes located at/above the detected roof elevation (excluding wall top caps)
         const isRoof =
+          !isWallCap &&
           (isExplicitRoof || minY >= roofElevationY - 0.1 || centerY >= roofElevationY) &&
           minY > 0.8;
 
@@ -822,6 +828,9 @@ export function HouseModel({ modelUrl, zones, onMeshClick }: HouseModelProps) {
     if (name.includes('__Plafon_Atas')) {
       const match = name.match(/__Plafon_Atas(?:_(\d+))?/);
       return match && match[1] ? `Plafon Ruangan #${match[1]}` : 'Plafon Ruangan (Ceiling)';
+    }
+    if (name.includes('__Bibir_Dinding')) {
+      return 'Bibir / Penutup Atas Dinding (Wall Cap)';
     }
 
     if (name.includes('Group#1_2') || name === 'Group#1') {

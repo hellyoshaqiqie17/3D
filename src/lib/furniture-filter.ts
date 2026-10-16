@@ -136,10 +136,12 @@ export function isStructuralShellMesh(
 
   const isExplicitSplit =
     name.includes('__dinding') ||
+    name.includes('__bibir_dinding') ||
     name.includes('__lantai') ||
     name.includes('__plafon') ||
     name.includes('__atap') ||
     splitFrom.includes('__dinding') ||
+    splitFrom.includes('__bibir_dinding') ||
     splitFrom.includes('__lantai') ||
     splitFrom.includes('__plafon') ||
     splitFrom.includes('__atap');

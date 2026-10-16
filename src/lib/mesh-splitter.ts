@@ -85,7 +85,7 @@ function connectedComponents(geo: THREE.BufferGeometry, triangles: number[]): nu
   return Array.from(groups.values());
 }
 
-function orientationGroups(geo: THREE.BufferGeometry, triangles: number[]): number[][] {
+function orientationGroups(geo: THREE.BufferGeometry, triangles: number[], matrix: THREE.Matrix4): number[][] {
   const pos = geo.getAttribute('position') as THREE.BufferAttribute;
   const a = new THREE.Vector3();
   const b = new THREE.Vector3();
@@ -93,17 +93,35 @@ function orientationGroups(geo: THREE.BufferGeometry, triangles: number[]): numb
   const n = new THREE.Vector3();
   const groups = new Map<string, number[]>();
 
+  const fullBox = boxOfTriangles(geo, triangles, matrix);
+  const midY = (fullBox.min.y + fullBox.max.y) * 0.5;
+
+  const horizUpperTris: { tri: number; pts: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; sign: '+' | '-' }[] = [];
+  const horizLowerTris: { tri: number; pts: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; sign: '+' | '-' }[] = [];
+
   triangles.forEach((tri) => {
-    a.fromBufferAttribute(pos, getTriangleVertexIndex(geo, tri, 0));
-    b.fromBufferAttribute(pos, getTriangleVertexIndex(geo, tri, 1));
-    c.fromBufferAttribute(pos, getTriangleVertexIndex(geo, tri, 2));
+    a.fromBufferAttribute(pos, getTriangleVertexIndex(geo, tri, 0)).applyMatrix4(matrix);
+    b.fromBufferAttribute(pos, getTriangleVertexIndex(geo, tri, 1)).applyMatrix4(matrix);
+    c.fromBufferAttribute(pos, getTriangleVertexIndex(geo, tri, 2)).applyMatrix4(matrix);
     n.subVectors(c, b).cross(a.clone().sub(b)).normalize();
     const ax = Math.abs(n.x);
     const ay = Math.abs(n.y);
     const az = Math.abs(n.z);
+
+    if (ay >= ax && ay >= az) {
+      const sign: '+' | '-' = n.y >= 0 ? '+' : '-';
+      const cy = (a.y + b.y + c.y) / 3;
+      const entry = { tri, pts: [a.clone(), b.clone(), c.clone()] as [THREE.Vector3, THREE.Vector3, THREE.Vector3], sign };
+      if (cy >= midY) {
+        horizUpperTris.push(entry);
+      } else {
+        horizLowerTris.push(entry);
+      }
+      return;
+    }
+
     let key: string;
     if (ax >= ay && ax >= az) key = n.x >= 0 ? '+x' : '-x';
-    else if (ay >= ax && ay >= az) key = n.y >= 0 ? '+y' : '-y';
     else key = n.z >= 0 ? '+z' : '-z';
     let list = groups.get(key);
     if (!list) {
@@ -112,6 +130,94 @@ function orientationGroups(geo: THREE.BufferGeometry, triangles: number[]): numb
     }
     list.push(tri);
   });
+
+  // Helper: Reconstruct horizontal coplanar polygons by welding across non-axis-aligned (diagonal) edges.
+  // Why: SketchUp triangulates rectangular slabs and narrow wall-top caps into triangles that share
+  // axis-aligned borders (e.g. x=0.21, x=4.41, z=-7.72, z=-1.44). Welding across diagonal interior edges
+  // reconstructs each original rectangle so narrow wall-top caps (< 0.65m wide) can be cleanly separated
+  // from true room ceiling/floor slabs (>= 0.65m on both X and Z).
+  const classifyHorizontalPolygons = (
+    entries: { tri: number; pts: [THREE.Vector3, THREE.Vector3, THREE.Vector3]; sign: '+' | '-' }[],
+    isUpper: boolean
+  ) => {
+    if (entries.length === 0) return;
+    const parent = entries.map((_, i) => i);
+    const find = (x: number): number => {
+      while (parent[x] !== x) {
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+      }
+      return x;
+    };
+    const union = (x: number, y: number) => {
+      const rx = find(x);
+      const ry = find(y);
+      if (rx !== ry) parent[rx] = ry;
+    };
+
+    const edgeMap = new Map<string, number>();
+    entries.forEach((ht, idx) => {
+      for (let k = 0; k < 3; k++) {
+        const p1 = ht.pts[k];
+        const p2 = ht.pts[(k + 1) % 3];
+        const dx = Math.abs(p1.x - p2.x);
+        const dz = Math.abs(p1.z - p2.z);
+        // Diagonal interior triangulation edge: spans > 1cm on BOTH X and Z
+        if (dx > 0.01 && dz > 0.01) {
+          const k1 = `${Math.round(p1.x * WELD_PRECISION)}|${Math.round(p1.y * WELD_PRECISION)}|${Math.round(p1.z * WELD_PRECISION)}`;
+          const k2 = `${Math.round(p2.x * WELD_PRECISION)}|${Math.round(p2.y * WELD_PRECISION)}|${Math.round(p2.z * WELD_PRECISION)}`;
+          const edgeKey = `${ht.sign}:${k1 < k2 ? `${k1}_${k2}` : `${k2}_${k1}`}`;
+          const prev = edgeMap.get(edgeKey);
+          if (prev !== undefined) {
+            union(idx, prev);
+          } else {
+            edgeMap.set(edgeKey, idx);
+          }
+        }
+      }
+    });
+
+    const polyGroups = new Map<number, typeof entries>();
+    entries.forEach((ht, idx) => {
+      const r = find(idx);
+      let list = polyGroups.get(r);
+      if (!list) {
+        list = [];
+        polyGroups.set(r, list);
+      }
+      list.push(ht);
+    });
+
+    polyGroups.forEach((polyTris) => {
+      const box = new THREE.Box3();
+      polyTris.forEach((ht) => ht.pts.forEach((p) => box.expandByPoint(p)));
+      const s = box.getSize(new THREE.Vector3());
+      const sign = polyTris[0].sign;
+
+      let key: string;
+      if (isUpper) {
+        // Upper horizontal polygons: true ceiling slabs span >= 0.65m on both X and Z.
+        // Narrower strips (< 0.65m) are wall top caps / door lintels (Bibir_Dinding) closing hollow walls.
+        const isCeilingSlab = s.x >= 0.65 && s.z >= 0.65;
+        key = isCeilingSlab ? `${sign}y` : `${sign}y_wallcap`;
+      } else {
+        // Lower horizontal polygons: elevated narrow strips (>= 0.45m above base and < 0.65m wide)
+        // are balcony parapet/railing top caps; everything at floor level is floor slab.
+        const isElevatedWallCap = box.min.y >= fullBox.min.y + 0.45 && Math.min(s.x, s.z) < 0.65;
+        key = isElevatedWallCap ? `${sign}y_wallcap` : `${sign}y`;
+      }
+
+      let list = groups.get(key);
+      if (!list) {
+        list = [];
+        groups.set(key, list);
+      }
+      polyTris.forEach((ht) => list!.push(ht.tri));
+    });
+  };
+
+  classifyHorizontalPolygons(horizUpperTris, true);
+  classifyHorizontalPolygons(horizLowerTris, false);
 
   // Re-run connectivity inside each orientation group so opposite walls facing the same way stay apart
   const result: number[][] = [];
@@ -150,14 +256,17 @@ function computeDominantNormal(geo: THREE.BufferGeometry, triangles: number[]): 
   return avg.normalize();
 }
 
-function isSurfacePiece(box: THREE.Box3): boolean {
+function isSurfacePiece(box: THREE.Box3, orientKey?: string): boolean {
+  if (orientKey && orientKey.endsWith('_wallcap')) {
+    return true; // Wall top caps & lintels must always be preserved as solid structural caps
+  }
   const s = box.getSize(new THREE.Vector3());
   const dims = [s.x, s.y, s.z].sort((a, b) => a - b);
-  // Real surfaces span a meaningful area; smaller strips get attached or filtered
+  // Real surfaces span a meaningful area; smaller strips get attached or preserved
   return dims[2] >= 0.5 && dims[1] >= 0.25;
 }
 
-/** Group raw triangle lists into surface pieces, attaching small trims strictly to plane-compatible pieces */
+/** Group raw triangle lists into surface pieces, attaching small trims strictly to coplanar pieces */
 function buildPieces(geo: THREE.BufferGeometry, groups: number[][], matrix: THREE.Matrix4): Piece[] {
   const all: Piece[] = groups.map((triangles) => ({
     triangles,
@@ -166,29 +275,34 @@ function buildPieces(geo: THREE.BufferGeometry, groups: number[][], matrix: THRE
     normal: computeDominantNormal(geo, triangles),
   }));
 
-  const large = all.filter((p) => isSurfacePiece(p.box));
-  const small = all.filter((p) => !isSurfacePiece(p.box));
-  if (large.length < 2) return [];
+  const large = all.filter((p) => isSurfacePiece(p.box, p.orientKey));
+  const small = all.filter((p) => !isSurfacePiece(p.box, p.orientKey));
+  if (large.length < 2 && all.length < 2) return [];
+  if (large.length === 0) return all;
 
   const center = new THREE.Vector3();
   const lc = new THREE.Vector3();
   small.forEach((s) => {
     s.box.getCenter(center);
-    // Strictly attach ONLY to a large piece sharing the SAME orientation AND same plane elevation!
-    // Never attach a ceiling piece to a floor piece or an interior wall to an exterior wall!
+    // Strictly attach ONLY to a large piece sharing the SAME orientation AND the EXACT same plane (< 0.05m)!
+    // Never merge an interior room wall trim (e.g. x=4.41) into a stepped exterior terrace wall (e.g. x=4.64)!
     const candidates = large.filter((l) => {
       if (l.orientKey !== s.orientKey) return false;
       l.box.getCenter(lc);
       if (s.orientKey === '+y' || s.orientKey === '-y') {
-        return Math.abs(center.y - lc.y) < 0.6; // must be on same horizontal level (floor or ceiling)
+        return Math.abs(center.y - lc.y) < 0.05;
       } else if (s.orientKey === '+x' || s.orientKey === '-x') {
-        return Math.abs(center.x - lc.x) < 0.6; // must be on same wall plane
+        return Math.abs(center.x - lc.x) < 0.05;
       } else {
-        return Math.abs(center.z - lc.z) < 0.6; // must be on same wall plane
+        return Math.abs(center.z - lc.z) < 0.05;
       }
     });
 
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      // Never discard unmatched small pieces — keep them so zero triangles are ever lost from the model!
+      large.push(s);
+      return;
+    }
 
     let best = candidates[0];
     let bestDist = Infinity;
@@ -232,15 +346,24 @@ function extractGeometry(geo: THREE.BufferGeometry, triangles: number[]): THREE.
   return out;
 }
 
-function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vector3): string {
+function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vector3, orientKey?: string): string {
   const size = box.getSize(new THREE.Vector3());
   const c = box.getCenter(new THREE.Vector3());
   const pc = parentBox.getCenter(new THREE.Vector3());
   const midY = pc.y;
 
+  // 0. Horizontal wall top caps / door lintels / parapet caps:
+  // Keep them as solid structural wall caps (__Bibir_Dinding) so opening the roof never makes walls hollow.
+  if (orientKey && orientKey.endsWith('_wallcap')) {
+    return 'Bibir_Dinding';
+  }
+
   // 1. Horizontal surfaces: Floor vs Ceiling
-  const isHorizontal = Math.abs(normal.y) >= 0.7 || (size.y <= 0.35 && (size.x >= 1.0 || size.z >= 1.0));
+  const isHorizontal = Math.abs(normal.y) >= 0.7;
   if (isHorizontal) {
+    if (c.y >= midY && Math.min(size.x, size.z) < 0.65) {
+      return 'Bibir_Dinding';
+    }
     return c.y < midY ? 'Lantai_Bawah' : 'Plafon_Atas';
   }
 
@@ -395,7 +518,7 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
     if (allTris.length < 4) return;
 
     // 1) Planar grouping: faces pointing the same direction AND physically connected form one surface.
-    let pieces = buildPieces(geo, orientationGroups(geo, allTris), mesh.matrixWorld);
+    let pieces = buildPieces(geo, orientationGroups(geo, allTris, mesh.matrixWorld), mesh.matrixWorld);
     // 2) Fallback: pure connectivity (e.g. curved surfaces)
     if (pieces.length < 2 || pieces.length > MAX_PIECES) {
       pieces = buildPieces(geo, connectedComponents(geo, allTris), mesh.matrixWorld);
@@ -415,7 +538,7 @@ export function splitMergedSurfaces(root: THREE.Object3D): number {
         : (mesh.material ? mesh.material.clone() : new THREE.MeshStandardMaterial());
       const part = new THREE.Mesh(newGeo, partMat);
 
-      const label = labelForPiece(piece.box, referenceBox, piece.normal);
+      const label = labelForPiece(piece.box, referenceBox, piece.normal, piece.orientKey);
       let name = `${baseName}__${label}`;
       let n = 2;
       while (usedNames.has(name)) name = `${baseName}__${label}_${n++}`;
