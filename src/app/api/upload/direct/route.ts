@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import { BUNNY_STORAGE_CONFIG, bunnyStorage } from '@/lib/bunny-storage';
+import { isAdminWorkspaceUser } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +10,13 @@ export async function POST(req: NextRequest) {
     const ext = path.extname(originalName).toLowerCase();
     const baseName = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, '_');
     const timestamp = Date.now();
-    const userIdCookie = req.cookies.get('hc_user_id')?.value;
+    let userIdCookie = req.cookies.get('hc_user_id')?.value;
+    
+    // Normalize admin workspace users to use the shared admin workspace prefix
+    if (isAdminWorkspaceUser(userIdCookie)) {
+      userIdCookie = 'usr-admin-lead';
+    }
+
     const prefix = userIdCookie ? `${userIdCookie}__USER__` : '';
     const safeFilename = `${prefix}${baseName}_${timestamp}${ext}`;
 

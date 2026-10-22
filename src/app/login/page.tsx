@@ -32,16 +32,12 @@ function LoginForm() {
     isLoading,
     error,
     login,
-    register,
     logout,
     syncSession,
   } = useAuthStore();
 
-  const [mode, setMode] = useState<'signin' | 'signup'>('signin');
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [studioName, setStudioName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [statusMessage, setStatusMessage] = useState('');
@@ -61,31 +57,14 @@ function LoginForm() {
       return;
     }
 
-    if (mode === 'signup' && !name) {
-      setFormError('Silakan masukkan nama lengkap Anda.');
-      return;
-    }
-
-    if (mode === 'signin') {
-      const res = await login(email, password);
-      if (res.success) {
-        setStatusMessage(res.message || 'Login berhasil! Menuju dashboard...');
-        setTimeout(() => {
-          router.push(redirectPath);
-        }, 500);
-      } else {
-        setFormError(res.message || 'Gagal masuk. Periksa kembali email dan kata sandi Anda.');
-      }
+    const res = await login(email, password);
+    if (res.success) {
+      setStatusMessage(res.message || 'Login berhasil! Menuju dashboard...');
+      setTimeout(() => {
+        router.push(redirectPath);
+      }, 500);
     } else {
-      const res = await register({ name, email, password, studioName });
-      if (res.success) {
-        setStatusMessage(res.message || 'Akun berhasil dibuat! Menuju dashboard...');
-        setTimeout(() => {
-          router.push(redirectPath);
-        }, 500);
-      } else {
-        setFormError(res.message || 'Gagal membuat akun baru.');
-      }
+      setFormError(res.message || 'Gagal masuk. Periksa kembali email dan kata sandi Anda.');
     }
   };
 
@@ -269,57 +248,14 @@ function LoginForm() {
               </motion.div>
             )}
 
-            {/* Header Title (Clean, human-friendly, no jargon) */}
+            {/* Header Title */}
             <div className="mb-6">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#171717]">
-                {mode === 'signin' ? 'Selamat Datang' : 'Buat Akun Baru'}
+                Selamat Datang
               </h2>
               <p className="text-xs sm:text-sm text-[#6B6B6B] mt-1.5 leading-relaxed">
-                {mode === 'signin'
-                  ? 'Silakan masuk ke akun Anda untuk melanjutkan penataan interior dan melihat proyek.'
-                  : 'Daftarkan akun untuk mulai merancang dan mengkustomisasi interior hunian Anda.'}
+                Silakan masuk dengan akun terdaftar untuk mengakses workspace dan proyek 3D Mitra Megah Interior.
               </p>
-            </div>
-
-            {/* Mode Switch Tabs with Animated Pill */}
-            <div className="relative p-1 bg-[#EBEBE7] rounded-xl flex items-center mb-5">
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signin');
-                  setFormError('');
-                  setStatusMessage('');
-                }}
-                className={`relative z-10 flex-1 py-2 text-xs font-medium transition-colors text-center cursor-pointer ${
-                  mode === 'signin' ? 'text-[#171717] font-semibold' : 'text-[#6B6B6B] hover:text-[#171717]'
-                }`}
-              >
-                Masuk
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMode('signup');
-                  setFormError('');
-                  setStatusMessage('');
-                }}
-                className={`relative z-10 flex-1 py-2 text-xs font-medium transition-colors text-center cursor-pointer ${
-                  mode === 'signup' ? 'text-[#171717] font-semibold' : 'text-[#6B6B6B] hover:text-[#171717]'
-                }`}
-              >
-                Daftar Akun
-              </button>
-
-              {/* Sliding Tab Pill */}
-              <motion.div
-                layout
-                transition={{ type: 'spring', stiffness: 450, damping: 35 }}
-                className="absolute inset-y-1 rounded-lg bg-white shadow-sm pointer-events-none"
-                style={{
-                  width: 'calc(50% - 4px)',
-                  left: mode === 'signin' ? '4px' : 'calc(50%)',
-                }}
-              />
             </div>
 
             {/* Status / Error Notifications */}
@@ -351,47 +287,6 @@ function LoginForm() {
 
             {/* Main Credentials Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
-              {mode === 'signup' && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  className="space-y-3.5"
-                >
-                  <div className="space-y-1">
-                    <label className="block text-xs font-medium text-[#4A4A46]">Nama Lengkap</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#A3A39E]">
-                        <UserIcon className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="Contoh: Budi Santoso"
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#DCDCD7] focus:border-[#171717] focus:ring-1 focus:ring-[#171717] rounded-xl text-xs text-[#171717] placeholder-[#A3A39E] transition-all outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-xs font-medium text-[#4A4A46]">Nama Studio / Proyek (Opsional)</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#A3A39E]">
-                        <Building2 className="w-4 h-4" />
-                      </div>
-                      <input
-                        type="text"
-                        value={studioName}
-                        onChange={(e) => setStudioName(e.target.value)}
-                        placeholder="Contoh: Rumah Tinggal BSD"
-                        className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#DCDCD7] focus:border-[#171717] focus:ring-1 focus:ring-[#171717] rounded-xl text-xs text-[#171717] placeholder-[#A3A39E] transition-all outline-none"
-                      />
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
               {/* Username / Email Field */}
               <div className="space-y-1">
                 <label className="block text-xs font-medium text-[#4A4A46]">Email atau Username</label>
@@ -403,7 +298,7 @@ function LoginForm() {
                     type="text"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Contoh: admin atau nama@email.com"
+                    placeholder="Contoh: admin, user01, user02"
                     className="w-full pl-9 pr-3.5 py-2.5 bg-white border border-[#DCDCD7] focus:border-[#171717] focus:ring-1 focus:ring-[#171717] rounded-xl text-xs text-[#171717] placeholder-[#A3A39E] transition-all outline-none"
                   />
                 </div>
@@ -413,15 +308,13 @@ function LoginForm() {
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-medium text-[#4A4A46]">Kata Sandi</label>
-                  {mode === 'signin' && (
-                    <button
-                      type="button"
-                      onClick={() => alert('Tautan pemulihan kata sandi telah dikirim ke email Anda.')}
-                      className="text-[11px] text-[#6B6B6B] hover:text-[#171717] transition-colors"
-                    >
-                      Lupa kata sandi?
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => alert('Silakan hubungi Super Admin untuk mereset kata sandi Anda.')}
+                    className="text-[11px] text-[#6B6B6B] hover:text-[#171717] transition-colors"
+                  >
+                    Lupa kata sandi?
+                  </button>
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#A3A39E]">
@@ -444,7 +337,7 @@ function LoginForm() {
                 </div>
               </div>
 
-              {/* Remember Me & Quick Admin Helper */}
+              {/* Remember Me */}
               <div className="flex items-center justify-between pt-1">
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
@@ -455,7 +348,6 @@ function LoginForm() {
                   />
                   <span className="text-xs text-[#6B6B6B]">Ingat saya</span>
                 </label>
-
               </div>
 
               {/* Submit Button */}
@@ -473,7 +365,7 @@ function LoginForm() {
                   </>
                 ) : (
                   <>
-                    <span>{mode === 'signin' ? 'Masuk ke Dashboard' : 'Daftar Akun Sekarang'}</span>
+                    <span>Masuk ke Dashboard</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}

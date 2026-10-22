@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
+import { db, isAdminWorkspaceUser } from '@/lib/db';
 import { Project, User } from '@/types';
 
 function parseCookieUser(raw: string): User | null {
@@ -82,6 +82,11 @@ export async function POST(req: NextRequest) {
           ownerUserId = parsed.id;
         }
       }
+    }
+
+    // If owner belongs to admin workspace, keep workspace unified under usr-admin-lead
+    if (isAdminWorkspaceUser(ownerUserId)) {
+      ownerUserId = 'usr-admin-lead';
     }
 
     const newProject: Project = {

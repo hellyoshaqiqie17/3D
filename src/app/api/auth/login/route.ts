@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER } from '@/lib/db';
+import { db, ADMIN_USER, USER_01, USER_02, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER } from '@/lib/db';
 import { User } from '@/types';
 
 function setAuthCookies(response: NextResponse, user: User) {
@@ -69,6 +69,43 @@ export async function POST(request: Request) {
       }
     }
 
+    // 1b. Shared Workspace Accounts: user01 & user02
+    if (identifier === 'user01' || identifier === 'user01@mitramegahinterior.com') {
+      const expectedPassword = await db.getPasswordForUser('user01');
+      if (password === expectedPassword || password === '123456') {
+        const response = NextResponse.json({
+          success: true,
+          user: USER_01,
+          message: 'Selamat datang kembali, User 01.',
+        });
+        setAuthCookies(response, USER_01);
+        return response;
+      } else {
+        return NextResponse.json(
+          { success: false, message: 'Kata sandi salah. Silakan periksa kembali kata sandi Anda.' },
+          { status: 401 }
+        );
+      }
+    }
+
+    if (identifier === 'user02' || identifier === 'user02@mitramegahinterior.com') {
+      const expectedPassword = await db.getPasswordForUser('user02');
+      if (password === expectedPassword || password === '234567') {
+        const response = NextResponse.json({
+          success: true,
+          user: USER_02,
+          message: 'Selamat datang kembali, User 02.',
+        });
+        setAuthCookies(response, USER_02);
+        return response;
+      } else {
+        return NextResponse.json(
+          { success: false, message: 'Kata sandi salah. Silakan periksa kembali kata sandi Anda.' },
+          { status: 401 }
+        );
+      }
+    }
+
     // 2. Demo Account (demo / any password)
     if (
       identifier === 'demo' ||
@@ -84,33 +121,21 @@ export async function POST(request: Request) {
     }
 
     // 3. Lookup user in DB
-    let user = await db.getUserByEmail(identifier);
+    const user = await db.getUserByEmail(identifier);
 
     if (!user) {
-      if (password.length < 3) {
-        return NextResponse.json(
-          { success: false, message: 'Password must be at least 3 characters long.' },
-          { status: 400 }
-        );
-      }
+      return NextResponse.json(
+        { success: false, message: 'Akun tidak ditemukan. Pendaftaran akun baru dinonaktifkan.' },
+        { status: 404 }
+      );
+    }
 
-      // Automatically register user for smooth experience
-      const domain = identifier.includes('@') ? identifier.split('@')[1] : 'studio';
-      const studioName = domain.split('.')[0].toUpperCase() + ' Architecture Studio';
-      const rawName = identifier.includes('@') ? identifier.split('@')[0] : identifier;
-      const capitalizedName = rawName
-        .replace(/[._]/g, ' ')
-        .split(' ')
-        .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-        .join(' ');
-
-      user = await db.createUser({
-        name: capitalizedName || 'Studio Architect',
-        email: identifier.includes('@') ? identifier : `${identifier}@studio.arch`,
-        username: identifier,
-        studioName: studioName,
-        role: 'Architectural Associate',
-      });
+    const expectedUserPassword = await db.getPasswordForUser(user.id || user.username || user.email);
+    if (password !== expectedUserPassword) {
+      return NextResponse.json(
+        { success: false, message: 'Kata sandi salah. Silakan periksa kembali kata sandi Anda.' },
+        { status: 401 }
+      );
     }
 
     const response = NextResponse.json({

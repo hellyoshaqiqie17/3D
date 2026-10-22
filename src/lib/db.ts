@@ -41,6 +41,44 @@ export const ADMIN_USER: User = {
   createdAt: '2026-01-01T00:00:00Z',
 };
 
+export const USER_01: User = {
+  id: 'usr-user01',
+  username: 'user01',
+  name: 'User 01',
+  email: 'user01@mitramegahinterior.com',
+  studioName: 'Mitra Megah Interior',
+  role: 'Architectural Designer',
+  avatar: 'U1',
+  createdAt: '2026-01-02T00:00:00Z',
+};
+
+export const USER_02: User = {
+  id: 'usr-user02',
+  username: 'user02',
+  name: 'User 02',
+  email: 'user02@mitramegahinterior.com',
+  studioName: 'Mitra Megah Interior',
+  role: 'Architectural Designer',
+  avatar: 'U2',
+  createdAt: '2026-01-02T00:00:00Z',
+};
+
+export function isAdminWorkspaceUser(userId?: string): boolean {
+  if (!userId) return false;
+  const normalized = userId.toLowerCase().trim();
+  return (
+    normalized === 'usr-admin-lead' ||
+    normalized === 'admin' ||
+    normalized === 'admin@mitramegahinterior.com' ||
+    normalized === 'usr-user01' ||
+    normalized === 'user01' ||
+    normalized === 'user01@mitramegahinterior.com' ||
+    normalized === 'usr-user02' ||
+    normalized === 'user02' ||
+    normalized === 'user02@mitramegahinterior.com'
+  );
+}
+
 export const GOOGLE_DEMO_USER: User = {
   id: 'usr-google-arch',
   username: 'google-architect',
@@ -87,7 +125,11 @@ function ensureDataDir() {
 
   if (!fs.existsSync(USERS_FILE)) {
     try {
-      fs.writeFileSync(USERS_FILE, JSON.stringify([ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER], null, 2), 'utf-8');
+      fs.writeFileSync(
+        USERS_FILE,
+        JSON.stringify([ADMIN_USER, USER_01, USER_02, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER], null, 2),
+        'utf-8'
+      );
     } catch {}
   }
 
@@ -101,7 +143,20 @@ function ensureDataDir() {
     try {
       fs.writeFileSync(
         PASSWORDS_FILE,
-        JSON.stringify({ admin: 'admin123', 'admin@mitramegahinterior.com': 'admin123' }, null, 2),
+        JSON.stringify(
+          {
+            admin: 'admin123',
+            'admin@mitramegahinterior.com': 'admin123',
+            user01: '123456',
+            'user01@mitramegahinterior.com': '123456',
+            'usr-user01': '123456',
+            user02: '234567',
+            'user02@mitramegahinterior.com': '234567',
+            'usr-user02': '234567',
+          },
+          null,
+          2
+        ),
         'utf-8'
       );
     } catch {}
@@ -236,7 +291,7 @@ async function readUsers(): Promise<User[]> {
     }
   } catch (err) {}
 
-  const defaults = [ADMIN_USER, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER];
+  const defaults = [ADMIN_USER, USER_01, USER_02, DEFAULT_DEMO_USER, GOOGLE_DEMO_USER];
   bunnyStorage.writeJson('data/users.json', defaults).catch(() => {});
   return defaults;
 }
@@ -309,8 +364,8 @@ export const db = {
     if (!userId) {
       return projects.filter((p) => p.isPublic);
     }
-    // Admin sees all projects (including all uploaded models)
-    if (userId === 'usr-admin-lead' || userId === 'admin') {
+    // Admin and shared workspace accounts (user01, user02) see all projects (shared workspace)
+    if (isAdminWorkspaceUser(userId)) {
       return projects;
     }
     // Regular user only sees their own uploaded models + public showcase models
@@ -449,6 +504,12 @@ export const db = {
     ) {
       return ADMIN_USER;
     }
+    if (normalized === 'user01' || normalized === 'user01@mitramegahinterior.com') {
+      return USER_01;
+    }
+    if (normalized === 'user02' || normalized === 'user02@mitramegahinterior.com') {
+      return USER_02;
+    }
     if (normalized === 'demo' || normalized === DEFAULT_DEMO_USER.email.toLowerCase()) {
       return DEFAULT_DEMO_USER;
     }
@@ -463,6 +524,12 @@ export const db = {
   async getUserById(id: string): Promise<User | null> {
     if (id === 'usr-admin-lead' || id === 'admin') {
       return ADMIN_USER;
+    }
+    if (id === 'usr-user01' || id === 'user01') {
+      return USER_01;
+    }
+    if (id === 'usr-user02' || id === 'user02') {
+      return USER_02;
     }
     if (id === 'usr-demo-lead' || id === 'demo') {
       return DEFAULT_DEMO_USER;
@@ -504,6 +571,12 @@ export const db = {
         if (normalized === 'admin' || normalized.startsWith('admin@') || normalized === 'usr-admin-lead') {
           if (cloud['admin']) return cloud['admin'];
         }
+        if (normalized === 'user01' || normalized.startsWith('user01@') || normalized === 'usr-user01') {
+          if (cloud['user01']) return cloud['user01'];
+        }
+        if (normalized === 'user02' || normalized.startsWith('user02@') || normalized === 'usr-user02') {
+          if (cloud['user02']) return cloud['user02'];
+        }
       }
     } catch {}
 
@@ -516,6 +589,12 @@ export const db = {
         if (normalized === 'admin' || normalized.startsWith('admin@') || normalized === 'usr-admin-lead') {
           if (parsed['admin']) return parsed['admin'];
         }
+        if (normalized === 'user01' || normalized.startsWith('user01@') || normalized === 'usr-user01') {
+          if (parsed['user01']) return parsed['user01'];
+        }
+        if (normalized === 'user02' || normalized.startsWith('user02@') || normalized === 'usr-user02') {
+          if (parsed['user02']) return parsed['user02'];
+        }
       } else {
         const cloudMap = await bunnyStorage.readJson<Record<string, string>>('data/passwords.json');
         if (cloudMap) {
@@ -526,16 +605,33 @@ export const db = {
           if (normalized === 'admin' || normalized.startsWith('admin@') || normalized === 'usr-admin-lead') {
             if (cloudMap['admin']) return cloudMap['admin'];
           }
+          if (normalized === 'user01' || normalized.startsWith('user01@') || normalized === 'usr-user01') {
+            if (cloudMap['user01']) return cloudMap['user01'];
+          }
+          if (normalized === 'user02' || normalized.startsWith('user02@') || normalized === 'usr-user02') {
+            if (cloudMap['user02']) return cloudMap['user02'];
+          }
         }
       }
     } catch {}
+
+    if (normalized === 'user01' || normalized.startsWith('user01@') || normalized === 'usr-user01') {
+      return '123456';
+    }
+    if (normalized === 'user02' || normalized.startsWith('user02@') || normalized === 'usr-user02') {
+      return '234567';
+    }
 
     return 'admin123';
   },
 
   async setPasswordForUser(identifier: string, newPassword: string): Promise<boolean> {
     const normalized = identifier.toLowerCase().trim();
-    let currentMap: Record<string, string> = { admin: 'admin123' };
+    let currentMap: Record<string, string> = {
+      admin: 'admin123',
+      user01: '123456',
+      user02: '234567',
+    };
     ensureDataDir();
     try {
       if (fs.existsSync(PASSWORDS_FILE)) {
@@ -548,6 +644,14 @@ export const db = {
       currentMap['admin'] = newPassword;
       currentMap['usr-admin-lead'] = newPassword;
       currentMap['admin@mitramegahinterior.com'] = newPassword;
+    } else if (normalized === 'user01' || normalized === 'usr-user01' || normalized.startsWith('user01@')) {
+      currentMap['user01'] = newPassword;
+      currentMap['usr-user01'] = newPassword;
+      currentMap['user01@mitramegahinterior.com'] = newPassword;
+    } else if (normalized === 'user02' || normalized === 'usr-user02' || normalized.startsWith('user02@')) {
+      currentMap['user02'] = newPassword;
+      currentMap['usr-user02'] = newPassword;
+      currentMap['user02@mitramegahinterior.com'] = newPassword;
     }
 
     try {

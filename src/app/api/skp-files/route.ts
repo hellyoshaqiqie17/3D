@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import { bunnyStorage, BunnyFileItem } from '@/lib/bunny-storage';
+import { isAdminWorkspaceUser } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -65,9 +66,15 @@ export async function GET(req: NextRequest) {
     for (const { item, folder } of candidateSkpItems) {
       // User tenancy check
       if (item.ObjectName.includes('__USER__')) {
-        if (userIdCookie && !item.ObjectName.startsWith(`${userIdCookie}__USER__`)) continue;
+        if (userIdCookie && !item.ObjectName.startsWith(`${userIdCookie}__USER__`)) {
+          // If the item belongs to an admin workspace user, allow other admin workspace users to see it
+          const ownerPrefix = item.ObjectName.split('__USER__')[0];
+          if (!isAdminWorkspaceUser(userIdCookie) || !isAdminWorkspaceUser(ownerPrefix)) {
+            continue;
+          }
+        }
       } else {
-        if (userIdCookie && userIdCookie !== 'usr-admin-lead' && userIdCookie !== 'admin') continue;
+        if (userIdCookie && !isAdminWorkspaceUser(userIdCookie)) continue;
       }
 
       const cleanKey = getCleanBaseName(item.ObjectName);
@@ -114,9 +121,14 @@ export async function GET(req: NextRequest) {
     for (const [cleanKey, { item, folder }] of standaloneGlbs.entries()) {
       if (!matchedCleanKeys.has(cleanKey)) {
         if (item.ObjectName.includes('__USER__')) {
-          if (userIdCookie && !item.ObjectName.startsWith(`${userIdCookie}__USER__`)) continue;
+          if (userIdCookie && !item.ObjectName.startsWith(`${userIdCookie}__USER__`)) {
+            const ownerPrefix = item.ObjectName.split('__USER__')[0];
+            if (!isAdminWorkspaceUser(userIdCookie) || !isAdminWorkspaceUser(ownerPrefix)) {
+              continue;
+            }
+          }
         } else {
-          if (userIdCookie && userIdCookie !== 'usr-admin-lead' && userIdCookie !== 'admin') continue;
+          if (userIdCookie && !isAdminWorkspaceUser(userIdCookie)) continue;
         }
 
         const storagePath = `${folder}/${item.ObjectName}`;
