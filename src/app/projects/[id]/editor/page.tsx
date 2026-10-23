@@ -8,6 +8,7 @@ import { useAuthStore } from '@/lib/auth-store';
 import { MaterialZone, MaterialCategory } from '@/types';
 import { MATERIAL_CATEGORIES, MATERIAL_LIBRARY } from '@/lib/materials';
 import { ConfiguratorCanvas } from '@/components/3d/ConfiguratorCanvas';
+import { canUserDelete } from '@/lib/permissions';
 import {
   ChevronLeft,
   Plus,
@@ -162,15 +163,17 @@ export default function ZoneEditorPage({ params }: EditorPageProps) {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            type="button"
-            onClick={() => setShowDeleteModal(true)}
-            title="Hapus Model 3D Permanen"
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Hapus Model</span>
-          </button>
+          {canUserDelete(user) && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteModal(true)}
+              title="Hapus Model 3D Permanen"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Hapus Model</span>
+            </button>
+          )}
 
           <Link
             href={`/configurator/${project.id}`}

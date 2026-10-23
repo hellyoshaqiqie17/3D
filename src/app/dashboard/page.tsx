@@ -11,6 +11,7 @@ import { UploadMaterialModal } from '@/components/dashboard/UploadMaterialModal'
 import { MaterialOption } from '@/types';
 import { ModelThumbnailPreview } from '@/components/dashboard/ModelThumbnailPreview';
 import { SkpLibraryView } from '@/components/dashboard/SkpLibraryView';
+import { canUserDelete, canUserShare } from '@/lib/permissions';
 import {
   Plus,
   Search,
@@ -454,17 +455,19 @@ export default function DashboardPage() {
                           </div>
 
                           <div className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity">
-                            <button
-                              onClick={() => handleCopyLink(p.id)}
-                              title="Copy customer link"
-                              className="p-1.5 text-secondary hover:text-primary hover:bg-surface-100 rounded-lg transition-colors"
-                            >
-                              {copiedId === p.id ? (
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              ) : (
-                                <Share2 className="w-3.5 h-3.5" />
-                              )}
-                            </button>
+                            {canUserShare(user) && (
+                              <button
+                                onClick={() => handleCopyLink(p.id)}
+                                title="Copy customer link"
+                                className="p-1.5 text-secondary hover:text-primary hover:bg-surface-100 rounded-lg transition-colors"
+                              >
+                                {copiedId === p.id ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Share2 className="w-3.5 h-3.5" />
+                                )}
+                              </button>
+                            )}
                             <Link
                               href={`/projects/${p.id}/editor`}
                               title="Edit Material Zones"
@@ -472,13 +475,15 @@ export default function DashboardPage() {
                             >
                               <SlidersHorizontal className="w-3.5 h-3.5" />
                             </Link>
-                            <button
-                              onClick={() => setProjectToDelete(p)}
-                              title="Hapus Model 3D Permanen"
-                              className="p-1.5 text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {canUserDelete(user) && (
+                              <button
+                                onClick={() => setProjectToDelete(p)}
+                                title="Hapus Model 3D Permanen"
+                                className="p-1.5 text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
                         </div>
 

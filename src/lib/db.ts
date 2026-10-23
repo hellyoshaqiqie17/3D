@@ -79,6 +79,29 @@ export function isAdminWorkspaceUser(userId?: string): boolean {
   );
 }
 
+/** Check if user is the Super Admin (who has full privileges: delete, share, edit) */
+export function isSuperAdminUser(userId?: string): boolean {
+  if (!userId) return false;
+  const normalized = userId.toLowerCase().trim();
+  return (
+    normalized === 'usr-admin-lead' ||
+    normalized === 'admin' ||
+    normalized === 'admin@mitramegahinterior.com' ||
+    normalized === 'admin@homecraft3d.com' ||
+    normalized === 'admin@atelier3d.com'
+  );
+}
+
+/** Check if user can delete projects/files (user01 & user02 cannot delete) */
+export function canDeleteProject(userId?: string): boolean {
+  return isSuperAdminUser(userId);
+}
+
+/** Check if user can share projects (user01 & user02 cannot share) */
+export function canShareProject(userId?: string): boolean {
+  return isSuperAdminUser(userId);
+}
+
 export const GOOGLE_DEMO_USER: User = {
   id: 'usr-google-arch',
   username: 'google-architect',

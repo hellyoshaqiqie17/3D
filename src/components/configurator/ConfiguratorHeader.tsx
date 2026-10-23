@@ -4,6 +4,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Project } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+import { useAuthStore } from '@/lib/auth-store';
+import { canUserShare } from '@/lib/permissions';
 import {
   RotateCcw,
   Share2,
@@ -29,6 +31,7 @@ interface ConfiguratorHeaderProps {
  * so each control appears exactly once and is easy to find.
  */
 export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
+  const user = useAuthStore((s) => s.user);
   const isPresentationMode = useConfiguratorStore((s) => s.isPresentationMode);
   const togglePresentationMode = useConfiguratorStore((s) => s.togglePresentationMode);
   const isSidebarHidden = useConfiguratorStore((s) => s.isSidebarHidden);
@@ -268,15 +271,17 @@ export function ConfiguratorHeader({ project }: ConfiguratorHeaderProps) {
           <span className="hidden sm:inline">Export PDF</span>
         </button>
 
-        {/* Share */}
-        <button
-          onClick={() => setShareModalOpen(true)}
-          title="Bagikan link desain"
-          className={`${ghostBtn} text-primary hover:bg-surface-100 border-border`}
-        >
-          <Share2 className="w-3.5 h-3.5" />
-          <span className="hidden md:inline">Bagikan</span>
-        </button>
+        {/* Share (Admin only) */}
+        {canUserShare(user) && (
+          <button
+            onClick={() => setShareModalOpen(true)}
+            title="Bagikan link desain"
+            className={`${ghostBtn} text-primary hover:bg-surface-100 border-border`}
+          >
+            <Share2 className="w-3.5 h-3.5" />
+            <span className="hidden md:inline">Bagikan</span>
+          </button>
+        )}
 
         {/* Save */}
         <button

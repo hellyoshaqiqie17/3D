@@ -3,6 +3,8 @@
 import React, { useState } from 'react';
 import { Project } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
+import { useAuthStore } from '@/lib/auth-store';
+import { canUserShare } from '@/lib/permissions';
 import { getMaterialById } from '@/lib/materials';
 import confetti from 'canvas-confetti';
 import {
@@ -20,6 +22,7 @@ interface SaveShareModalProps {
 }
 
 export function SaveShareModal({ project }: SaveShareModalProps) {
+  const user = useAuthStore((s) => s.user);
   const isSaveModalOpen = useConfiguratorStore((s) => s.isSaveModalOpen);
   const setSaveModalOpen = useConfiguratorStore((s) => s.setSaveModalOpen);
   const isShareModalOpen = useConfiguratorStore((s) => s.isShareModalOpen);
@@ -31,6 +34,14 @@ export function SaveShareModal({ project }: SaveShareModalProps) {
 
   const [copied, setCopied] = useState(false);
   const [configTitle, setConfigTitle] = useState('My Custom Architecture');
+
+  // If share modal is requested by user without share permission, close it immediately
+  if (isShareModalOpen && !canUserShare(user)) {
+    if (typeof window !== 'undefined') {
+      setTimeout(() => setShareModalOpen(false), 0);
+    }
+    return null;
+  }
 
   if (!isSaveModalOpen && !isShareModalOpen) return null;
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import path from 'path';
 import { bunnyStorage, BunnyFileItem } from '@/lib/bunny-storage';
-import { isAdminWorkspaceUser } from '@/lib/db';
+import { isAdminWorkspaceUser, canDeleteProject } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -180,6 +180,15 @@ export async function GET(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    // Check user permissions: user01 and user02 cannot delete files
+    const userIdCookie = req.cookies.get('hc_user_id')?.value;
+    if (!userIdCookie || !canDeleteProject(userIdCookie)) {
+      return NextResponse.json(
+        { error: 'Hanya akun Admin utama yang memiliki izin untuk menghapus file dari storage.' },
+        { status: 403 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     let rawPath = searchParams.get('storagePath');
 

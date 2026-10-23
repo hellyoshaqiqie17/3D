@@ -25,6 +25,8 @@ import {
 } from 'lucide-react';
 import { SkpFileRecord } from '@/app/api/skp-files/route';
 import { convertSkpClientSide } from '@/lib/skp-client-converter';
+import { useAuthStore } from '@/lib/auth-store';
+import { canUserDelete } from '@/lib/permissions';
 
 interface UploadQueueItem {
   id: string;
@@ -37,6 +39,7 @@ interface UploadQueueItem {
 
 export function SkpLibraryView() {
   const router = useRouter();
+  const user = useAuthStore((s) => s.user);
   const [files, setFiles] = useState<SkpFileRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -702,13 +705,17 @@ export function SkpLibraryView() {
 
                   {/* Actions */}
                   <div className="flex items-center justify-between gap-2 pt-1 mt-2">
-                    <button
-                      onClick={() => setDeleteConfirmPath(file.storagePath)}
-                      className="p-1.5 text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      title="Hapus file dari storage"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                    {canUserDelete(user) ? (
+                      <button
+                        onClick={() => setDeleteConfirmPath(file.storagePath)}
+                        className="p-1.5 text-secondary hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Hapus file dari storage"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    ) : (
+                      <div className="w-6" />
+                    )}
 
                     <div className="flex items-center gap-1.5">
                       <a
