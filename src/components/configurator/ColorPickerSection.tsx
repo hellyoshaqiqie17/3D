@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MaterialZone } from '@/types';
 import { useConfiguratorStore } from '@/lib/configurator-store';
-import { Pipette, Check, Sparkles } from 'lucide-react';
+import { useMaterialsStore } from '@/lib/materials-store';
+import { Pipette, Check, Sparkles, Paintbrush } from 'lucide-react';
 
 interface ColorPickerSectionProps {
   currentZone: MaterialZone;
@@ -26,6 +27,33 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
   const selectedMaterials = useConfiguratorStore((s) => s.selectedMaterials);
   const applyMaterial = useConfiguratorStore((s) => s.applyMaterial);
   const setZoneOriginal = useConfiguratorStore((s) => s.setZoneOriginal);
+  const uploadedMaterials = useConfiguratorStore((s) => s.uploadedMaterials);
+  const customMaterials = useMaterialsStore((s) => s.customMaterials);
+
+  // Filter uploaded paints across stores
+  const uploadedPaints = useMemo(() => {
+    const combined = [...customMaterials, ...uploadedMaterials];
+    const seen = new Set<string>();
+    const list: { id: string; name: string; hex: string; textureUrl?: string }[] = [];
+
+    for (const mat of combined) {
+      if (!mat || !mat.id || seen.has(mat.id)) continue;
+      const isPaint =
+        mat.tag?.toLowerCase().includes('cat') ||
+        mat.name?.toLowerCase().includes('cat') ||
+        (mat.showGrout === false && (mat.groutWidthMm === 0 || mat.groutWidthMm === undefined) && mat.color);
+      if (isPaint && mat.color) {
+        seen.add(mat.id);
+        list.push({
+          id: mat.id,
+          name: mat.name,
+          hex: mat.color,
+          textureUrl: mat.previewThumbnail || mat.textureUrl,
+        });
+      }
+    }
+    return list;
+  }, [customMaterials, uploadedMaterials]);
 
   const activeCustomColor = customColors[currentZone.id];
   const selectedMatId = selectedMaterials[currentZone.id] || currentZone.defaultMaterialId;
@@ -53,6 +81,12 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
     setHexInput(hex);
     setCustomColor(currentZone.id, hex);
     applyMaterial(currentZone.id, 'architectural-color');
+  };
+
+  const handleSelectUploadedPaint = (paint: { id: string; hex: string }) => {
+    setHexInput(paint.hex);
+    setCustomColor(currentZone.id, paint.hex);
+    applyMaterial(currentZone.id, paint.id);
   };
 
   const handleCustomColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -87,7 +121,7 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
       </div>
 
       {/* Preset Swatches (3x3 grid including Original 3D) */}
-      <div className="grid grid-cols-3 gap-2 mb-4">
+      <div className="grid grid-cols-3 gap-2 mb-3">
         {/* 1. Original Native 3D Option */}
         <button
           type="button"
@@ -150,6 +184,50 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
           );
         })}
       </div>
+
+      {/* Uploaded Paint Swatches (from user uploads) */}
+      {uploadedPaints.length > 0 && (
+        <div className="mb-3 pt-2 border-t border-border/60">
+          <div className="flex items-center gap-1.5 mb-2">
+            <Paintbrush className="w-3 h-3 text-emerald-600" />
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+              Cat Dinding Terupload ({uploadedPaints.length})
+            </span>
+          </div>
+          <div className="grid grid-cols-4 gap-1.5">
+            {uploadedPaints.map((paint) => {
+              const isSelected =
+                (!isOriginal && activeColor.toLowerCase() === paint.hex.toLowerCase()) ||
+                selectedMatId === paint.id;
+              return (
+                <button
+                  key={paint.id}
+                  type="button"
+                  onClick={() => handleSelectUploadedPaint(paint)}
+                  title={`${paint.name} (${paint.hex})`}
+                  className={`group relative flex flex-col items-center p-1 rounded-lg border transition-all ${
+                    isSelected
+                      ? 'border-emerald-600 ring-2 ring-emerald-500/30 bg-emerald-50 shadow-subtle'
+                      : 'border-border bg-white hover:border-emerald-400'
+                  }`}
+                >
+                  <div
+                    className="w-full h-6 rounded border border-black/10 flex items-center justify-center overflow-hidden transition-transform group-hover:scale-95"
+                    style={{ backgroundColor: paint.hex }}
+                  >
+                    {isSelected && (
+                      <Check className="w-3 h-3 stroke-[3] text-white drop-shadow" />
+                    )}
+                  </div>
+                  <span className="text-[9px] text-primary truncate max-w-full mt-1 font-medium">
+                    {paint.name}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Custom Color Input */}
       <div className="flex items-center gap-3 p-2 bg-white rounded-xl border border-border">

@@ -27,6 +27,7 @@ import {
 } from '@/lib/tile-constants';
 import { optimizeTextureImage } from '@/lib/image-optimizer';
 import { extractSizeFromFilename } from '@/lib/tile-autotrim';
+import { extractDominantColor } from '@/lib/color-extractor';
 
 interface UploadMaterialModalProps {
   isOpen: boolean;
@@ -41,6 +42,8 @@ interface StagedFile {
   name: string;
   sizeFormatted: string;
   surfaceType?: 'wall' | 'floor';
+  materialKind?: 'texture' | 'paint';
+  detectedColor?: string;
 }
 
 function formatBytes(bytes: number): string {
@@ -69,6 +72,10 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
   const [uploadProgressText, setUploadProgressText] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Material Mode: 'texture' (Ubin Keramik/Granit berulang) vs 'paint' (Warna Cat Dinding Murni)
+  const [materialKind, setMaterialKind] = useState<'texture' | 'paint'>('texture');
+  const [paintFinish, setPaintFinish] = useState<'matte' | 'satin' | 'gloss'>('matte');
+
   // Surface Type & Physical Tile Size (from user's specification)
   const [surfaceType, setSurfaceType] = useState<'wall' | 'floor'>('wall');
   const [tileSize, setTileSize] = useState<[number, number]>([30, 60]);
@@ -94,15 +101,19 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
 
   if (!isOpen) return null;
 
-  const handleProcessFiles = (incomingFiles: FileList | File[]) => {
+  const handleProcessFiles = async (incomingFiles: FileList | File[]) => {
     setErrorMessage(null);
     const newStaged: StagedFile[] = [];
 
-    Array.from(incomingFiles).forEach((file) => {
-      if (!file.type.startsWith('image/')) return;
+    for (const file of Array.from(incomingFiles)) {
+      if (!file.type.startsWith('image/')) continue;
 
       const previewUrl = URL.createObjectURL(file);
       const name = cleanMaterialName(file.name);
+      let detectedColor = '#F8F9FA';
+      try {
+        detectedColor = await extractDominantColor(file);
+      } catch {}
 
       newStaged.push({
         id: `${file.name}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
@@ -111,8 +122,10 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
         name,
         sizeFormatted: formatBytes(file.size),
         surfaceType: surfaceType,
+        materialKind: materialKind,
+        detectedColor: detectedColor,
       });
-    });
+    }
 
     if (newStaged.length === 0) {
       setErrorMessage('Pilih file gambar yang valid (JPG, PNG, atau WebP).');
@@ -120,6 +133,26 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
     }
 
     setStagedFiles((prev) => [...prev, ...newStaged]);
+  };
+
+  const handleToggleItemKind = (id: string) => {
+    setStagedFiles((prev) =>
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              materialKind: (item.materialKind || materialKind) === 'paint' ? 'texture' : 'paint',
+              surfaceType: (item.materialKind || materialKind) === 'paint' ? item.surfaceType : 'wall',
+            }
+          : item
+      )
+    );
+  };
+
+  const handleUpdateItemColor = (id: string, colorHex: string) => {
+    setStagedFiles((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, detectedColor: colorHex } : item))
+    );
   };
 
   const handleToggleItemSurface = (id: string) => {
@@ -285,13 +318,14 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
       const effectiveTileSize: [number, number] = isCustomTileSize ? [customW, customH] : tileSize;
       const physicalRepeat = calculateRepeatFromTileSize(effectiveTileSize);
 
-      // 2. Build MaterialOption records with physical tile sizing and nat keramik
+      // 2. Build MaterialOption records with physical tile sizing or solid wall paint
       const newMaterialsToSave: MaterialOption[] = uploadedResults.map((uploaded, index) => {
         const stagedItem = stagedFiles[index];
-        const itemSurfaceType = (stagedItem?.surfaceType || surfaceType) as 'wall' | 'floor';
+        const isPaint = (stagedItem?.materialKind || materialKind) === 'paint';
+        const itemSurfaceType = isPaint ? 'wall' : ((stagedItem?.surfaceType || surfaceType) as 'wall' | 'floor');
         const isFloor = itemSurfaceType === 'floor';
 
-        const assignedName = uploaded.cleanName.trim() || `Material Tekstur ${index + 1}`;
+        const assignedName = uploaded.cleanName.trim() || (isPaint ? `Warna Cat ${index + 1}` : `Material Tekstur ${index + 1}`);
         const filenameDetectedSize = extractSizeFromFilename(stagedItem?.file?.name || uploaded.cleanName);
         const itemTileSize: [number, number] = filenameDetectedSize || (isCustomTileSize
           ? [customW, customH]
@@ -301,6 +335,32 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
             : [60, 60]
           : tileSize);
         const itemRepeat = calculateRepeatFromTileSize(itemTileSize);
+        const dominantColor = stagedItem?.detectedColor || '#F8F9FA';
+
+        if (isPaint) {
+          const roughnessMap = { matte: 0.88, satin: 0.55, gloss: 0.22 };
+          return {
+            id: `custom_paint_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
+            name: assignedName,
+            category: 'wall',
+            type: 'texture', // Can be applied with realistic subtle wall micro-grain or smooth texture
+            color: dominantColor,
+            textureUrl: uploaded.url,
+            previewThumbnail: uploaded.url,
+            roughness: roughnessMap[paintFinish],
+            metalness: 0.01,
+            bumpScale: paintFinish === 'matte' ? 0.04 : 0.02,
+            rotation: 0,
+            repeat: [2, 2],
+            surfaceType: 'wall',
+            showGrout: false,
+            groutWidthMm: 0,
+            finish: paintFinish,
+            description: `Warna cat dinding arsitektural (${paintFinish.toUpperCase()}) dari swatch ${dominantColor}.`,
+            tag: 'Cat Dinding',
+            isCustomUpload: true,
+          };
+        }
 
         return {
           id: `custom_mat_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
@@ -488,33 +548,76 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
+                        {/* Kind toggle: Cat Dinding vs Tekstur Ubin */}
                         <button
                           type="button"
-                          onClick={() => handleToggleItemSurface(item.id)}
+                          onClick={() => handleToggleItemKind(item.id)}
                           disabled={isUploading}
                           className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
-                            (item.surfaceType || surfaceType) === 'floor'
-                              ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                              : 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+                            (item.materialKind || materialKind) === 'paint'
+                              ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                              : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
                           }`}
-                          title="Klik untuk ubah jenis ubin file ini (Dinding vs Lantai)"
+                          title="Klik untuk ganti tipe: Cat Dinding (Warna Polos) vs Tekstur Keramik/Ubin"
                         >
-                          {(item.surfaceType || surfaceType) === 'floor' ? (
+                          {(item.materialKind || materialKind) === 'paint' ? (
                             <>
-                              <Grid className="w-3 h-3 text-amber-600" />
-                              <span>Ubin Lantai (Floor)</span>
+                              <Sparkles className="w-3 h-3 text-rose-600" />
+                              <span>Cat Dinding (Paint)</span>
                             </>
                           ) : (
                             <>
-                              <Layers className="w-3 h-3 text-blue-600" />
-                              <span>Ubin Dinding (Wall)</span>
+                              <Layers className="w-3 h-3 text-emerald-600" />
+                              <span>Tekstur Ubin (Tile)</span>
                             </>
                           )}
                         </button>
+
+                        {(item.materialKind || materialKind) === 'paint' ? (
+                          <div className="flex items-center gap-1.5 bg-white border border-border px-1.5 py-0.5 rounded-md shadow-2xs">
+                            <input
+                              type="color"
+                              value={item.detectedColor || '#F8F9FA'}
+                              onChange={(e) => handleUpdateItemColor(item.id, e.target.value)}
+                              title="Pilih warna hex cat"
+                              className="w-4 h-4 rounded cursor-pointer border-0 p-0"
+                            />
+                            <span className="text-[10px] font-mono text-secondary">
+                              {item.detectedColor || '#F8F9FA'}
+                            </span>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => handleToggleItemSurface(item.id)}
+                            disabled={isUploading}
+                            className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
+                              (item.surfaceType || surfaceType) === 'floor'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                : 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
+                            }`}
+                            title="Klik untuk ubah jenis ubin file ini (Dinding vs Lantai)"
+                          >
+                            {(item.surfaceType || surfaceType) === 'floor' ? (
+                              <>
+                                <Grid className="w-3 h-3 text-amber-600" />
+                                <span>Lantai (Floor)</span>
+                              </>
+                            ) : (
+                              <>
+                                <Layers className="w-3 h-3 text-blue-600" />
+                                <span>Dinding (Wall)</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+
                         <span className="text-[10px] text-secondary">
-                          {(item.surfaceType || surfaceType) === 'floor'
-                            ? 'Khusus lantai bawah'
-                            : 'Khusus dinding (kiri/kanan/belakang/depan)'}
+                          {(item.materialKind || materialKind) === 'paint'
+                            ? 'Warna cat dinding arsitektural'
+                            : (item.surfaceType || surfaceType) === 'floor'
+                            ? 'Ubin lantai'
+                            : 'Keramik dinding'}
                         </span>
                       </div>
                     </div>
@@ -533,156 +636,229 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                 ))}
               </div>
 
-              {/* Tile Specification & Nat Keramik Settings */}
+              {/* Material Type Switcher: Tekstur Keramik vs Cat Dinding */}
               <div className="p-3.5 bg-surface-50 border border-border rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-primary">
-                    Spesifikasi Ukuran Keramik &amp; Nat (Konstruksi)
-                  </span>
-                  <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.5 bg-white border border-border rounded">
-                    {isCustomTileSize ? `${customW} × ${customH} cm` : `${tileSize[0]} × ${tileSize[1]} cm`}
-                  </span>
-                </div>
-
-                {/* Surface Type Switcher */}
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
                     <span className="text-[11px] font-semibold text-primary">
-                      Pilih Bagian Penerapan (Semua File):
+                      Pilihan Tipe Material Default:
                     </span>
                     <span className="text-[10px] text-secondary">
-                      {surfaceType === 'floor' ? 'Hanya tampil di Kustomisasi Lantai' : 'Hanya tampil di Kustomisasi Dinding'}
+                      {materialKind === 'paint' ? 'Mode Cat Dinding Arsitektural' : 'Mode Pola Keramik / Granit'}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-lg">
                     <button
                       type="button"
-                      onClick={() => handleBatchSurfaceTypeChange('wall')}
+                      onClick={() => setMaterialKind('texture')}
                       className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                        surfaceType === 'wall'
+                        materialKind === 'texture'
                           ? 'bg-white text-primary shadow-subtle border border-border'
                           : 'text-secondary hover:text-primary'
                       }`}
                     >
-                      <Layers className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Dinding (Wall)</span>
+                      <Layers className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Ubin Keramik &amp; Tekstur</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => handleBatchSurfaceTypeChange('floor')}
+                      onClick={() => setMaterialKind('paint')}
                       className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
-                        surfaceType === 'floor'
+                        materialKind === 'paint'
                           ? 'bg-white text-primary shadow-subtle border border-border'
                           : 'text-secondary hover:text-primary'
                       }`}
                     >
-                      <Grid className="w-3.5 h-3.5 text-amber-600" />
-                      <span>Lantai (Floor)</span>
+                      <Sparkles className="w-3.5 h-3.5 text-rose-600" />
+                      <span>Warna Cat Dinding</span>
                     </button>
                   </div>
                 </div>
 
-                {/* Preset Sizes */}
-                <div className="space-y-1">
-                  <span className="text-[10px] text-secondary font-medium block">
-                    Pilih Ukuran Standar ({surfaceType === 'floor' ? 'Ukuran Lantai' : 'Ukuran Dinding'}):
-                  </span>
-                  <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
-                    {(surfaceType === 'floor' ? FLOOR_TILE_PRESETS : WALL_TILE_PRESETS).map((p) => {
-                      const isSel = !isCustomTileSize && tileSize[0] === p.widthCm && tileSize[1] === p.heightCm;
-                      return (
+                {materialKind === 'paint' ? (
+                  /* Paint Finish Options */
+                  <div className="space-y-1.5 pt-1 border-t border-border/60">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-primary">
+                        Kilau Finishing Cat (Sheen / Gloss):
+                      </span>
+                      <span className="text-[10px] font-mono text-secondary uppercase font-bold">
+                        {paintFinish}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5">
+                      {(['matte', 'satin', 'gloss'] as const).map((finish) => (
                         <button
-                          key={p.id}
+                          key={finish}
                           type="button"
-                          onClick={() => {
-                            setTileSize([p.widthCm, p.heightCm]);
-                            setIsCustomTileSize(false);
-                          }}
-                          className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
-                            isSel
+                          onClick={() => setPaintFinish(finish)}
+                          className={`py-1.5 text-xs font-medium rounded-lg border text-center transition-all ${
+                            paintFinish === finish
                               ? 'bg-primary text-white border-primary shadow-subtle'
                               : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
                           }`}
                         >
-                          {p.widthCm}×{p.heightCm}
+                          {finish === 'matte' ? 'Matte (Doff)' : finish === 'satin' ? 'Satin (Semi-Gloss)' : 'Glossy (Mengkilap)'}
                         </button>
-                      );
-                    })}
-
-                    <button
-                      type="button"
-                      onClick={() => setIsCustomTileSize(true)}
-                      className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
-                        isCustomTileSize
-                          ? 'bg-primary text-white border-primary shadow-subtle'
-                          : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
-                      }`}
-                    >
-                      Kustom...
-                    </button>
-                  </div>
-                </div>
-
-                {/* Custom Size */}
-                {isCustomTileSize && (
-                  <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-border">
-                    <div className="flex-1">
-                      <label className="text-[9px] text-secondary block">Lebar (cm)</label>
-                      <input
-                        type="number"
-                        min="5"
-                        max="300"
-                        value={customW}
-                        onChange={(e) => setCustomW(Math.max(5, parseInt(e.target.value) || 60))}
-                        className="w-full px-2 py-1 text-xs border border-border rounded"
-                      />
+                      ))}
                     </div>
-                    <span className="text-secondary text-xs pt-3">×</span>
-                    <div className="flex-1">
-                      <label className="text-[9px] text-secondary block">Tinggi (cm)</label>
-                      <input
-                        type="number"
-                        min="5"
-                        max="300"
-                        value={customH}
-                        onChange={(e) => setCustomH(Math.max(5, parseInt(e.target.value) || 60))}
-                        className="w-full px-2 py-1 text-xs border border-border rounded"
-                      />
-                    </div>
+                    <p className="text-[10px] text-secondary leading-relaxed pt-0.5">
+                      💡 Gambar swatch/kaleng cat yang Anda upload akan diekstrak warnanya dan dirender mulus ke seluruh dinding ruangan tanpa sambungan nat.
+                    </p>
                   </div>
+                ) : (
+                  /* Tile Specification & Nat Keramik Settings */
+                  <>
+                    <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                      <span className="text-xs font-semibold text-primary">
+                        Spesifikasi Ukuran Keramik &amp; Nat (Konstruksi)
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-primary px-2 py-0.5 bg-white border border-border rounded">
+                        {isCustomTileSize ? `${customW} × ${customH} cm` : `${tileSize[0]} × ${tileSize[1]} cm`}
+                      </span>
+                    </div>
+
+                    {/* Surface Type Switcher */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-[11px] font-semibold text-primary">
+                          Pilih Bagian Penerapan (Semua File):
+                        </span>
+                        <span className="text-[10px] text-secondary">
+                          {surfaceType === 'floor' ? 'Hanya tampil di Kustomisasi Lantai' : 'Hanya tampil di Kustomisasi Dinding'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => handleBatchSurfaceTypeChange('wall')}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                            surfaceType === 'wall'
+                              ? 'bg-white text-primary shadow-subtle border border-border'
+                              : 'text-secondary hover:text-primary'
+                          }`}
+                        >
+                          <Layers className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Dinding (Wall)</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleBatchSurfaceTypeChange('floor')}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                            surfaceType === 'floor'
+                              ? 'bg-white text-primary shadow-subtle border border-border'
+                              : 'text-secondary hover:text-primary'
+                          }`}
+                        >
+                          <Grid className="w-3.5 h-3.5 text-amber-600" />
+                          <span>Lantai (Floor)</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Preset Sizes */}
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-secondary font-medium block">
+                        Pilih Ukuran Standar ({surfaceType === 'floor' ? 'Ukuran Lantai' : 'Ukuran Dinding'}):
+                      </span>
+                      <div className="grid grid-cols-3 sm:grid-cols-4 gap-1">
+                        {(surfaceType === 'floor' ? FLOOR_TILE_PRESETS : WALL_TILE_PRESETS).map((p) => {
+                          const isSel = !isCustomTileSize && tileSize[0] === p.widthCm && tileSize[1] === p.heightCm;
+                          return (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => {
+                                setTileSize([p.widthCm, p.heightCm]);
+                                setIsCustomTileSize(false);
+                              }}
+                              className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
+                                isSel
+                                  ? 'bg-primary text-white border-primary shadow-subtle'
+                                  : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
+                              }`}
+                            >
+                              {p.widthCm}×{p.heightCm}
+                            </button>
+                          );
+                        })}
+
+                        <button
+                          type="button"
+                          onClick={() => setIsCustomTileSize(true)}
+                          className={`py-1.5 px-1 text-[11px] font-medium rounded-lg border text-center transition-all ${
+                            isCustomTileSize
+                              ? 'bg-primary text-white border-primary shadow-subtle'
+                              : 'bg-white text-secondary border-border hover:border-primary/50 hover:text-primary'
+                          }`}
+                        >
+                          Kustom...
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Custom Size */}
+                    {isCustomTileSize && (
+                      <div className="flex items-center gap-2 p-2 bg-white rounded-lg border border-border">
+                        <div className="flex-1">
+                          <label className="text-[9px] text-secondary block">Lebar (cm)</label>
+                          <input
+                            type="number"
+                            min="5"
+                            max="300"
+                            value={customW}
+                            onChange={(e) => setCustomW(Math.max(5, parseInt(e.target.value) || 60))}
+                            className="w-full px-2 py-1 text-xs border border-border rounded"
+                          />
+                        </div>
+                        <span className="text-secondary text-xs pt-3">×</span>
+                        <div className="flex-1">
+                          <label className="text-[9px] text-secondary block">Tinggi (cm)</label>
+                          <input
+                            type="number"
+                            min="5"
+                            max="300"
+                            value={customH}
+                            onChange={(e) => setCustomH(Math.max(5, parseInt(e.target.value) || 60))}
+                            className="w-full px-2 py-1 text-xs border border-border rounded"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Nat Keramik Controls */}
+                    <div className="border-t border-border pt-2 flex items-center justify-between">
+                      <div>
+                        <span className="text-[11px] font-semibold text-primary block">
+                          Nat Keramik (Pembatas Ubin)
+                        </span>
+                        <span className="text-[10px] text-secondary block">
+                          Lebar nat: {showGrout ? `${groutWidthMm} mm` : 'Nonaktif'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        {GROUT_WIDTH_PRESETS.filter((gp) => gp.valueMm > 0).map((gp) => (
+                          <button
+                            key={gp.valueMm}
+                            type="button"
+                            onClick={() => {
+                              setGroutWidthMm(gp.valueMm);
+                              setShowGrout(true);
+                            }}
+                            className={`px-2 py-0.5 text-[10px] font-medium rounded border ${
+                              showGrout && groutWidthMm === gp.valueMm
+                                ? 'bg-primary text-white border-primary'
+                                : 'bg-white text-secondary border-border'
+                            }`}
+                          >
+                            {gp.valueMm}mm
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
                 )}
-
-                {/* Nat Keramik Controls */}
-                <div className="border-t border-border pt-2 flex items-center justify-between">
-                  <div>
-                    <span className="text-[11px] font-semibold text-primary block">
-                      Nat Keramik (Pembatas Ubin)
-                    </span>
-                    <span className="text-[10px] text-secondary block">
-                      Lebar nat: {showGrout ? `${groutWidthMm} mm` : 'Nonaktif'}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    {GROUT_WIDTH_PRESETS.filter((gp) => gp.valueMm > 0).map((gp) => (
-                      <button
-                        key={gp.valueMm}
-                        type="button"
-                        onClick={() => {
-                          setGroutWidthMm(gp.valueMm);
-                          setShowGrout(true);
-                        }}
-                        className={`px-2 py-0.5 text-[10px] font-medium rounded border ${
-                          showGrout && groutWidthMm === gp.valueMm
-                            ? 'bg-primary text-white border-primary'
-                            : 'bg-white text-secondary border-border'
-                        }`}
-                      >
-                        {gp.valueMm}mm
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               {/* Information Tip */}
