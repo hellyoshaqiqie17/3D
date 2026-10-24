@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
 
       // 2. Bunny Cloud Storage CDN upload
       const storagePath = `uploads/textures/${filename}`;
-      let publicUrl = `/uploads/textures/${filename}`;
+      let publicUrl = `/api/storage/uploads/textures/${filename}`;
       try {
         publicUrl = await bunnyStorage.upload(
           storagePath,
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
         );
       } catch (cloudErr) {
         console.warn(`[Texture Upload] Warning uploading ${filename} to cloud, using local fallback:`, cloudErr);
-        publicUrl = `/uploads/textures/${filename}`;
+        publicUrl = `/api/storage/uploads/textures/${filename}`;
       }
 
       // Clean formatted title name
