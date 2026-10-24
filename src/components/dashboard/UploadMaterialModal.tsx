@@ -17,6 +17,8 @@ import {
   Layers,
   Grid,
   Check,
+  Pipette,
+  Palette,
 } from 'lucide-react';
 import {
   FLOOR_TILE_PRESETS,
@@ -27,7 +29,7 @@ import {
 } from '@/lib/tile-constants';
 import { optimizeTextureImage } from '@/lib/image-optimizer';
 import { extractSizeFromFilename } from '@/lib/tile-autotrim';
-import { extractDominantColor } from '@/lib/color-extractor';
+import { extractDominantColor, createColorSwatchFile } from '@/lib/color-extractor';
 
 interface UploadMaterialModalProps {
   isOpen: boolean;
@@ -75,6 +77,10 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
   // Material Mode: 'texture' (Ubin Keramik/Granit berulang) vs 'paint' (Warna Cat Dinding Murni)
   const [materialKind, setMaterialKind] = useState<'texture' | 'paint'>('texture');
   const [paintFinish, setPaintFinish] = useState<'matte' | 'satin' | 'gloss'>('matte');
+
+  // Direct Color Picker mode for paint creation
+  const [pickerPaintName, setPickerPaintName] = useState('Cat Dinding Baru');
+  const [pickerColorHex, setPickerColorHex] = useState('#E2D7C3');
 
   // Surface Type & Physical Tile Size (from user's specification)
   const [surfaceType, setSurfaceType] = useState<'wall' | 'floor'>('wall');
@@ -133,6 +139,31 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
     }
 
     setStagedFiles((prev) => [...prev, ...newStaged]);
+  };
+
+  const handleAddDirectColorPaint = () => {
+    setErrorMessage(null);
+    try {
+      const generatedFile = createColorSwatchFile(pickerColorHex, pickerPaintName);
+      const previewUrl = URL.createObjectURL(generatedFile);
+      const name = cleanMaterialName(pickerPaintName) || 'Cat Dinding Baru';
+
+      const newItem: StagedFile = {
+        id: `paint_direct_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        file: generatedFile,
+        previewUrl,
+        name,
+        sizeFormatted: formatBytes(generatedFile.size),
+        surfaceType: 'wall',
+        materialKind: 'paint',
+        detectedColor: pickerColorHex,
+      };
+
+      setStagedFiles((prev) => [newItem, ...prev]);
+      setPickerPaintName(`Cat Dinding ${pickerColorHex.toUpperCase()}`);
+    } catch (e: any) {
+      setErrorMessage('Gagal menambahkan swatch warna dari color picker.');
+    }
   };
 
   const handleToggleItemKind = (id: string) => {
@@ -342,7 +373,7 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
           return {
             id: `custom_paint_${Date.now()}_${index}_${Math.random().toString(36).substring(2, 6)}`,
             name: assignedName,
-            category: 'wall',
+            category: 'paint',
             type: 'texture', // Can be applied with realistic subtle wall micro-grain or smooth texture
             color: dominantColor,
             textureUrl: uploaded.url,
@@ -443,6 +474,64 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
               </div>
             </div>
           )}
+
+          {/* Direct Color Picker (Buat Cat Dinding via Color Picker) */}
+          <div className="p-3.5 bg-surface-50 border border-border rounded-xl">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5">
+                <Palette className="w-4 h-4 text-rose-600" />
+                <span className="text-xs font-bold text-primary">Buat Cat Dinding Baru (Color Picker)</span>
+              </div>
+              <span className="text-[10px] text-secondary">
+                Atau upload swatch di bawah
+              </span>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <div className="flex items-center gap-2 bg-white border border-border rounded-xl p-1.5 shadow-2xs">
+                <div
+                  className="w-8 h-8 rounded-lg border border-black/10 overflow-hidden relative shrink-0 cursor-pointer shadow-inner"
+                  style={{ backgroundColor: pickerColorHex }}
+                >
+                  <input
+                    type="color"
+                    value={pickerColorHex}
+                    onChange={(e) => setPickerColorHex(e.target.value)}
+                    className="absolute -top-3 -left-3 w-14 h-14 cursor-pointer border-0 p-0"
+                    title="Pilih warna cat"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={pickerColorHex}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setPickerColorHex(val);
+                  }}
+                  className="w-20 text-xs font-mono font-bold uppercase text-primary bg-transparent focus:outline-none"
+                  placeholder="#E2D7C3"
+                />
+              </div>
+
+              <input
+                type="text"
+                value={pickerPaintName}
+                onChange={(e) => setPickerPaintName(e.target.value)}
+                placeholder="Nama Cat (Contoh: Cat Cream Warm, Dinding Sage)"
+                className="flex-1 px-3 py-2 text-xs text-primary bg-white border border-border rounded-xl focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-secondary/60"
+              />
+
+              <button
+                type="button"
+                onClick={handleAddDirectColorPaint}
+                disabled={isUploading}
+                className="px-3.5 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl transition-all shadow-subtle flex items-center justify-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tambahkan Cat</span>
+              </button>
+            </div>
+          </div>
 
           {/* Dropzone Area */}
           <div

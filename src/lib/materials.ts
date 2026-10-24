@@ -29,6 +29,7 @@ export const SOLID_COLOR_MATERIAL: MaterialOption = {
 export const MATERIAL_CATEGORIES: { id: MaterialCategory; label: string; icon: string }[] = [
   { id: 'wall', label: 'Walls', icon: 'Paintbrush' },
   { id: 'floor', label: 'Floors', icon: 'LayoutGrid' },
+  { id: 'paint', label: 'Wall Paint (Cat)', icon: 'Palette' },
   { id: 'bathroom', label: 'Bathroom & Tiles', icon: 'Sparkles' },
   { id: 'roof', label: 'Roofing', icon: 'Home' },
   { id: 'door', label: 'Doors & Frames', icon: 'DoorOpen' },
@@ -46,6 +47,15 @@ export const MATERIAL_LIBRARY: MaterialOption[] = [
 ];
 
 export function isMaterialForCategory(mat: MaterialOption, category: MaterialCategory): boolean {
+  if (category === 'paint') {
+    return (
+      mat.category === 'paint' ||
+      mat.tag?.toLowerCase().includes('cat') ||
+      mat.name?.toLowerCase().includes('cat') ||
+      (mat.showGrout === false && (mat.groutWidthMm === 0 || mat.groutWidthMm === undefined) && Boolean(mat.color))
+    );
+  }
+
   // Uploaded materials are globally available across surfaces (wall, floor, etc.)
   if (mat.isCustomUpload) {
     return true;

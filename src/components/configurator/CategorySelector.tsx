@@ -11,6 +11,7 @@ import {
   Home,
   DoorOpen,
   Building,
+  Palette,
 } from 'lucide-react';
 
 const ICON_MAP: Record<string, React.ElementType> = {
@@ -20,6 +21,7 @@ const ICON_MAP: Record<string, React.ElementType> = {
   Home,
   DoorOpen,
   Building,
+  Palette,
 };
 
 interface CategorySelectorProps {

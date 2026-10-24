@@ -107,8 +107,15 @@ export default function DashboardPage() {
   const filteredMaterials = React.useMemo(() => {
     return allDisplayMaterials.filter((mat) => {
       if (materialFilterCategory === 'custom' && !mat.isCustomUpload) return false;
-      if (materialFilterCategory !== 'all' && materialFilterCategory !== 'custom') {
-        const targetCat = mat.surfaceType || mat.category;
+      if (materialFilterCategory === 'paint') {
+        const isPaint =
+          mat.category === 'paint' ||
+          mat.tag?.toLowerCase().includes('cat') ||
+          mat.name?.toLowerCase().includes('cat') ||
+          (mat.showGrout === false && (mat.groutWidthMm === 0 || mat.groutWidthMm === undefined) && mat.color && !mat.surfaceType);
+        if (!isPaint) return false;
+      } else if (materialFilterCategory !== 'all' && materialFilterCategory !== 'custom') {
+        const targetCat = mat.category === 'paint' ? 'paint' : (mat.surfaceType || mat.category);
         if (targetCat !== materialFilterCategory) {
           return false;
         }
@@ -582,6 +589,7 @@ export default function DashboardPage() {
                   {[
                     { id: 'all', label: 'Semua' },
                     { id: 'custom', label: `Khusus Kustom (${customMaterials.length})` },
+                    { id: 'paint', label: 'Cat Dinding (Paint)' },
                     { id: 'wall', label: 'Dinding & Fasad' },
                     { id: 'floor', label: 'Lantai' },
                     { id: 'bathroom', label: 'Keramik & Tiles' },
@@ -712,7 +720,9 @@ export default function DashboardPage() {
                             {mat.name}
                           </h4>
                           <span className="text-[10px] text-secondary font-mono block uppercase">
-                            {(mat.surfaceType || mat.category) === 'floor'
+                            {mat.category === 'paint' || mat.tag === 'Cat Dinding'
+                              ? 'Cat Dinding (Paint)'
+                              : (mat.surfaceType || mat.category) === 'floor'
                               ? 'Lantai (Floor)'
                               : (mat.surfaceType || mat.category) === 'wall'
                               ? 'Dinding (Wall)'

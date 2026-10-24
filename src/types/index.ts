@@ -1,6 +1,7 @@
 export type MaterialCategory =
   | 'wall'
   | 'floor'
+  | 'paint'
   | 'bathroom'
   | 'roof'
   | 'door'

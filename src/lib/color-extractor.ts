@@ -79,3 +79,28 @@ export async function extractDominantColor(fileOrUrl: File | string): Promise<st
     img.src = objectUrl;
   });
 }
+
+/**
+ * Creates a solid color 1024x1024 PNG Blob/File for color swatches.
+ */
+export function createColorSwatchFile(hex: string, name: string): File {
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 512;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    ctx.fillStyle = hex;
+    ctx.fillRect(0, 0, 512, 512);
+  }
+  const dataUrl = canvas.toDataURL('image/png');
+  const arr = dataUrl.split(',');
+  const mime = arr[0].match(/:(.*?);/)![1];
+  const bstr = atob(arr[1]);
+  let n = bstr.length;
+  const u8arr = new Uint8Array(n);
+  while (n--) {
+    u8arr[n] = bstr.charCodeAt(n);
+  }
+  const safeName = (name.trim() || `Paint_${hex.replace('#', '')}`).replace(/[^a-zA-Z0-9_\-]/g, '_');
+  return new File([u8arr], `${safeName}.png`, { type: mime });
+}

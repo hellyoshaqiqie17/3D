@@ -37,31 +37,32 @@ export async function POST(req: NextRequest) {
     // 1. Batch materials creation
     if (body.materials && Array.isArray(body.materials)) {
       const itemsToSave: MaterialOption[] = body.materials.map((item: any, idx: number) => {
-        const itemCategory = item.category || 'wall';
-        const itemSurfaceType = item.surfaceType || (itemCategory === 'floor' ? 'floor' : 'wall');
+        const isPaint = item.category === 'paint' || item.tag?.toLowerCase().includes('cat');
+        const itemCategory = isPaint ? 'paint' : (item.category || 'wall');
+        const itemSurfaceType = isPaint ? 'wall' : (item.surfaceType || (itemCategory === 'floor' ? 'floor' : 'wall'));
         const isFloor = itemSurfaceType === 'floor';
 
         return {
           id: item.id || `custom_mat_${Date.now()}_${idx}_${Math.random().toString(36).substring(2, 6)}`,
-          name: (item.name || `Material Tekstur ${idx + 1}`).trim(),
+          name: (item.name || (isPaint ? `Warna Cat ${idx + 1}` : `Material Tekstur ${idx + 1}`)).trim(),
           category: itemCategory,
-          type: 'texture',
+          type: item.type || 'texture',
           color: item.color || '#FFFFFF',
           textureUrl: item.textureUrl,
           previewThumbnail: item.previewThumbnail || item.textureUrl,
-          roughness: typeof item.roughness === 'number' ? item.roughness : 0.35,
-          metalness: typeof item.metalness === 'number' ? item.metalness : 0.05,
-          bumpScale: typeof item.bumpScale === 'number' ? item.bumpScale : 0.15,
+          roughness: typeof item.roughness === 'number' ? item.roughness : (isPaint ? 0.88 : 0.35),
+          metalness: typeof item.metalness === 'number' ? item.metalness : 0.01,
+          bumpScale: typeof item.bumpScale === 'number' ? item.bumpScale : (isPaint ? 0.04 : 0.15),
           rotation: typeof item.rotation === 'number' ? item.rotation : 0,
-          repeat: Array.isArray(item.repeat) ? item.repeat : [4, 4],
-          finish: item.finish || 'gloss',
+          repeat: Array.isArray(item.repeat) ? item.repeat : (isPaint ? [2, 2] : [4, 4]),
+          finish: item.finish || (isPaint ? 'matte' : 'gloss'),
           tileSizeCm: Array.isArray(item.tileSizeCm) ? item.tileSizeCm : isFloor ? [60, 60] : [30, 60],
           surfaceType: itemSurfaceType,
-          showGrout: typeof item.showGrout === 'boolean' ? item.showGrout : true,
-          groutWidthMm: typeof item.groutWidthMm === 'number' ? item.groutWidthMm : 2,
+          showGrout: typeof item.showGrout === 'boolean' ? item.showGrout : !isPaint,
+          groutWidthMm: typeof item.groutWidthMm === 'number' ? item.groutWidthMm : (isPaint ? 0 : 2),
           groutColor: item.groutColor || '#8E9297',
-          description: item.description || `Pola keramik ${isFloor ? 'lantai' : 'dinding'} kustom.`,
-          tag: item.tag || (isFloor ? 'Keramik Lantai' : 'Keramik Dinding'),
+          description: item.description || (isPaint ? 'Warna cat dinding arsitektural.' : `Pola keramik ${isFloor ? 'lantai' : 'dinding'} kustom.`),
+          tag: item.tag || (isPaint ? 'Cat Dinding' : (isFloor ? 'Keramik Lantai' : 'Keramik Dinding')),
           isCustomUpload: true,
         };
       });
@@ -85,30 +86,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const itemSurfaceType = body.surfaceType || (body.category === 'floor' ? 'floor' : 'wall');
+    const isPaint = body.category === 'paint' || body.tag?.toLowerCase().includes('cat');
+    const itemCategory = isPaint ? 'paint' : body.category;
+    const itemSurfaceType = isPaint ? 'wall' : (body.surfaceType || (itemCategory === 'floor' ? 'floor' : 'wall'));
     const isFloor = itemSurfaceType === 'floor';
 
     const newMaterial: MaterialOption = {
       id: body.id || `custom_mat_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
       name: body.name.trim(),
-      category: body.category,
+      category: itemCategory,
       type: body.type || 'texture',
       color: body.color || '#FFFFFF',
       textureUrl: body.textureUrl,
       previewThumbnail: body.previewThumbnail || body.textureUrl,
-      roughness: typeof body.roughness === 'number' ? body.roughness : 0.35,
-      metalness: typeof body.metalness === 'number' ? body.metalness : 0.05,
-      bumpScale: typeof body.bumpScale === 'number' ? body.bumpScale : 0.15,
+      roughness: typeof body.roughness === 'number' ? body.roughness : (isPaint ? 0.88 : 0.35),
+      metalness: typeof body.metalness === 'number' ? body.metalness : 0.01,
+      bumpScale: typeof body.bumpScale === 'number' ? body.bumpScale : (isPaint ? 0.04 : 0.15),
       rotation: typeof body.rotation === 'number' ? body.rotation : 0,
-      repeat: Array.isArray(body.repeat) ? body.repeat : [4, 4],
-      finish: body.finish || (body.roughness < 0.3 ? 'gloss' : 'textured'),
+      repeat: Array.isArray(body.repeat) ? body.repeat : (isPaint ? [2, 2] : [4, 4]),
+      finish: body.finish || (isPaint ? 'matte' : body.roughness < 0.3 ? 'gloss' : 'textured'),
       tileSizeCm: Array.isArray(body.tileSizeCm) ? body.tileSizeCm : isFloor ? [60, 60] : [30, 60],
       surfaceType: itemSurfaceType,
-      showGrout: typeof body.showGrout === 'boolean' ? body.showGrout : true,
-      groutWidthMm: typeof body.groutWidthMm === 'number' ? body.groutWidthMm : 2,
+      showGrout: typeof body.showGrout === 'boolean' ? body.showGrout : !isPaint,
+      groutWidthMm: typeof body.groutWidthMm === 'number' ? body.groutWidthMm : (isPaint ? 0 : 2),
       groutColor: body.groutColor || '#8E9297',
-      description: body.description || `Pola keramik ${isFloor ? 'lantai' : 'dinding'} kustom.`,
-      tag: body.tag || (isFloor ? 'Keramik Lantai' : 'Keramik Dinding'),
+      description: body.description || (isPaint ? 'Warna cat dinding arsitektural.' : `Pola keramik ${isFloor ? 'lantai' : 'dinding'} kustom.`),
+      tag: body.tag || (isPaint ? 'Cat Dinding' : (isFloor ? 'Keramik Lantai' : 'Keramik Dinding')),
       isCustomUpload: true,
     };
 
