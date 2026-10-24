@@ -376,9 +376,9 @@ function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vec
     const outerX = isLeft ? parentBox.min.x : parentBox.max.x;
     const distToOuter = Math.abs(c.x - outerX);
 
-    // Any wall piece close to the outer perimeter (<= 0.18m) is the exterior building shell (_Luar).
-    // Any wall piece stepped into the room interior (> 0.18m) is the interior wall (_Dalam).
-    const isInterior = distToOuter > 0.18;
+    // Any wall piece close to the outer perimeter (<= 0.10m) is the exterior building facade (_Luar).
+    // Any wall piece stepped into the room interior (> 0.10m) is the interior wall (_Dalam).
+    const isInterior = distToOuter > 0.10;
     return `${side}${isInterior ? '_Dalam' : '_Luar'}`;
   } else {
     const isBack = c.z <= pc.z;
@@ -386,21 +386,9 @@ function labelForPiece(box: THREE.Box3, parentBox: THREE.Box3, normal: THREE.Vec
     const outerZ = isBack ? parentBox.min.z : parentBox.max.z;
     const distToOuter = Math.abs(c.z - outerZ);
 
-    let isInterior = false;
-    if (isBack) {
-      // For back wall: if stepped into room (> 0.18m), it is interior.
-      // If at perimeter, a face with normal pointing into the room (+Z, towards pc.z) is interior.
-      if (distToOuter > 0.18) {
-        isInterior = true;
-      } else {
-        const toRoomZ = pc.z - c.z;
-        isInterior = (normal.z * toRoomZ > 0) || normal.z > 0.3;
-      }
-    } else {
-      // For front wall: front exterior facade/porch is at outerZ (z ~ 0.00m, distToOuter <= 0.35m).
-      // Interior partition room wall is stepped inward (z ~ -1.34m, distToOuter > 0.35m).
-      isInterior = distToOuter > 0.35;
-    }
+    // Any wall piece close to the outer perimeter (<= 0.10m) is the exterior building facade (_Luar).
+    // Any wall piece stepped into the room interior (> 0.10m) is the interior wall (_Dalam).
+    const isInterior = distToOuter > 0.10;
     return `${side}${isInterior ? '_Dalam' : '_Luar'}`;
   }
 }
