@@ -21,8 +21,6 @@ function isDummyMaterial(id: string, mat?: any): boolean {
     return false;
   }
   return (
-    id.includes('designer-mosaic') ||
-    id.includes('designer-slate') ||
     id === 'wall-brick-modern' ||
     id === 'wall-concrete-smooth' ||
     id === 'wall-wood-cladding' ||

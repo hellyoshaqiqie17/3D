@@ -79,8 +79,6 @@ export function ConfiguratorSidebar({ zones }: ConfiguratorSidebarProps) {
         m &&
         m.id &&
         m.id !== 'original' &&
-        !m.id.includes('designer-mosaic') &&
-        !m.id.includes('designer-slate') &&
         isMaterialForCategory(m, activeCategory)
     );
     const fromLibrary = getMaterialsByCategory(activeCategory).filter(
