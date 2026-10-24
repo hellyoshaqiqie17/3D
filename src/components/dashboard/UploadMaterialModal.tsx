@@ -19,6 +19,7 @@ import {
   Check,
   Pipette,
   Palette,
+  ChevronDown,
 } from 'lucide-react';
 import {
   FLOOR_TILE_PRESETS,
@@ -164,6 +165,33 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
     } catch (e: any) {
       setErrorMessage('Gagal menambahkan swatch warna dari color picker.');
     }
+  };
+
+  const handleSetItemKind = (id: string, kind: 'paint' | 'tile_wall' | 'tile_floor') => {
+    setStagedFiles((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (kind === 'paint') {
+          return {
+            ...item,
+            materialKind: 'paint',
+            surfaceType: 'wall',
+          };
+        } else if (kind === 'tile_floor') {
+          return {
+            ...item,
+            materialKind: 'texture',
+            surfaceType: 'floor',
+          };
+        } else {
+          return {
+            ...item,
+            materialKind: 'texture',
+            surfaceType: 'wall',
+          };
+        }
+      })
+    );
   };
 
   const handleToggleItemKind = (id: string) => {
@@ -637,76 +665,70 @@ export function UploadMaterialModal({ isOpen, onClose, onSuccess }: UploadMateri
                       </div>
 
                       <div className="flex items-center gap-2 flex-wrap">
-                        {/* Kind toggle: Cat Dinding vs Tekstur Ubin */}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleItemKind(item.id)}
-                          disabled={isUploading}
-                          className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
-                            (item.materialKind || materialKind) === 'paint'
-                              ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
-                              : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                          }`}
-                          title="Klik untuk ganti tipe: Cat Dinding (Warna Polos) vs Tekstur Keramik/Ubin"
-                        >
-                          {(item.materialKind || materialKind) === 'paint' ? (
-                            <>
-                              <Sparkles className="w-3 h-3 text-rose-600" />
-                              <span>Cat Dinding (Paint)</span>
-                            </>
-                          ) : (
-                            <>
-                              <Layers className="w-3 h-3 text-emerald-600" />
-                              <span>Tekstur Ubin (Tile)</span>
-                            </>
-                          )}
-                        </button>
+                        {/* Dropdown Kategori & Penerapan Material */}
+                        <div className="relative inline-flex items-center">
+                          <select
+                            value={
+                              (item.materialKind || materialKind) === 'paint'
+                                ? 'paint'
+                                : (item.surfaceType || surfaceType) === 'floor'
+                                ? 'tile_floor'
+                                : 'tile_wall'
+                            }
+                            onChange={(e) =>
+                              handleSetItemKind(
+                                item.id,
+                                e.target.value as 'paint' | 'tile_wall' | 'tile_floor'
+                              )
+                            }
+                            disabled={isUploading}
+                            className={`appearance-none text-[11px] font-semibold pl-2.5 pr-7 py-1 rounded-lg border shadow-2xs transition-all cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary ${
+                              (item.materialKind || materialKind) === 'paint'
+                                ? 'bg-rose-50 text-rose-800 border-rose-300 hover:bg-rose-100'
+                                : (item.surfaceType || surfaceType) === 'floor'
+                                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                            }`}
+                          >
+                            <option value="paint">🎨 Cat Dinding (Paint)</option>
+                            <option value="tile_wall">🧱 Keramik Dinding (Wall Tile)</option>
+                            <option value="tile_floor">📐 Keramik Lantai (Floor Tile)</option>
+                          </select>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 absolute right-2 pointer-events-none ${
+                              (item.materialKind || materialKind) === 'paint'
+                                ? 'text-rose-600'
+                                : (item.surfaceType || surfaceType) === 'floor'
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                            }`}
+                          />
+                        </div>
 
-                        {(item.materialKind || materialKind) === 'paint' ? (
-                          <div className="flex items-center gap-1.5 bg-white border border-border px-1.5 py-0.5 rounded-md shadow-2xs">
+                        {/* Interactive Color Swatch Picker if Paint */}
+                        {(item.materialKind || materialKind) === 'paint' && (
+                          <div
+                            className="flex items-center gap-1.5 bg-white border border-rose-200 px-2 py-0.5 rounded-lg shadow-2xs"
+                            title="Klik untuk memilih atau ubah warna cat hasil sampling"
+                          >
                             <input
                               type="color"
                               value={item.detectedColor || '#F8F9FA'}
                               onChange={(e) => handleUpdateItemColor(item.id, e.target.value)}
-                              title="Pilih warna hex cat"
                               className="w-4 h-4 rounded cursor-pointer border-0 p-0"
                             />
-                            <span className="text-[10px] font-mono text-secondary">
+                            <span className="text-[10px] font-mono font-bold text-rose-800 uppercase">
                               {item.detectedColor || '#F8F9FA'}
                             </span>
                           </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleToggleItemSurface(item.id)}
-                            disabled={isUploading}
-                            className={`inline-flex items-center gap-1.5 text-[10px] font-semibold px-2 py-0.5 rounded-md border transition-all ${
-                              (item.surfaceType || surfaceType) === 'floor'
-                                ? 'bg-amber-50 text-amber-800 border-amber-300 hover:bg-amber-100'
-                                : 'bg-blue-50 text-blue-800 border-blue-300 hover:bg-blue-100'
-                            }`}
-                            title="Klik untuk ubah jenis ubin file ini (Dinding vs Lantai)"
-                          >
-                            {(item.surfaceType || surfaceType) === 'floor' ? (
-                              <>
-                                <Grid className="w-3 h-3 text-amber-600" />
-                                <span>Lantai (Floor)</span>
-                              </>
-                            ) : (
-                              <>
-                                <Layers className="w-3 h-3 text-blue-600" />
-                                <span>Dinding (Wall)</span>
-                              </>
-                            )}
-                          </button>
                         )}
 
                         <span className="text-[10px] text-secondary">
                           {(item.materialKind || materialKind) === 'paint'
-                            ? 'Warna cat dinding arsitektural'
+                            ? 'Warna cat arsitektural mulus tanpa nat'
                             : (item.surfaceType || surfaceType) === 'floor'
-                            ? 'Ubin lantai'
-                            : 'Keramik dinding'}
+                            ? 'Ubin lantai dengan nat'
+                            : 'Keramik dinding dengan nat'}
                         </span>
                       </div>
                     </div>
