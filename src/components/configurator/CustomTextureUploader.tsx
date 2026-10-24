@@ -25,6 +25,7 @@ import {
   calculateRepeatFromTileSize,
 } from '@/lib/tile-constants';
 import { optimizeTextureImage } from '@/lib/image-optimizer';
+import { extractDominantColor } from '@/lib/color-extractor';
 import {
   extractSizeFromFilename,
   inferSuggestedTilePreset,
@@ -51,6 +52,11 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [bumpDepth, setBumpDepth] = useState(0.16);
   const [surfaceFinish, setSurfaceFinish] = useState<'gloss' | 'satin' | 'textured'>('gloss');
+
+  // Material Kind: 'tile' (Keramik/Granit/Ubin berulang dengan opsi nat) vs 'paint' (Warna Cat Mulus)
+  const isPaintCategory = currentZone.category === 'paint';
+  const [materialKind, setMaterialKind] = useState<'tile' | 'paint'>(isPaintCategory ? 'paint' : 'tile');
+  const [paintColorHex, setPaintColorHex] = useState<string>('#E5E0D8');
 
   // Surface Type: Wall (Dinding / Rangka) vs Floor (Lantai / Daun Meja)
   const isDefaultFloor = currentZone.category === 'floor' || currentZone.id.includes('lantai');
@@ -96,6 +102,11 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       .replace(/\s+/g, ' ')
       .trim();
     setPatternName(clean);
+
+    // Auto-detect dominant color for paint
+    extractDominantColor(file).then((hex) => {
+      if (hex) setPaintColorHex(hex);
+    }).catch(() => {});
 
     // Auto-detect tile dimensions from filename (e.g. CV90180 -> 90x180)
     const filenameSize = extractSizeFromFilename(file.name);
@@ -231,38 +242,60 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
 
       const repeat = calculateRepeatFromTileSize(effectiveTileSize);
       const newId = `custom-texture-${Date.now()}`;
+      const isPaint = materialKind === 'paint';
 
-      const newMaterial: MaterialOption = {
-        id: newId,
-        name:
-          patternName.trim() ||
-          `Keramik ${surfaceType === 'floor' ? 'Lantai' : 'Dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]}`,
-        category: surfaceType === 'floor' ? 'floor' : 'wall',
-        type: 'texture',
-        textureUrl: permanentUrl,
-        previewThumbnail: permanentUrl,
-        roughness: surfaceFinish === 'gloss' ? 0.2 : surfaceFinish === 'satin' ? 0.38 : 0.65,
-        metalness: 0.05,
-        bumpScale: bumpDepth,
-        finish: surfaceFinish,
-        repeat: repeat,
-        tileSizeCm: effectiveTileSize,
-        surfaceType: surfaceType,
-        showGrout: showGrout,
-        groutWidthMm: showGrout ? groutWidthMm : 0,
-        groutColor: groutColor,
-        description: isFurniture
-          ? `Motif material ${surfaceType === 'floor' ? 'permukaan meja' : 'rangka/kaki'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm${showGrout ? ` dengan garis sambungan ${groutWidthMm} mm` : ' tanpa garis sambungan'}.`
-          : `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
-        tag: isFurniture
-          ? surfaceType === 'floor'
-            ? 'Permukaan Meja'
-            : 'Rangka & Kaki'
-          : surfaceType === 'floor'
-          ? 'Keramik Lantai'
-          : 'Keramik Dinding',
-        isCustomUpload: true,
-      };
+      const newMaterial: MaterialOption = isPaint
+        ? {
+            id: newId,
+            name: patternName.trim() || `Cat Dinding ${paintColorHex.toUpperCase()}`,
+            category: 'paint',
+            type: 'texture',
+            color: paintColorHex,
+            textureUrl: permanentUrl,
+            previewThumbnail: permanentUrl,
+            roughness: surfaceFinish === 'gloss' ? 0.22 : surfaceFinish === 'satin' ? 0.55 : 0.88,
+            metalness: 0.01,
+            bumpScale: surfaceFinish === 'textured' ? 0.04 : 0.02,
+            finish: surfaceFinish,
+            repeat: [2, 2],
+            surfaceType: 'wall',
+            showGrout: false,
+            groutWidthMm: 0,
+            description: `Warna cat dinding arsitektural (${surfaceFinish.toUpperCase()}) dari sampel gambar.`,
+            tag: 'Cat Dinding',
+            isCustomUpload: true,
+          }
+        : {
+            id: newId,
+            name:
+              patternName.trim() ||
+              `Keramik ${surfaceType === 'floor' ? 'Lantai' : 'Dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]}`,
+            category: surfaceType === 'floor' ? 'floor' : 'wall',
+            type: 'texture',
+            textureUrl: permanentUrl,
+            previewThumbnail: permanentUrl,
+            roughness: surfaceFinish === 'gloss' ? 0.2 : surfaceFinish === 'satin' ? 0.38 : 0.65,
+            metalness: 0.05,
+            bumpScale: bumpDepth,
+            finish: surfaceFinish,
+            repeat: repeat,
+            tileSizeCm: effectiveTileSize,
+            surfaceType: surfaceType,
+            showGrout: showGrout,
+            groutWidthMm: showGrout ? groutWidthMm : 0,
+            groutColor: groutColor,
+            description: isFurniture
+              ? `Motif material ${surfaceType === 'floor' ? 'permukaan meja' : 'rangka/kaki'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm${showGrout ? ` dengan garis sambungan ${groutWidthMm} mm` : ' tanpa garis sambungan'}.`
+              : `Pola ubin ${surfaceType === 'floor' ? 'lantai' : 'dinding'} ${effectiveTileSize[0]}x${effectiveTileSize[1]} cm dengan nat ${showGrout ? `${groutWidthMm} mm` : 'tanpa nat'}.`,
+            tag: isFurniture
+              ? surfaceType === 'floor'
+                ? 'Permukaan Meja'
+                : 'Rangka & Kaki'
+              : surfaceType === 'floor'
+              ? 'Keramik Lantai'
+              : 'Keramik Dinding',
+            isCustomUpload: true,
+          };
 
       // 2. Persist to server database & localStorage
       try {
@@ -275,15 +308,15 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
       addUploadedMaterial(newMaterial);
       applyMaterial(currentZone.id, newId);
       setZoneTextureSettings(currentZone.id, {
-        repeat: repeat,
-        bumpScale: bumpDepth,
+        repeat: isPaint ? [2, 2] : repeat,
+        bumpScale: newMaterial.bumpScale ?? bumpDepth,
         roughness: newMaterial.roughness,
         rotation: 0,
-        colorTint: '#FFFFFF',
-        tileSizeCm: effectiveTileSize,
-        surfaceType: surfaceType,
-        showGrout: showGrout,
-        groutWidthMm: showGrout ? groutWidthMm : 0,
+        colorTint: isPaint ? paintColorHex : '#FFFFFF',
+        tileSizeCm: isPaint ? undefined : effectiveTileSize,
+        surfaceType: isPaint ? 'wall' : surfaceType,
+        showGrout: isPaint ? false : showGrout,
+        groutWidthMm: isPaint ? 0 : showGrout ? groutWidthMm : 0,
         groutColor: groutColor,
       });
 
@@ -317,12 +350,12 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
             <span className="text-xs font-semibold text-primary block">
               {isFurniture
                 ? 'Upload Motif / Tekstur Meja (Design Pattern)'
-                : 'Upload Pola Keramik & Nat (Design Pattern)'}
+                : 'Upload Tekstur Keramik / Cat Dinding'}
             </span>
             <span className="text-[10px] text-secondary">
               {isFurniture
                 ? 'Pilih ukuran motif presisi untuk permukaan meja & rangka'
-                : 'Pilih ukuran dinding/lantai presisi & nat pembatas konstruksi'}
+                : 'Upload motif keramik atau sampel warna cat dinding'}
             </span>
           </div>
         </div>
@@ -416,46 +449,116 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                   />
                 </div>
 
-                {/* 2. Pilihan Target Permukaan */}
+                {/* Dropdown Kategori: Cat Dinding vs Keramik Ubin */}
                 <div>
-                  <span className="text-[11px] font-semibold text-secondary block mb-1">
-                    {isFurniture ? '1. Bagian Meja' : '1. Tipe Bidang Permukaan'}
-                  </span>
-                  <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-xl">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSurfaceType('wall');
-                        setIsCustomTileSize(false);
-                        setSelectedTileSize([30, 60]);
+                  <label className="text-[11px] font-semibold text-secondary block mb-1">
+                    Tipe Penerapan Material
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={materialKind === 'paint' ? 'paint' : surfaceType === 'floor' ? 'floor' : 'wall'}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'paint') {
+                          setMaterialKind('paint');
+                          setSurfaceType('wall');
+                          setShowGrout(false);
+                        } else if (val === 'floor') {
+                          setMaterialKind('tile');
+                          setSurfaceType('floor');
+                          setShowGrout(true);
+                          setSelectedTileSize([60, 60]);
+                        } else {
+                          setMaterialKind('tile');
+                          setSurfaceType('wall');
+                          setShowGrout(true);
+                          setSelectedTileSize([30, 60]);
+                        }
                       }}
-                      className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                        surfaceType === 'wall'
-                          ? 'bg-white text-primary shadow-subtle'
-                          : 'text-secondary hover:text-primary'
-                      }`}
+                      className="w-full text-xs font-semibold pl-3 pr-8 py-2 rounded-xl border border-border bg-white text-primary shadow-2xs appearance-none cursor-pointer focus:outline-none focus:border-primary"
                     >
-                      <Layers className="w-3.5 h-3.5 text-primary" />
-                      <span>{isFurniture ? 'Rangka & Kaki' : 'Dinding (Wall)'}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSurfaceType('floor');
-                        setIsCustomTileSize(false);
-                        setSelectedTileSize([60, 60]);
-                      }}
-                      className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                        surfaceType === 'floor'
-                          ? 'bg-white text-primary shadow-subtle'
-                          : 'text-secondary hover:text-primary'
-                      }`}
-                    >
-                      <Grid className="w-3.5 h-3.5 text-primary" />
-                      <span>{isFurniture ? 'Permukaan / Daun Meja' : 'Lantai (Floor)'}</span>
-                    </button>
+                      <option value="paint">🎨 Cat Dinding (Wall Paint - Mulus Tanpa Nat)</option>
+                      <option value="wall">🧱 Keramik Dinding (Wall Tile - Presisi Konstruksi)</option>
+                      <option value="floor">📐 Keramik Lantai (Floor Tile - Pola Grid Nat)</option>
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-secondary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
                 </div>
+
+                {materialKind === 'paint' ? (
+                  /* Paint Color Swatch Fine Tuning */
+                  <div className="p-3 bg-rose-50/70 border border-rose-200/60 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-rose-900">
+                        Warna Cat Hasil Ekstraksi
+                      </span>
+                      <span className="text-[10px] font-mono font-bold text-rose-800 uppercase">
+                        {paintColorHex}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-white border border-rose-200 p-1.5 rounded-lg">
+                      <input
+                        type="color"
+                        value={paintColorHex}
+                        onChange={(e) => setPaintColorHex(e.target.value)}
+                        className="w-7 h-7 rounded cursor-pointer border-0 p-0"
+                      />
+                      <input
+                        type="text"
+                        value={paintColorHex}
+                        onChange={(e) => setPaintColorHex(e.target.value)}
+                        className="text-xs font-mono font-bold uppercase text-primary bg-transparent focus:outline-none"
+                      />
+                      <span className="text-[10px] text-secondary ml-auto">
+                        Klik kotak untuk koreksi warna
+                      </span>
+                    </div>
+                    <p className="text-[10px] text-rose-800/80 leading-relaxed">
+                      Warna ini akan diaplikasikan merata ke seluruh dinding ruangan secara mulus tanpa pola nat berulang.
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    {/* 2. Pilihan Target Permukaan */}
+                    <div>
+                      <span className="text-[11px] font-semibold text-secondary block mb-1">
+                        {isFurniture ? '1. Bagian Meja' : '1. Tipe Bidang Permukaan'}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5 p-1 bg-surface-100 rounded-xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSurfaceType('wall');
+                            setIsCustomTileSize(false);
+                            setSelectedTileSize([30, 60]);
+                          }}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                            surfaceType === 'wall'
+                              ? 'bg-white text-primary shadow-subtle'
+                              : 'text-secondary hover:text-primary'
+                          }`}
+                        >
+                          <Layers className="w-3.5 h-3.5 text-primary" />
+                          <span>{isFurniture ? 'Rangka & Kaki' : 'Dinding (Wall)'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSurfaceType('floor');
+                            setIsCustomTileSize(false);
+                            setSelectedTileSize([60, 60]);
+                          }}
+                          className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                            surfaceType === 'floor'
+                              ? 'bg-white text-primary shadow-subtle'
+                              : 'text-secondary hover:text-primary'
+                          }`}
+                        >
+                          <Grid className="w-3.5 h-3.5 text-primary" />
+                          <span>{isFurniture ? 'Permukaan / Daun Meja' : 'Lantai (Floor)'}</span>
+                        </button>
+                      </div>
+                    </div>
 
                 {/* 3. Pilihan Ukuran Keramik / Ubin Standar sesuai Lampiran */}
                 <div>
@@ -691,6 +794,8 @@ export function CustomTextureUploader({ currentZone }: CustomTextureUploaderProp
                     </div>
                   </div>
                 </div>
+                  </>
+                )}
 
                 {/* Error message */}
                 {uploadError && (

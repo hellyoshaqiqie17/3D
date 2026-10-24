@@ -10,17 +10,6 @@ interface ColorPickerSectionProps {
   currentZone: MaterialZone;
 }
 
-const PRESET_COLORS = [
-  { name: 'Pure White', hex: '#F8F9FA' },
-  { name: 'Warm Cream', hex: '#EDE8DD' },
-  { name: 'Nordic Beige', hex: '#D8CAB8' },
-  { name: 'Mist Grey', hex: '#B0B2B5' },
-  { name: 'Charcoal Grey', hex: '#2B2D31' },
-  { name: 'Sage Mist', hex: '#8A9A86' },
-  { name: 'Tuscan Clay', hex: '#A95D44' },
-  { name: 'Architectural Navy', hex: '#1E293B' },
-];
-
 export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
   const customColors = useConfiguratorStore((s) => s.customColors);
   const setCustomColor = useConfiguratorStore((s) => s.setCustomColor);
@@ -77,12 +66,6 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
     setZoneOriginal(currentZone.id);
   };
 
-  const handleSelectPreset = (hex: string) => {
-    setHexInput(hex);
-    setCustomColor(currentZone.id, hex);
-    applyMaterial(currentZone.id, 'architectural-color');
-  };
-
   const handleSelectUploadedPaint = (paint: { id: string; hex: string }) => {
     setHexInput(paint.hex);
     setCustomColor(currentZone.id, paint.hex);
@@ -120,69 +103,43 @@ export function ColorPickerSection({ currentZone }: ColorPickerSectionProps) {
         </span>
       </div>
 
-      {/* Preset Swatches (3x3 grid including Original 3D) */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
-        {/* 1. Original Native 3D Option */}
+      {/* Native Original 3D button */}
+      <div className="mb-3">
         <button
           type="button"
           onClick={handleSelectOriginal}
           title="Material & Warna Asli Bawaan Model 3D"
-          className={`group flex flex-col items-center p-1.5 rounded-lg border transition-all ${
+          className={`w-full group flex items-center gap-3 p-2 rounded-xl border transition-all ${
             isOriginal
               ? 'border-primary ring-2 ring-primary/20 bg-primary/5 shadow-subtle'
               : 'border-border bg-white hover:border-surface-400'
           }`}
         >
-          <div className="relative w-full h-7 rounded border border-black/10 overflow-hidden flex items-center justify-center bg-gradient-to-br from-slate-100 via-neutral-200 to-slate-300">
+          <div className="relative w-10 h-10 rounded-lg border border-black/10 overflow-hidden flex items-center justify-center bg-gradient-to-br from-slate-100 via-neutral-200 to-slate-300 shrink-0">
             <div className="absolute inset-0 opacity-25 bg-[radial-gradient(#000000_1px,transparent_1px)] [background-size:5px_5px]" />
             {isOriginal ? (
-              <Check className="w-3.5 h-3.5 stroke-[3] text-primary relative z-10" />
+              <Check className="w-4 h-4 stroke-[3] text-primary relative z-10" />
             ) : (
-              <Sparkles className="w-3.5 h-3.5 text-slate-500 relative z-10 opacity-70 group-hover:opacity-100" />
+              <Sparkles className="w-4 h-4 text-slate-500 relative z-10 opacity-70 group-hover:opacity-100" />
             )}
           </div>
-          <span
-            className={`text-[10px] truncate max-w-full mt-1 ${
-              isOriginal ? 'font-bold text-primary' : 'font-medium text-secondary'
-            }`}
-          >
-            Original 3D
-          </span>
-        </button>
-
-        {/* 2 - 9. Curated Architectural Tone Swatches */}
-        {PRESET_COLORS.map((col) => {
-          const isSelected = !isOriginal && activeColor.toLowerCase() === col.hex.toLowerCase();
-          return (
-            <button
-              key={col.hex}
-              type="button"
-              onClick={() => handleSelectPreset(col.hex)}
-              title={`${col.name} (${col.hex})`}
-              className={`group flex flex-col items-center p-1.5 rounded-lg border transition-all ${
-                isSelected
-                  ? 'border-primary ring-2 ring-primary/20 bg-primary/5 shadow-subtle'
-                  : 'border-border bg-white hover:border-surface-400'
-              }`}
-            >
-              <div
-                className="w-full h-7 rounded border border-black/10 flex items-center justify-center transition-transform group-hover:scale-95"
-                style={{ backgroundColor: col.hex }}
-              >
-                {isSelected && (
-                  <Check
-                    className={`w-3.5 h-3.5 stroke-[3] ${
-                      ['#F8F9FA', '#EDE8DD', '#D8CAB8'].includes(col.hex) ? 'text-black' : 'text-white'
-                    }`}
-                  />
-                )}
-              </div>
-              <span className="text-[10px] text-primary truncate max-w-full mt-1 font-medium">
-                {col.name}
+          <div className="text-left flex-1 min-w-0">
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-primary">Original 3D</span>
+              <span className="text-[9px] font-mono font-semibold uppercase px-1.5 py-0.2 bg-primary/10 text-primary rounded">
+                Bawaan CAD
               </span>
-            </button>
-          );
-        })}
+            </div>
+            <p className="text-[10px] text-secondary truncate mt-0.5">
+              Warna, tekstur, & corak asli bawaan file 3D SketchUp
+            </p>
+          </div>
+          {isOriginal && (
+            <span className="text-[10px] font-semibold text-primary px-2 py-0.5 rounded-full bg-white border border-primary/20 shadow-2xs">
+              Aktif
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Uploaded Paint Swatches (from user uploads) */}
