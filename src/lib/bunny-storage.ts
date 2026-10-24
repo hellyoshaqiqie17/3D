@@ -1,8 +1,8 @@
 import path from 'path';
 
 export const BUNNY_STORAGE_CONFIG = {
-  zone: process.env.BUNNY_STORAGE_ZONE || 'megah',
-  accessKey: process.env.BUNNY_STORAGE_KEY || 'd690b669-a954-424f-8547e60f7ff9-4ca2-4b81',
+  zone: process.env.BUNNY_STORAGE_ZONE || 'megah-',
+  accessKey: process.env.BUNNY_STORAGE_KEY || '66472a89-770d-4599-aea95553935d-7820-4f96',
   endpoint: (process.env.BUNNY_STORAGE_ENDPOINT || 'https://sg.storage.bunnycdn.com').replace(/\/$/, ''),
   cdnUrl: (process.env.BUNNY_CDN_URL || '').replace(/\/$/, ''),
 };
